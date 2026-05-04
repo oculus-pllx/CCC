@@ -260,7 +260,20 @@ start_container() {
     [[ $attempts -lt 30 ]] || error "Network timeout after 60s — check gateway/DNS: ${_ping_target}"
     sleep 2
   done
-  success "Container is online."
+  success "Container is online (local)."
+
+  # Verify actual internet — LXC containers often have local routing but no IPv6/internet
+  info "Verifying internet access (archive.ubuntu.com) ..."
+  attempts=0
+  while ! pct exec "$CT_ID" -- curl -fsSL --max-time 5 --ipv4 \
+      "http://archive.ubuntu.com" &>/dev/null; do
+    (( attempts++ ))
+    if [[ $attempts -ge 10 ]]; then
+      error "Container cannot reach archive.ubuntu.com — check router/firewall or gateway ${_ping_target}"
+    fi
+    sleep 3
+  done
+  success "Internet access confirmed."
 }
 
 # ── Provision Container ───────────────────────────────────────────────────────
@@ -284,6 +297,9 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 _STEPS=29
 step() { echo ">>> [$1/${_STEPS}] $2"; }
+
+# Force IPv4 for all apt operations — LXC containers often lack IPv6 routing
+echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
 
 # ── Locale & Timezone ─────────────────────────────────────────────────────────
 step 1 "Locale & timezone"
