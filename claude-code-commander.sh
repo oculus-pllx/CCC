@@ -248,14 +248,26 @@ start_container() {
 provision_container() {
   info "Provisioning container (10–15 minutes) ..."
 
+  # Background elapsed timer — prints every 30s so you know it's not hung
+  _provision_start=$SECONDS
+  ( while true; do
+      sleep 30
+      printf "  ... still provisioning [%dm%02ds elapsed]\n" \
+        $(( (SECONDS - _provision_start) / 60 )) \
+        $(( (SECONDS - _provision_start) % 60 ))
+    done ) &
+  _timer_pid=$!
+
   # Single-quoted heredoc — no variable expansion inside
   cat > /tmp/provision-${CT_ID}.sh << 'PROVISION_EOF'
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
+_STEPS=29
+step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # ── Locale & Timezone ─────────────────────────────────────────────────────────
-echo ">>> Locale & timezone ..."
+step 1 "Locale & timezone"
 apt-get update -qq
 apt-get install -y -qq locales
 sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen
@@ -268,11 +280,11 @@ echo "America/New_York" > /etc/timezone
 dpkg-reconfigure -f noninteractive tzdata
 
 # ── System update ─────────────────────────────────────────────────────────────
-echo ">>> System update ..."
+step 2 "System update"
 apt-get upgrade -y -qq
 
 # ── Core packages ─────────────────────────────────────────────────────────────
-echo ">>> Core packages ..."
+step 3 "Core packages"
 apt-get install -y -qq \
   git curl wget unzip zip \
   ca-certificates gnupg lsb-release apt-transport-https software-properties-common \
@@ -289,7 +301,7 @@ apt-get install -y -qq \
   xvfb
 
 # ── Build tools & dev libraries ───────────────────────────────────────────────
-echo ">>> Build tools ..."
+step 4 "Build tools & dev libraries"
 apt-get install -y -qq \
   build-essential clang make cmake pkg-config autoconf automake libtool \
   python3 python3-pip python3-venv python3-dev \
@@ -297,14 +309,14 @@ apt-get install -y -qq \
   libreadline-dev libbz2-dev libncurses-dev liblzma-dev libxml2-dev libxslt-dev
 
 # ── Search & productivity tools ───────────────────────────────────────────────
-echo ">>> Search tools ..."
+step 5 "Search & productivity tools"
 apt-get install -y -qq \
   ripgrep fd-find fzf bat \
   rsync \
   sqlite3
 
 # ── Database clients + local test servers ─────────────────────────────────────
-echo ">>> Database tools ..."
+step 6 "Database clients"
 apt-get install -y -qq \
   postgresql-client \
   redis-tools \
@@ -315,7 +327,7 @@ systemctl disable redis-server 2>/dev/null || true
 systemctl stop    redis-server 2>/dev/null || true
 
 # ── yq — mikefarah Go binary (not the apt Python wrapper) ────────────────────
-echo ">>> yq (mikefarah) ..."
+step 7 "yq (mikefarah Go binary)"
 YQ_VERSION=$(curl -fsSL "https://api.github.com/repos/mikefarah/yq/releases/latest" \
   | grep '"tag_name":' | cut -d'"' -f4)
 curl -fsSL \
@@ -325,13 +337,13 @@ chmod +x /usr/local/bin/yq
 echo "    yq $(/usr/local/bin/yq --version | awk '{print $NF}')"
 
 # ── Node.js 22 LTS ───────────────────────────────────────────────────────────
-echo ">>> Node.js 22 LTS ..."
+step 8 "Node.js 22 LTS"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y -qq nodejs
 echo "    Node $(node --version) / npm $(npm --version)"
 
 # ── Global npm: dev, test, and Claude ecosystem ───────────────────────────────
-echo ">>> Global npm packages ..."
+step 9 "Global npm packages"
 npm install -g \
   typescript ts-node tsx \
   eslint prettier \
@@ -341,12 +353,12 @@ npm install -g \
   pm2
 
 # ── get-shit-done-cc ──────────────────────────────────────────────────────────
-echo ">>> get-shit-done-cc ..."
+step 10 "get-shit-done-cc"
 npx get-shit-done-cc --claude --global 2>/dev/null \
   || echo "    [WARN] get-shit-done-cc — run manually: npx get-shit-done-cc --claude --global"
 
 # ── Go ────────────────────────────────────────────────────────────────────────
-echo ">>> Go ..."
+step 11 "Go"
 GO_VERSION=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1)
 curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
 rm -rf /usr/local/go
@@ -356,24 +368,24 @@ echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
 echo "    $(/usr/local/go/bin/go version | awk '{print $3}')"
 
 # ── Rust (system — build tooling) ─────────────────────────────────────────────
-echo ">>> Rust (system) ..."
+step 12 "Rust (system)"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # ── claude-code user ─────────────────────────────────────────────────────────
-echo ">>> Creating claude-code user ..."
+step 13 "Creating claude-code user"
 useradd -m -s /bin/bash -d /home/claude-code claude-code 2>/dev/null || true
 usermod -aG sudo claude-code
 echo "claude-code ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-code
 chmod 0440 /etc/sudoers.d/claude-code
 
 # ── Rust for claude-code user ─────────────────────────────────────────────────
-echo ">>> Rust (claude-code user) ..."
+step 14 "Rust (claude-code user)"
 sudo -u claude-code bash -c '
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 '
 
 # ── Python testing & linting ecosystem ───────────────────────────────────────
-echo ">>> Python ecosystem ..."
+step 15 "Python ecosystem"
 pip3 install --break-system-packages --quiet \
   pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist \
   black ruff mypy \
@@ -383,7 +395,7 @@ pip3 install --break-system-packages --quiet \
 echo "    pytest, black, ruff, mypy, httpx, rich, typer installed"
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
-echo ">>> Installing Claude Code ..."
+step 16 "Claude Code"
 sudo -u claude-code bash -c '
   export HOME=/home/claude-code
   curl -fsSL https://claude.ai/install.sh | bash
@@ -399,7 +411,7 @@ else
 fi
 
 # ── Playwright (headless browser testing) ────────────────────────────────────
-echo ">>> Playwright (headless Chromium) ..."
+step 17 "Playwright (headless Chromium)"
 sudo -u claude-code bash -c '
   export HOME=/home/claude-code
   export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
@@ -407,7 +419,7 @@ sudo -u claude-code bash -c '
 ' || echo "    [WARN] Playwright had errors — run: npx playwright install --with-deps chromium"
 
 # ── Claude Code settings.json ─────────────────────────────────────────────────
-echo ">>> Claude Code config ..."
+step 18 "Claude Code settings.json"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
 
 sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << 'SETTINGS'
@@ -442,7 +454,7 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
 SETTINGS
 
 # ── CLAUDE.md ─────────────────────────────────────────────────────────────────
-echo ">>> CLAUDE.md ..."
+step 19 "CLAUDE.md"
 sudo -u claude-code mkdir -p /home/claude-code/projects
 sudo -u claude-code tee /home/claude-code/.claude/CLAUDE.md > /dev/null << 'CLAUDEMD'
 # Claude Code Workspace
@@ -514,7 +526,7 @@ Run `ccc-setup-plugins` in shell, then paste into Claude session:
 CLAUDEMD
 
 # ── Skill repos ───────────────────────────────────────────────────────────────
-echo ">>> Skill repos ..."
+step 20 "Skill repos"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
 cd /home/claude-code/.claude/skills
 
@@ -537,7 +549,7 @@ sudo -u claude-code git clone --depth 1 \
 cd /root
 
 # ── Statusline ────────────────────────────────────────────────────────────────
-echo ">>> Statusline ..."
+step 21 "Statusline"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
 cat > /home/claude-code/.claude/bin/statusline-command.sh << 'STATUSLINE'
 #!/bin/bash
@@ -601,7 +613,7 @@ chown claude-code:claude-code /home/claude-code/.claude/bin/statusline-command.s
 echo "    Statusline: ~/.claude/bin/statusline-command.sh"
 
 # ── code-server (web VS Code) ─────────────────────────────────────────────────
-echo ">>> code-server ..."
+step 22 "code-server (web VS Code)"
 curl -fsSL https://code-server.dev/install.sh | sh
 echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
@@ -611,7 +623,7 @@ systemctl enable code-server@claude-code
 echo "    code-server service enabled (config injected next step)"
 
 # ── SSH hardening ─────────────────────────────────────────────────────────────
-echo ">>> SSH hardening ..."
+step 23 "SSH hardening"
 sed -i "s/^#*PermitRootLogin.*/PermitRootLogin no/"               /etc/ssh/sshd_config
 sed -i "s/^#*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
 sed -i "s/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/"     /etc/ssh/sshd_config
@@ -622,7 +634,7 @@ systemctl enable ssh
 systemctl restart ssh
 
 # ── Shell environment ─────────────────────────────────────────────────────────
-echo ">>> Shell environment ..."
+step 24 "Shell environment & aliases"
 cat >> /home/claude-code/.bashrc << 'BASHRC'
 
 # ── Claude Code Commander ─────────────────────────────────────────────────────
@@ -729,7 +741,8 @@ BASHRC
 
 chown claude-code:claude-code /home/claude-code/.bashrc
 
-# ── ccc-setup-plugins (standalone script) ─────────────────────────────────────
+# ── ccc-setup-plugins (standalone script) ────────────────────────────────────
+step 25 "ccc-setup-plugins script"
 cat > /usr/local/bin/ccc-setup-plugins << 'PLUGINSCRIPT'
 #!/bin/bash
 B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
@@ -753,6 +766,7 @@ PLUGINSCRIPT
 chmod +x /usr/local/bin/ccc-setup-plugins
 
 # ── MOTD ─────────────────────────────────────────────────────────────────────
+step 26 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
@@ -768,14 +782,14 @@ MOTD
 chmod +x /etc/update-motd.d/00-ccc
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
-echo ">>> Git defaults ..."
+step 27 "Git defaults"
 sudo -u claude-code git config --global init.defaultBranch main
 sudo -u claude-code git config --global core.editor nano
 sudo -u claude-code git config --global pull.rebase false
 sudo -u claude-code git config --global core.autocrlf false
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-echo ">>> Auto-update cron ..."
+step 28 "Auto-update cron"
 cat > /etc/cron.d/system-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
@@ -794,7 +808,7 @@ cat > /etc/logrotate.d/system-update << 'LOGROTATE'
 LOGROTATE
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-echo ">>> Cleanup ..."
+step 29 "Cleanup"
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*
@@ -809,6 +823,7 @@ PROVISION_EOF
   pct push "$CT_ID" /tmp/provision-${CT_ID}.sh /tmp/provision.sh
   pct exec "$CT_ID" -- chmod +x /tmp/provision.sh
   pct exec "$CT_ID" -- /tmp/provision.sh
+  kill "$_timer_pid" 2>/dev/null; wait "$_timer_pid" 2>/dev/null || true
   rm -f /tmp/provision-${CT_ID}.sh
 
   # ── Passwords + code-server config (variable expansion — outside heredoc) ───
