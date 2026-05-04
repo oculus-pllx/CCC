@@ -45,7 +45,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 Or download and inspect first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/claude-code-commander.sh \
+curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh \
   -o /tmp/ccc.sh && bash /tmp/ccc.sh
 ```
 
@@ -235,6 +235,43 @@ pct destroy <CT_ID>
 
 ---
 
+## Troubleshooting
+
+**Ubuntu 26.04 template not found**
+```bash
+pveam update
+pveam available --section system | grep ubuntu-26
+```
+If still missing, check that your Proxmox host can reach `download.proxmox.com`.
+
+**code-server not loading**
+```bash
+pct exec <CT_ID> -- systemctl status code-server@claude-code
+pct exec <CT_ID> -- journalctl -u code-server@claude-code -n 50
+```
+
+**Playwright install failed during provisioning**
+```bash
+# Inside the container as claude-code:
+npx playwright install --with-deps chromium
+```
+
+**Claude Code binary not found after provision**
+```bash
+# Inside the container:
+find /home/claude-code -name "claude" -type f 2>/dev/null
+# Then symlink manually:
+sudo ln -sf <found-path> /usr/local/bin/claude
+```
+
+**Storage pool name mismatch**
+The default storage prompt is `truenas-lvm`. Run `pvesm status` on your Proxmox host to list available storage IDs.
+
+**Static IP: gateway required**
+If you enter a static IP, you must also enter a gateway. DHCP has no such requirement.
+
+---
+
 ## Notes
 
 - Root login is disabled. Use `ssh claude-code@<ip>`.
@@ -242,6 +279,20 @@ pct destroy <CT_ID>
 - `yq` is the [mikefarah Go binary](https://github.com/mikefarah/yq), not the apt Python wrapper.
 - Redis server is installed but disabled at boot. Start it when tests need it.
 - Playwright browser deps are installed via `--with-deps`. If it failed during provisioning, re-run: `npx playwright install --with-deps chromium`
+- Skill repos are cloned with `--depth 1` (shallow). Run `git fetch --unshallow` inside a repo if you need full history.
+- Plugin names (`superpowers@claude-plugins-official`, etc.) are set at provision time. If Claude Code changes plugin registry format, update manually inside the session.
+
+---
+
+## Contributing
+
+PRs welcome. Keep the design values:
+- No Docker — native toolchain only
+- Everything provisioned at container creation time, not lazily
+- Single-file installer — the whole script must be self-contained
+- Default prompts should work for a TrueNAS-backed Proxmox homelab
+
+To test changes: provision a throwaway container, run through First Steps, verify `ccc` output and `code-server` load.
 
 ---
 
