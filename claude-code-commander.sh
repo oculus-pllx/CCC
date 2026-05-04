@@ -213,6 +213,31 @@ get_config() {
 
   read -rp "Path to SSH public key (optional, Enter to skip): " CT_SSH_KEY
 
+  # ── HA (cluster only) ────────────────────────────────────────────────────────
+  HA_ENABLED=0
+  HA_GROUP=""
+  local _in_cluster
+  _in_cluster=$(pvesh get /cluster/status --output-format json 2>/dev/null \
+    | grep -c '"type":"cluster"' || true)
+
+  if [[ "$_in_cluster" -gt 0 ]]; then
+    echo ""
+    read -rp "Enable High Availability for this container? (y/N): " _ha
+    if [[ "$_ha" =~ ^[Yy]$ ]]; then
+      HA_ENABLED=1
+      local _ha_groups
+      _ha_groups=$(pvesh get /cluster/ha/groups --output-format json 2>/dev/null \
+        | grep -o '"group":"[^"]*"' | cut -d'"' -f4 || true)
+      if [[ -n "$_ha_groups" ]]; then
+        echo "  Available HA groups:"
+        echo "$_ha_groups" | while read -r _g; do echo "    $_g"; done
+        read -rp "HA group (Enter to skip): " HA_GROUP
+      else
+        warn "No HA groups found — container will be added to HA without a group."
+      fi
+    fi
+  fi
+
   echo ""
   echo -e "${BOLD}Summary${NC}"
   echo "─────────────────────────────────────────────────"
@@ -225,6 +250,11 @@ get_config() {
   echo "  Disk:         ${CT_DISK}G on $CT_STORAGE"
   echo "  Network:      $CT_IP"
   echo "  DNS:          $CT_DNS"
+  if [[ "$HA_ENABLED" -eq 1 ]]; then
+    echo "  HA:           enabled${HA_GROUP:+ (group: $HA_GROUP)}"
+  else
+    echo "  HA:           disabled"
+  fi
   echo "  User:         claude-code (non-root, passwordless sudo)"
   echo "  code-server:  port 8080 (web VS Code)"
   echo "─────────────────────────────────────────────────"
@@ -280,6 +310,19 @@ create_container() {
 
   "${cmd[@]}"
   success "Container $CT_ID created."
+}
+
+# ── Configure HA ──────────────────────────────────────────────────────────────
+configure_ha() {
+  [[ "$HA_ENABLED" -eq 1 ]] || return 0
+  info "Registering CT $CT_ID with HA manager ..."
+  local ha_cmd=(ha-manager add "ct:$CT_ID" --state started)
+  [[ -n "$HA_GROUP" ]] && ha_cmd+=(--group "$HA_GROUP")
+  if "${ha_cmd[@]}"; then
+    success "HA enabled for CT $CT_ID${HA_GROUP:+ in group '$HA_GROUP'}."
+  else
+    warn "HA registration failed — add manually: ha-manager add ct:$CT_ID --state started${HA_GROUP:+ --group $HA_GROUP}"
+  fi
 }
 
 # ── Start & Wait for Network ──────────────────────────────────────────────────
@@ -986,6 +1029,9 @@ print_summary() {
   echo -e "  ${BOLD}IP:${NC}           ${ct_ip:-pending (DHCP)}"
   echo -e "  ${BOLD}Resources:${NC}    ${CT_CORES} vCPU / $(( CT_RAM / 1024 )) GB RAM / ${CT_DISK} GB disk"
   echo -e "  ${BOLD}Storage:${NC}      $CT_STORAGE"
+  if [[ "$HA_ENABLED" -eq 1 ]]; then
+    echo -e "  ${BOLD}HA:${NC}           enabled${HA_GROUP:+ — group: $HA_GROUP}"
+  fi
   echo -e "  ${BOLD}Timezone:${NC}     America/New_York"
   echo ""
   echo -e "  ${BOLD}Connect:${NC}"
@@ -1022,6 +1068,7 @@ main() {
   get_config
   get_template
   create_container
+  configure_ha
   start_container
   provision_container
   print_summary
