@@ -225,11 +225,20 @@ start_container() {
   pct start "$CT_ID"
   sleep 4
 
-  info "Waiting for network ..."
+  # For static IP ping the gateway first (local reachability), then DNS (internet).
+  # For DHCP ping the configured DNS server.
+  local _ping_target
+  if [[ "$CT_IP" == "dhcp" ]]; then
+    _ping_target="$CT_DNS"
+  else
+    _ping_target="$CT_GW"
+  fi
+
+  info "Waiting for network (pinging ${_ping_target}) ..."
   local attempts=0
-  while ! pct exec "$CT_ID" -- ping -c1 -W2 1.1.1.1 &>/dev/null; do
+  while ! pct exec "$CT_ID" -- ping -c1 -W2 "$_ping_target" &>/dev/null; do
     (( attempts++ ))
-    [[ $attempts -lt 30 ]] || error "Network timeout after 60s."
+    [[ $attempts -lt 30 ]] || error "Network timeout after 60s — check gateway/DNS: ${_ping_target}"
     sleep 2
   done
   success "Container is online."
