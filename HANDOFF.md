@@ -2,7 +2,7 @@
 
 **Repo:** https://github.com/oculus-pllx/CCC  
 **Date:** 2026-05-04  
-**Status:** First live provision in progress (CT 119, pve3, 2026-05-04)
+**Status:** First live provision failed (CT 119 — IPv6/apt issue, fixed). Re-provisioning.
 
 ---
 
@@ -19,13 +19,16 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Area | Status |
 |---|---|
 | Script structure | Complete |
-| README | Complete — install URL, all sections, troubleshooting, contributing |
+| README | ✅ Synced to all fixes |
 | Repo pushed | ✅ `main` branch at `oculus-pllx/CCC` |
-| Live provision test | 🔄 In progress — CT 119 on pve3, Ubuntu 26.04, `zfs-ssd`, static IP |
-| Static IP CIDR validation | ✅ Fixed — re-prompts if `/xx` prefix missing |
+| Live provision test | ❌ CT 119 failed (IPv6/apt), destroyed. Re-running with fixes. |
+| Static IP / gateway / DNS validation | ✅ All three re-prompt on bad format |
 | Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
 | Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) — no hardcoded IPs |
 | Progress indicators | ✅ `[N/29]` step labels + 30s elapsed ticker on host |
+| IPv6 disabled in container | ✅ sysctl + apt ForceIPv4 at provision start |
+| Ubuntu status pre-check | ✅ Checks status.canonical.com + archive.ubuntu.com before config |
+| Proxmox HA support | ✅ Cluster-only, optional group, non-fatal on failure |
 | Skill repo URLs | Unverified — see Risks below |
 | Plugin names | Unverified — see Risks below |
 
@@ -69,7 +72,7 @@ Rust is installed once as root (line 321) and again for the `claude-code` user (
 
 ## TODOs / Future Work
 
-- [ ] Complete first live provision (CT 119) and document any issues found
+- [ ] Complete first successful end-to-end provision and document results
 - [ ] Verify all 4 skill repo URLs are live and correct
 - [ ] Verify plugin names against current Claude Code plugin registry
 - [ ] Remove redundant root Rust install (save ~2 min provision time)
@@ -92,22 +95,21 @@ HANDOFF.md                 This file — project status and context
 
 ---
 
-## Key Script Sections (line numbers)
+## Key Script Sections (approximate — line numbers shift with edits)
 
-| Section | Lines |
+| Section | Notes |
 |---|---|
-| Colors / helpers | 21–40 |
-| Pre-flight checks (`pct`, `pveam`, `pvesh`) | 43–48 |
-| Interactive config collection | 51–141 |
-| Template download | 144–154 |
-| Container creation (`pct create`) | 157–190 |
-| Network wait loop | 193–206 |
-| Provision heredoc (runs inside container) | 209–767 |
-| Passwords + code-server config (variable expansion) | 776–831 |
-| code-server extension install loop | 795–811 |
-| SSH key install | 817–831 |
-| Summary printout | 835–874 |
-| `main()` | 877–888 |
+| Colors / helpers | Top of file |
+| `preflight()` | root + pct/pveam/pvesh check |
+| `check_ubuntu_connectivity()` | Canonical status API + archive.ubuntu.com curl |
+| `get_config()` | All interactive prompts incl. HA detection |
+| `get_template()` | pveam download if needed |
+| `create_container()` | pct create |
+| `configure_ha()` | ha-manager add (cluster only, skipped on single node) |
+| `start_container()` | pct start + gateway ping + internet check |
+| `provision_container()` | Heredoc push + pct exec, elapsed timer |
+| `print_summary()` | Final ready box |
+| `main()` | Wires all above in order |
 
 ### Inside the provision heredoc (notable blocks)
 | Block | Approx lines |

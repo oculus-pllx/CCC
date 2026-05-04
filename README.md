@@ -20,6 +20,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
+- **IPv6 disabled** — avoids apt/curl failures in containers without IPv6 routing
+- **Optional Proxmox HA** — register with `ha-manager` at provision time (cluster only)
 - **Zero Docker** — pure native toolchain, minimal overhead
 - **Weekly auto-updates** — Sundays 3 AM ET
 
@@ -64,10 +66,16 @@ The script is interactive. You'll be prompted for:
 | Disk | `30` GB | |
 | Storage | auto-detected | Active `rootdir`-capable pools listed; defaults to `local-lvm` if present, else first found |
 | IP | `dhcp` | Or `x.x.x.x/xx` for static — CIDR prefix required, re-prompts if missing |
-| DNS | `1.1.1.1` | |
+| Gateway | — | Required for static IP — plain IPv4, re-prompts if missing or has CIDR |
+| DNS | `1.1.1.1` | Plain IPv4, re-prompts on invalid format |
 | SSH public key | optional | Installed for claude-code user |
+| High Availability | — | Cluster only — lists HA groups, optional group selection |
 
-Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds between steps so you can tell it's still running.
+Before config prompts, the script checks:
+1. Canonical status API (`status.canonical.com`) — warns on active outages, prompts to abort
+2. Direct reachability of `archive.ubuntu.com` from the Proxmox host — prompts to abort if unreachable
+
+Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
@@ -269,6 +277,22 @@ Storage pools are auto-detected via `pvesm status --content rootdir`. The prompt
 
 **Static IP: gateway required**
 If you enter a static IP, you must also enter a gateway. DHCP has no such requirement.
+
+**apt fails with IPv6 / "Network is unreachable"**
+IPv6 is disabled inside the container via sysctl at provision start, and apt is forced to IPv4 via `/etc/apt/apt.conf.d/99force-ipv4`. If you see IPv6 errors in an existing container:
+```bash
+# Inside the container:
+echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
+```
+
+**Ubuntu infrastructure down**
+Check https://status.canonical.com/ — the script checks this automatically before prompting for config.
+
+**HA registration failed**
+Add manually from the Proxmox host:
+```bash
+ha-manager add ct:<CT_ID> --state started --group <group>
+```
 
 ---
 
