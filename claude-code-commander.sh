@@ -298,7 +298,15 @@ export DEBIAN_FRONTEND=noninteractive
 _STEPS=29
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
-# Force IPv4 for all apt operations — LXC containers often lack IPv6 routing
+# Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
+cat > /etc/sysctl.d/99-disable-ipv6.conf << 'EOF'
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+sysctl -p /etc/sysctl.d/99-disable-ipv6.conf > /dev/null 2>&1 || true
+
+# Also force apt IPv4 as belt-and-suspenders
 echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
 
 # ── Locale & Timezone ─────────────────────────────────────────────────────────
