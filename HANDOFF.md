@@ -2,7 +2,7 @@
 
 **Repo:** https://github.com/oculus-pllx/CCC  
 **Date:** 2026-05-04  
-**Status:** Initial release — authored, not yet battle-tested on live Proxmox
+**Status:** First live provision in progress (CT 119, pve3, 2026-05-04)
 
 ---
 
@@ -21,7 +21,11 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Script structure | Complete |
 | README | Complete — install URL, all sections, troubleshooting, contributing |
 | Repo pushed | ✅ `main` branch at `oculus-pllx/CCC` |
-| Live provision test | ❌ Not yet run end-to-end on real Proxmox |
+| Live provision test | 🔄 In progress — CT 119 on pve3, Ubuntu 26.04, `zfs-ssd`, static IP |
+| Static IP CIDR validation | ✅ Fixed — re-prompts if `/xx` prefix missing |
+| Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
+| Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) — no hardcoded IPs |
+| Progress indicators | ✅ `[N/29]` step labels + 30s elapsed ticker on host |
 | Skill repo URLs | Unverified — see Risks below |
 | Plugin names | Unverified — see Risks below |
 
@@ -65,7 +69,7 @@ Rust is installed once as root (line 321) and again for the `claude-code` user (
 
 ## TODOs / Future Work
 
-- [ ] Run a full end-to-end provision on real Proxmox and document any issues
+- [ ] Complete first live provision (CT 119) and document any issues found
 - [ ] Verify all 4 skill repo URLs are live and correct
 - [ ] Verify plugin names against current Claude Code plugin registry
 - [ ] Remove redundant root Rust install (save ~2 min provision time)

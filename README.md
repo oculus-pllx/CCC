@@ -63,11 +63,11 @@ The script is interactive. You'll be prompted for:
 | Swap | `2048` MB | |
 | Disk | `30` GB | |
 | Storage | auto-detected | Active `rootdir`-capable pools listed; defaults to `local-lvm` if present, else first found |
-| IP | `dhcp` | Or `x.x.x.x/xx` for static |
+| IP | `dhcp` | Or `x.x.x.x/xx` for static — CIDR prefix required, re-prompts if missing |
 | DNS | `1.1.1.1` | |
 | SSH public key | optional | Installed for claude-code user |
 
-Provisioning takes **10–15 minutes**.
+Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds between steps so you can tell it's still running.
 
 ---
 
@@ -265,7 +265,7 @@ sudo ln -sf <found-path> /usr/local/bin/claude
 ```
 
 **Storage pool name mismatch**
-The default storage prompt is `truenas-lvm`. Run `pvesm status` on your Proxmox host to list available storage IDs.
+Storage pools are auto-detected via `pvesm status --content rootdir`. The prompt lists available pools and defaults to `local-lvm` if present, else the first found. If detection returns nothing, override manually — run `pvesm status` on the host to see pool names.
 
 **Static IP: gateway required**
 If you enter a static IP, you must also enter a gateway. DHCP has no such requirement.
