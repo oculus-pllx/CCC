@@ -141,12 +141,31 @@ get_config() {
   done
 
   if [[ "$CT_IP" != "dhcp" ]]; then
-    read -rp "Gateway: " CT_GW
-    [[ -n "$CT_GW" ]] || error "Gateway required for static IP."
+    while true; do
+      read -rp "Gateway (x.x.x.x): " CT_GW
+      if [[ "$CT_GW" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        break
+      elif [[ -z "$CT_GW" ]]; then
+        warn "Gateway required for static IP."
+      elif [[ "$CT_GW" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$ ]]; then
+        warn "Gateway must be a plain IP — no CIDR prefix (e.g. 192.168.0.1)"
+      else
+        warn "Invalid format — enter a plain IPv4 address (e.g. 192.168.0.1)"
+      fi
+    done
   fi
 
-  read -rp "DNS server [1.1.1.1]: " CT_DNS
-  CT_DNS="${CT_DNS:-1.1.1.1}"
+  while true; do
+    read -rp "DNS server [1.1.1.1]: " CT_DNS
+    CT_DNS="${CT_DNS:-1.1.1.1}"
+    if [[ "$CT_DNS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      break
+    elif [[ "$CT_DNS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$ ]]; then
+      warn "DNS must be a plain IP — no CIDR prefix (e.g. 1.1.1.1)"
+    else
+      warn "Invalid format — enter a plain IPv4 address (e.g. 1.1.1.1)"
+    fi
+  done
 
   read -rp "Path to SSH public key (optional, Enter to skip): " CT_SSH_KEY
 
