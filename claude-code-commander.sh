@@ -47,6 +47,50 @@ preflight() {
   command -v pvesh  &>/dev/null || error "pvesh not found. Run this on a Proxmox host."
 }
 
+# ── Ubuntu / Canonical connectivity check ─────────────────────────────────────
+check_ubuntu_connectivity() {
+  info "Checking Ubuntu infrastructure status ..."
+
+  # 1. Canonical status API (Statuspage.io)
+  local status_json indicator description
+  status_json=$(curl -fsSL --max-time 8 --ipv4 \
+    "https://status.canonical.com/api/v2/status.json" 2>/dev/null || echo "")
+
+  if [[ -n "$status_json" ]]; then
+    indicator=$(echo "$status_json" | grep -o '"indicator":"[^"]*"' | cut -d'"' -f4)
+    description=$(echo "$status_json" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
+    case "$indicator" in
+      none)
+        success "Canonical status: ${description:-All Systems Operational}" ;;
+      minor)
+        warn "Canonical status: MINOR OUTAGE — ${description}"
+        warn "Some packages may fail. Check https://status.canonical.com/"
+        read -rp "Continue anyway? (y/N): " _cont
+        [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
+      major|critical)
+        warn "Canonical status: ${indicator^^} OUTAGE — ${description}"
+        warn "See https://status.canonical.com/"
+        read -rp "Continue anyway? (y/N): " _cont
+        [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
+      *)
+        warn "Canonical status API returned unknown indicator: '${indicator}'" ;;
+    esac
+  else
+    warn "Could not reach status.canonical.com — skipping status check."
+  fi
+
+  # 2. Direct reachability check from this host
+  info "Checking archive.ubuntu.com reachability from this host ..."
+  if curl -fsSL --max-time 8 --ipv4 "http://archive.ubuntu.com" &>/dev/null; then
+    success "archive.ubuntu.com is reachable."
+  else
+    warn "archive.ubuntu.com is NOT reachable from this Proxmox host."
+    warn "Provisioning will likely fail at the apt install steps."
+    read -rp "Continue anyway? (y/N): " _cont
+    [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+  fi
+}
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 get_config() {
   local next_id
@@ -974,6 +1018,7 @@ print_summary() {
 main() {
   header
   preflight
+  check_ubuntu_connectivity
   get_config
   get_template
   create_container
