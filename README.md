@@ -62,7 +62,7 @@ The script is interactive. You'll be prompted for:
 | RAM | `10240` MB | |
 | Swap | `2048` MB | |
 | Disk | `30` GB | |
-| Storage | `truenas-lvm` | Match your Proxmox storage ID |
+| Storage | auto-detected | Active `rootdir`-capable pools listed; defaults to `local-lvm` if present, else first found |
 | IP | `dhcp` | Or `x.x.x.x/xx` for static |
 | DNS | `1.1.1.1` | |
 | SSH public key | optional | Installed for claude-code user |

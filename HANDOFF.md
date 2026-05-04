@@ -55,8 +55,8 @@ Script uses `pveam available` regex: `ubuntu-26\.04-standard_26\.04-[0-9]+_amd64
 ### `get-shit-done-cc` npm package
 Installed globally via `npx get-shit-done-cc --claude --global`. If package doesn't exist or changes API, it logs a warning and continues — not a blocking failure.
 
-### Storage default
-Default storage is `truenas-lvm`. Operators on standard Proxmox installs (e.g., `local-lvm`) will need to change this at the prompt. Low risk — interactive prompt makes it obvious.
+### Storage detection
+Script queries `pvesm status --content rootdir` at config time and lists active pools. Defaults to `local-lvm` if present, else first found. Falls back to `local-lvm` string if query returns nothing. User can override at the prompt.
 
 ### Rust installed twice
 Rust is installed once as root (line 321) and again for the `claude-code` user (line 332). Root install is unused — only the user install matters. The root install is harmless but wasted time (~2 min). Consider removing it in a future cleanup.
@@ -71,7 +71,7 @@ Rust is installed once as root (line 321) and again for the `claude-code` user (
 - [ ] Remove redundant root Rust install (save ~2 min provision time)
 - [ ] Add `--non-interactive` / config-file mode for automated provisioning
 - [ ] Consider adding `CHANGELOG.md` once version bumps start
-- [ ] Test with `local-lvm` storage (default Proxmox, not TrueNAS) — update default prompt or add detection
+- [ ] Test storage auto-detection on a standard `local-lvm` Proxmox install
 - [ ] Test SSH key install path with both RSA and ed25519 key files
 - [ ] Validate Playwright headless Chromium works inside unprivileged LXC (known issue area)
 

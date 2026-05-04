@@ -104,8 +104,27 @@ get_config() {
   read -rp "Disk size in GB [30]: " CT_DISK
   CT_DISK="${CT_DISK:-30}"
 
-  read -rp "Storage [truenas-lvm]: " CT_STORAGE
-  CT_STORAGE="${CT_STORAGE:-truenas-lvm}"
+  # Detect storage pools that can hold LXC rootfs
+  local _storage_list _default_storage
+  _storage_list=$(pvesm status --content rootdir 2>/dev/null \
+    | awk 'NR>1 && $2=="active" {print $1}' | sort)
+
+  if echo "$_storage_list" | grep -q "^local-lvm$"; then
+    _default_storage="local-lvm"
+  elif [[ -n "$_storage_list" ]]; then
+    _default_storage=$(echo "$_storage_list" | head -1)
+  else
+    _default_storage="local-lvm"
+  fi
+
+  if [[ -n "$_storage_list" ]]; then
+    echo "  Available storage pools (rootdir):"
+    echo "$_storage_list" | while read -r _s; do echo "    $_s"; done
+    echo ""
+  fi
+
+  read -rp "Storage [$_default_storage]: " CT_STORAGE
+  CT_STORAGE="${CT_STORAGE:-$_default_storage}"
 
   read -rp "IP address (dhcp or x.x.x.x/xx) [dhcp]: " CT_IP
   CT_IP="${CT_IP:-dhcp}"
