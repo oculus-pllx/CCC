@@ -126,8 +126,19 @@ get_config() {
   read -rp "Storage [$_default_storage]: " CT_STORAGE
   CT_STORAGE="${CT_STORAGE:-$_default_storage}"
 
-  read -rp "IP address (dhcp or x.x.x.x/xx) [dhcp]: " CT_IP
-  CT_IP="${CT_IP:-dhcp}"
+  while true; do
+    read -rp "IP address (dhcp or x.x.x.x/xx) [dhcp]: " CT_IP
+    CT_IP="${CT_IP:-dhcp}"
+    if [[ "$CT_IP" == "dhcp" ]]; then
+      break
+    elif [[ "$CT_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$ ]]; then
+      break
+    elif [[ "$CT_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      warn "Missing CIDR prefix — use x.x.x.x/xx (e.g. ${CT_IP}/24)"
+    else
+      warn "Invalid format — enter 'dhcp' or x.x.x.x/xx (e.g. 192.168.0.50/24)"
+    fi
+  done
 
   if [[ "$CT_IP" != "dhcp" ]]; then
     read -rp "Gateway: " CT_GW
