@@ -915,24 +915,35 @@ chown claude-code:claude-code /home/claude-code/.bashrc
 step 25 "ccc-setup-plugins script"
 cat > /usr/local/bin/ccc-setup-plugins << 'PLUGINSCRIPT'
 #!/bin/bash
-B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; G='\033[0;32m'; D='\033[2m'; N='\033[0m'
+B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; G='\033[0;32m'; D='\033[2m'; R='\033[0;31m'; N='\033[0m'
 
-# Plugin definitions: "Name|description|step1|step2|..."
+# Plugins — require manual /plugin install inside Claude Code session
+# Format: "Name|description|step1|step2|..."
 PLUGINS=(
-  "Skill Creator|Create reusable Claude skills|/plugin install skill-creator@claude-plugins-official"
-  "Superpowers|Agent teams, code review, TDD, and more|/plugin install superpowers@claude-plugins-official"
-  "Frontend Design|UI/UX design workflows|/plugin install frontend-design@claude-plugins-official"
-  "Context Mode|Control Claude context behaviour|/plugin marketplace add mksglu/context-mode|/plugin install context-mode@context-mode"
-  "Claude Mem|Persistent memory across sessions|/plugin marketplace add thedotmack/claude-mem|/plugin install claude-mem"
+  "Skill Creator|Create and manage reusable Claude skills|/plugin install skill-creator@claude-plugins-official"
+  "Superpowers|Agent teams, code review, TDD, debugging workflows|/plugin install superpowers@claude-plugins-official"
+  "Frontend Design|UI/UX design and component workflows|/plugin install frontend-design@claude-plugins-official"
+  "Context Mode|Fine-grained control over Claude context|/plugin marketplace add mksglu/context-mode|/plugin install context-mode@context-mode"
+  "Claude Mem|Persistent memory across Claude sessions|/plugin marketplace add thedotmack/claude-mem|/plugin install claude-mem"
 )
 
-show_instructions() {
+# Pre-installed skills — already cloned to ~/.claude/skills/ at provision time
+# Format: "Name|description|path|source"
+SKILLS=(
+  "Anthropic Skills|Official Anthropic prompt and workflow skills|~/.claude/skills/anthropic-skills|github.com/anthropics/skills"
+  "Karpathy Skills|Andrej Karpathy AI/ML workflow skills|~/.claude/skills/karpathy-skills|github.com/forrestchang/andrej-karpathy-skills"
+  "Matt Pocock Skills|TypeScript and developer workflow skills|~/.claude/skills/mattpocock-skills|github.com/mattpocock/skills"
+  "Caveman|Terse caveman-mode communication skill|~/.claude/skills/caveman|github.com/juliusbrussee/caveman"
+)
+
+show_how_to_plugin() {
   echo ""
   echo -e "${Y}How to install plugins:${N}"
-  echo -e "  1. Run ${C}claude${N} in this terminal to open Claude Code"
-  echo -e "  2. Copy the command(s) shown below"
-  echo -e "  3. Paste each command into the Claude Code prompt and press Enter"
-  echo -e "  4. Wait for confirmation before pasting the next one"
+  echo -e "  1. Open a terminal and run ${C}claude${N} to start Claude Code"
+  echo -e "  2. Copy the command shown below"
+  echo -e "  3. Paste it into the Claude Code prompt and press Enter"
+  echo -e "  4. Wait for the confirmation message before the next step"
+  echo -e "  ${D}Plugins require an authenticated Claude Code session.${N}"
   echo ""
 }
 
@@ -942,65 +953,124 @@ show_plugin() {
   local name=$(echo "$entry" | cut -d'|' -f1)
   local desc=$(echo "$entry" | cut -d'|' -f2)
   local cmds=$(echo "$entry" | cut -d'|' -f3-)
-
   echo ""
-  echo -e "${B}$name${N} — ${D}$desc${N}"
+  echo -e "${B}$name${N}"
+  echo -e "${D}$desc${N}"
+  echo ""
   echo -e "${Y}Paste into Claude Code (run: claude):${N}"
-  echo ""
   IFS='|' read -ra steps <<< "$cmds"
   local i=1
   for cmd in "${steps[@]}"; do
     echo -e "  ${G}Step $i:${N} ${C}${cmd}${N}"
-    (( i++ ))
+    i=$(( i + 1 ))
   done
   echo ""
 }
 
-show_all() {
-  show_instructions
-  echo -e "${B}Full install sequence — paste each into Claude Code in order:${N}"
+show_skill() {
+  local idx=$1
+  local entry="${SKILLS[$idx]}"
+  local name=$(echo "$entry"  | cut -d'|' -f1)
+  local desc=$(echo "$entry"  | cut -d'|' -f2)
+  local path=$(echo "$entry"  | cut -d'|' -f3)
+  local src=$(echo "$entry"   | cut -d'|' -f4)
   echo ""
-  local i=1
+  echo -e "${B}$name${N} ${G}[pre-installed]${N}"
+  echo -e "${D}$desc${N}"
+  echo -e "  Location: ${C}$path${N}"
+  echo -e "  Source:   ${C}https://$src${N}"
+  echo ""
+  if [[ -d "${path/\~/$HOME}" ]]; then
+    echo -e "  ${G}✓ Present on disk${N}"
+  else
+    echo -e "  ${R}✗ Not found — re-run: git clone https://$src ${path/\~/$HOME}${N}"
+  fi
+  echo ""
+}
+
+show_all_plugins() {
+  show_how_to_plugin
+  echo -e "${B}Full plugin install sequence — paste into Claude Code in order:${N}"
+  echo ""
   for entry in "${PLUGINS[@]}"; do
     local name=$(echo "$entry" | cut -d'|' -f1)
     local cmds=$(echo "$entry" | cut -d'|' -f3-)
-    echo -e "  ${G}── $name ${N}"
+    echo -e "  ${G}── $name${N}"
     IFS='|' read -ra steps <<< "$cmds"
     for cmd in "${steps[@]}"; do
       echo -e "     ${C}$cmd${N}"
     done
     echo ""
-    (( i++ ))
   done
 }
 
+show_all_skills() {
+  echo ""
+  echo -e "${B}Pre-installed Skills${N} ${D}(already on disk — no install needed)${N}"
+  echo ""
+  for entry in "${SKILLS[@]}"; do
+    local name=$(echo "$entry" | cut -d'|' -f1)
+    local path=$(echo "$entry" | cut -d'|' -f3)
+    local src=$(echo "$entry"  | cut -d'|' -f4)
+    if [[ -d "${path/\~/$HOME}" ]]; then
+      echo -e "  ${G}✓${N} ${B}$name${N} — ${C}$path${N}"
+    else
+      echo -e "  ${R}✗${N} ${B}$name${N} — missing (${D}https://$src${N})"
+    fi
+  done
+  echo ""
+  echo -e "  ${D}Also pre-installed: get-shit-done-cc (global npm package)${N}"
+  echo ""
+}
+
+plugin_count=${#PLUGINS[@]}
+skill_count=${#SKILLS[@]}
+
 while true; do
   echo ""
-  echo -e "${B}╔══════════════════════════════════════════╗${N}"
-  echo -e "${B}║         CCC Plugin Menu                  ║${N}"
-  echo -e "${B}╚══════════════════════════════════════════╝${N}"
+  echo -e "${B}╔════════════════════════════════════════════════╗${N}"
+  echo -e "${B}║        CCC Plugins & Skills Menu               ║${N}"
+  echo -e "${B}╚════════════════════════════════════════════════╝${N}"
   echo ""
-  echo -e "  ${Y}Select a plugin for install instructions:${N}"
-  echo ""
+  echo -e "  ${Y}── Plugins (require manual install in Claude Code) ──${N}"
   for i in "${!PLUGINS[@]}"; do
     local_name=$(echo "${PLUGINS[$i]}" | cut -d'|' -f1)
     local_desc=$(echo "${PLUGINS[$i]}" | cut -d'|' -f2)
     echo -e "  ${C}$((i+1))${N}. ${B}$local_name${N} — ${D}$local_desc${N}"
   done
   echo ""
-  echo -e "  ${C}a${N}. Show all (full install sequence)"
+  echo -e "  ${Y}── Pre-installed Skills (already on disk) ──${N}"
+  for i in "${!SKILLS[@]}"; do
+    local_name=$(echo "${SKILLS[$i]}" | cut -d'|' -f1)
+    local_desc=$(echo "${SKILLS[$i]}" | cut -d'|' -f2)
+    local_path=$(echo "${SKILLS[$i]}" | cut -d'|' -f3)
+    if [[ -d "${local_path/\~/$HOME}" ]]; then
+      echo -e "  ${C}$((i+plugin_count+1))${N}. ${B}$local_name${N} ${G}✓${N} — ${D}$local_desc${N}"
+    else
+      echo -e "  ${C}$((i+plugin_count+1))${N}. ${B}$local_name${N} ${R}✗ missing${N} — ${D}$local_desc${N}"
+    fi
+  done
+  echo ""
+  echo -e "  ${C}a${N}. Install all plugins (full sequence)"
+  echo -e "  ${C}s${N}. Show all pre-installed skills"
   echo -e "  ${C}h${N}. How to install plugins"
   echo -e "  ${C}q${N}. Quit"
   echo ""
   read -rp "  Choice: " CHOICE
 
-  case "$CHOICE" in
-    1|2|3|4|5) show_plugin $(( CHOICE - 1 )) ;;
-    a|A) show_all ;;
-    h|H) show_instructions ;;
-    q|Q) echo ""; exit 0 ;;
-    *) echo -e "  ${Y}Enter 1–5, a, h, or q${N}" ;;
-  esac
+  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && (( CHOICE >= 1 && CHOICE <= plugin_count )); then
+    show_plugin $(( CHOICE - 1 ))
+  elif [[ "$CHOICE" =~ ^[0-9]+$ ]] && (( CHOICE >= plugin_count+1 && CHOICE <= plugin_count+skill_count )); then
+    show_skill $(( CHOICE - plugin_count - 1 ))
+  else
+    case "$CHOICE" in
+      a|A) show_all_plugins ;;
+      s|S) show_all_skills ;;
+      h|H) show_how_to_plugin ;;
+      q|Q) echo ""; exit 0 ;;
+      *) echo -e "  ${Y}Enter 1–$((plugin_count+skill_count)), a, s, h, or q${N}" ;;
+    esac
+  fi
 
   read -rp "  Press Enter to return to menu..." _
 done
