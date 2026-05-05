@@ -550,7 +550,7 @@ sudo -u claude-code bash -c '
 
 # ── Python testing & linting ecosystem ───────────────────────────────────────
 step 15 "Python ecosystem"
-pip3 install --break-system-packages --quiet \
+pip3 install --break-system-packages --quiet --no-warn-script-location \
   pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist \
   black ruff mypy \
   httpx requests python-dotenv \
@@ -565,8 +565,8 @@ sudo -u claude-code bash -c '
   curl -fsSL https://claude.ai/install.sh | bash
 '
 
-CLAUDE_BIN=$(find /home/claude-code/.local/bin /home/claude-code/.claude/bin \
-  -name "claude" -type f 2>/dev/null | head -1 || true)
+CLAUDE_BIN=$(find /home/claude-code -name "claude" -type f 2>/dev/null \
+  | grep -v node_modules | head -1 || true)
 if [[ -n "$CLAUDE_BIN" ]]; then
   ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
   echo "    Claude Code: $CLAUDE_BIN"
