@@ -915,23 +915,95 @@ chown claude-code:claude-code /home/claude-code/.bashrc
 step 25 "ccc-setup-plugins script"
 cat > /usr/local/bin/ccc-setup-plugins << 'PLUGINSCRIPT'
 #!/bin/bash
-B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
-echo ""
-echo -e "${B}CCC Plugin Setup${N}"
-echo -e "${Y}Start Claude Code (run: claude), then paste these one at a time:${N}"
-echo ""
-echo -e "  ${C}/plugin install skill-creator@claude-plugins-official${N}"
-echo -e "  ${C}/plugin install superpowers@claude-plugins-official${N}"
-echo -e "  ${C}/plugin install frontend-design@claude-plugins-official${N}"
-echo -e "  ${C}/plugin marketplace add mksglu/context-mode${N}"
-echo -e "  ${C}/plugin install context-mode@context-mode${N}"
-echo -e "  ${C}/plugin marketplace add thedotmack/claude-mem${N}"
-echo -e "  ${C}/plugin install claude-mem${N}"
-echo ""
-echo -e "  ${Y}Pre-configured in settings.json (no action needed):${N}"
-echo "  • All tool permissions (Bash, Read, Write, Edit, WebFetch, Task, mcp__*)"
-echo "  • Agent teams + extended thinking + 64k output + remote control"
-echo ""
+B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; G='\033[0;32m'; D='\033[2m'; N='\033[0m'
+
+# Plugin definitions: "Name|description|step1|step2|..."
+PLUGINS=(
+  "Skill Creator|Create reusable Claude skills|/plugin install skill-creator@claude-plugins-official"
+  "Superpowers|Agent teams, code review, TDD, and more|/plugin install superpowers@claude-plugins-official"
+  "Frontend Design|UI/UX design workflows|/plugin install frontend-design@claude-plugins-official"
+  "Context Mode|Control Claude context behaviour|/plugin marketplace add mksglu/context-mode|/plugin install context-mode@context-mode"
+  "Claude Mem|Persistent memory across sessions|/plugin marketplace add thedotmack/claude-mem|/plugin install claude-mem"
+)
+
+show_instructions() {
+  echo ""
+  echo -e "${Y}How to install plugins:${N}"
+  echo -e "  1. Run ${C}claude${N} in this terminal to open Claude Code"
+  echo -e "  2. Copy the command(s) shown below"
+  echo -e "  3. Paste each command into the Claude Code prompt and press Enter"
+  echo -e "  4. Wait for confirmation before pasting the next one"
+  echo ""
+}
+
+show_plugin() {
+  local idx=$1
+  local entry="${PLUGINS[$idx]}"
+  local name=$(echo "$entry" | cut -d'|' -f1)
+  local desc=$(echo "$entry" | cut -d'|' -f2)
+  local cmds=$(echo "$entry" | cut -d'|' -f3-)
+
+  echo ""
+  echo -e "${B}$name${N} — ${D}$desc${N}"
+  echo -e "${Y}Paste into Claude Code (run: claude):${N}"
+  echo ""
+  IFS='|' read -ra steps <<< "$cmds"
+  local i=1
+  for cmd in "${steps[@]}"; do
+    echo -e "  ${G}Step $i:${N} ${C}${cmd}${N}"
+    (( i++ ))
+  done
+  echo ""
+}
+
+show_all() {
+  show_instructions
+  echo -e "${B}Full install sequence — paste each into Claude Code in order:${N}"
+  echo ""
+  local i=1
+  for entry in "${PLUGINS[@]}"; do
+    local name=$(echo "$entry" | cut -d'|' -f1)
+    local cmds=$(echo "$entry" | cut -d'|' -f3-)
+    echo -e "  ${G}── $name ${N}"
+    IFS='|' read -ra steps <<< "$cmds"
+    for cmd in "${steps[@]}"; do
+      echo -e "     ${C}$cmd${N}"
+    done
+    echo ""
+    (( i++ ))
+  done
+}
+
+while true; do
+  echo ""
+  echo -e "${B}╔══════════════════════════════════════════╗${N}"
+  echo -e "${B}║         CCC Plugin Menu                  ║${N}"
+  echo -e "${B}╚══════════════════════════════════════════╝${N}"
+  echo ""
+  echo -e "  ${Y}Select a plugin for install instructions:${N}"
+  echo ""
+  for i in "${!PLUGINS[@]}"; do
+    local_name=$(echo "${PLUGINS[$i]}" | cut -d'|' -f1)
+    local_desc=$(echo "${PLUGINS[$i]}" | cut -d'|' -f2)
+    echo -e "  ${C}$((i+1))${N}. ${B}$local_name${N} — ${D}$local_desc${N}"
+  done
+  echo ""
+  echo -e "  ${C}a${N}. Show all (full install sequence)"
+  echo -e "  ${C}h${N}. How to install plugins"
+  echo -e "  ${C}q${N}. Quit"
+  echo ""
+  read -rp "  Choice: " CHOICE
+
+  case "$CHOICE" in
+    1|2|3|4|5) show_plugin $(( CHOICE - 1 )) ;;
+    a|A) show_all ;;
+    h|H) show_instructions ;;
+    q|Q) echo ""; exit 0 ;;
+    *) echo -e "  ${Y}Enter 1–5, a, h, or q${N}" ;;
+  esac
+
+  read -rp "  Press Enter to return to menu..." _
+done
 PLUGINSCRIPT
 chmod +x /usr/local/bin/ccc-setup-plugins
 
