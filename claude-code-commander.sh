@@ -363,7 +363,20 @@ configure_ha() {
 start_container() {
   info "Starting container $CT_ID ..."
   pct start "$CT_ID"
-  sleep 4
+
+  # HA-managed containers start asynchronously — poll until actually running
+  info "Waiting for container to reach running state ..."
+  local _run_attempts=0
+  while true; do
+    local _state
+    _state=$(pct status "$CT_ID" 2>/dev/null | awk '{print $2}')
+    [[ "$_state" == "running" ]] && break
+    (( _run_attempts++ ))
+    [[ $_run_attempts -lt 60 ]] || error "Container $CT_ID did not reach running state after 120s."
+    sleep 2
+  done
+  success "Container $CT_ID is running."
+  sleep 3
 
   # For static IP ping the gateway first (local reachability), then DNS (internet).
   # For DHCP ping the configured DNS server.
