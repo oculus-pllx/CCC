@@ -10,7 +10,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 
 ## What You Get
 
-- **Ubuntu 26.04 LTS** in a Proxmox LXC container
+- **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** in a Proxmox LXC container
 - **Non-root `claude-code` user** with passwordless sudo
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
 - **Full test stack** — pytest, Jest, Vitest, Playwright (headless Chromium), httpie, nodemon, pm2
@@ -71,9 +71,11 @@ The script is interactive. You'll be prompted for:
 | SSH public key | optional | Installed for claude-code user |
 | High Availability | — | Cluster only — lists HA groups, optional group selection |
 
-Before config prompts, the script checks:
-1. Canonical status API (`status.canonical.com`) — warns on active outages, prompts to abort
-2. Direct reachability of `archive.ubuntu.com` from the Proxmox host — prompts to abort if unreachable
+**OS choice** is the first prompt — Ubuntu 26.04 LTS (default) or Debian 13 (Trixie). Useful fallback when Ubuntu/Canonical is having issues.
+
+After OS selection, the script checks:
+1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
+2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
 Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
@@ -286,7 +288,7 @@ echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
 ```
 
 **Ubuntu infrastructure down**
-Check https://status.canonical.com/ — the script checks this automatically before prompting for config.
+Check https://status.canonical.com/ — the script checks this automatically after OS selection. If Ubuntu is down, re-run and select option 2 (Debian 13) to bypass Canonical entirely.
 
 **HA registration failed**
 Add manually from the Proxmox host:
