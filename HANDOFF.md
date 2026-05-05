@@ -2,13 +2,13 @@
 
 **Repo:** https://github.com/oculus-pllx/CCC  
 **Date:** 2026-05-05  
-**Status:** Iterative live provisions on CT 119 — multiple bugs fixed, final provision in progress.
+**Status:** Active development — iterative live provisions, most bugs fixed. Pending clean end-to-end pass with latest script.
 
 ---
 
 ## What This Is
 
-Single-file Proxmox LXC provisioner. Run on a Proxmox host as root. Interactively collects config, creates an Ubuntu 26.04 container, and provisions it end-to-end in ~10–15 minutes. No Docker. No Ansible. No external state.
+Single-file Proxmox LXC provisioner. Run on a Proxmox host as root. Interactively collects config, creates an Ubuntu 26.04 (or Debian 13) container, and provisions it end-to-end in ~10–15 minutes. No Docker. No Ansible. No external state.
 
 Target audience: homelab operators running Proxmox (especially TrueNAS-backed) who want a clean Claude Code environment without manual setup.
 
@@ -19,38 +19,52 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Area | Status |
 |---|---|
 | Script structure | Complete |
-| README | ✅ Synced to all fixes |
-| Repo pushed | ✅ `main` branch at `oculus-pllx/CCC` |
-| Live provision test | ⚠️ CT 119 — multiple runs, bugs fixed iteratively. Pending clean end-to-end pass. |
-| Static IP / gateway / DNS validation | ✅ All three re-prompt on bad format |
+| README | ✅ Synced |
+| Repo | ✅ `main` at `oculus-pllx/CCC` |
+| Live provision test | ⚠️ Multiple runs on CT 119 — bugs fixed iteratively. Pending clean pass. |
+| Static IP / gateway / DNS validation | ✅ Re-prompt on bad format |
 | Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
-| Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) — no hardcoded IPs |
-| Progress indicators | ✅ `[N/30]` step labels + 30s elapsed ticker on host |
-| IPv6 disabled in container | ✅ sysctl + apt ForceIPv4 at provision start |
-| Ubuntu status pre-check | ✅ Checks status.canonical.com + archive.ubuntu.com before config |
-| Proxmox HA support | ✅ Cluster-only, optional group, non-fatal on failure |
-| Claude binary find | ✅ Broadened to full `/home/claude-code` (excl. node_modules); fatal on miss |
-| pip PATH warnings | ✅ `--no-warn-script-location` added |
-| False "Ready!" on failure | ✅ Claude binary miss now exits 1 — summary never prints |
-| npx install prompt | ✅ `npx --yes` |
-| Skill repo URLs | Unverified — see Risks below |
-| Plugin names | Unverified — see Risks below |
+| Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) |
+| Progress indicators | ✅ `[N/31]` step labels + 30s elapsed ticker |
+| IPv6 disabled | ✅ sysctl + apt ForceIPv4 |
+| Ubuntu status pre-check | ✅ status.canonical.com + archive.ubuntu.com |
+| Debian 13 (Trixie) option | ✅ OS choice at provision start |
+| Proxmox HA support | ✅ Cluster-only, optional group, non-fatal |
+| Claude binary find | ✅ Searches all of `/home/claude-code`, matches symlinks, fatal on miss |
+| pip PATH warnings | ✅ `--no-warn-script-location` |
+| False "Ready!" on failure | ✅ Fatal on Claude miss — summary never prints |
+| npx install prompts | ✅ `npx --yes` everywhere |
+| Playwright | ✅ Skipped at provision — `ccc-install-playwright` on demand |
+| Skill discovery | ✅ Repos cloned to `skill-repos/`, `.md` files copied to `skills/` |
+| statusLine in settings.json | ✅ Wired to `~/.claude/bin/statusline-command.sh` |
+| Cockpit title | ✅ "Claude Code Commander" via `cockpit.conf` |
+| udisks2 noise | ✅ Purged after Cockpit install |
+| ccc-setup-plugins | ✅ Interactive menu — plugins + pre-installed skills |
+| ccc-setup | ✅ Post-install wizard: git identity, SSH keygen, GitHub |
+| ccc-update | ✅ apt + claude update + skill repo sync |
+| ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check |
+| ccc-install-playwright | ✅ On-demand with live output |
+| ccc-install-codex | ✅ OpenAI Codex CLI on demand |
+| code-server WELCOME.md | ✅ Opens in projects/ — first steps, multi-terminal tip |
+| MOTD | ✅ Shows live IPs for :8080/:9090, all ccc-* commands |
+| Skill repo URLs | Unverified — see Risks |
+| Plugin names | Unverified — see Risks |
 
 ---
 
 ## Known Risks / Assumptions
 
-### Skill repos (cloned during provision — `--depth 1`)
-These GitHub URLs are assumed correct but not verified:
-- `github.com/anthropics/skills` → cloned as `anthropic-skills`
-- `github.com/forrestchang/andrej-karpathy-skills` → cloned as `karpathy-skills`
-- `github.com/mattpocock/skills` → cloned as `mattpocock-skills`
-- `github.com/juliusbrussee/caveman` → cloned as `caveman`
+### Skill repos (cloned to `~/.claude/skill-repos/` — `--depth 1`)
+URLs assumed correct, not verified against live GitHub:
+- `github.com/anthropics/skills` → `anthropic-skills`
+- `github.com/forrestchang/andrej-karpathy-skills` → `karpathy-skills`
+- `github.com/mattpocock/skills` → `mattpocock-skills`
+- `github.com/juliusbrussee/caveman` → `caveman`
 
-Script uses `|| echo "[SKIP] ..."` on each clone — provision won't fail if a repo 404s, but the skill won't be available. Verify URLs before promoting to others.
+Each clone uses `|| echo "[SKIP]"` — provision won't fail on 404 but skill won't be available.
 
 ### Plugin names
-These are pasted into a live Claude Code session — not validated at provision time:
+Pasted into live Claude Code session — not validated at provision time:
 ```
 /plugin install skill-creator@claude-plugins-official
 /plugin install superpowers@claude-plugins-official
@@ -58,41 +72,49 @@ These are pasted into a live Claude Code session — not validated at provision 
 /plugin marketplace add mksglu/context-mode
 /plugin marketplace add thedotmack/claude-mem
 ```
-Plugin registry format may change. Update `claude-code-commander.sh` lines 694–714 and README Plugin Setup section if names break.
+Update `ccc-setup-plugins` block in script if registry format changes.
 
 ### Ubuntu 26.04 template
-Script uses `pveam available` regex: `ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst`. If Proxmox changes the naming scheme for 26.04 releases, this regex needs updating (line 57–67 of the script).
+Regex: `ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst`. Update if Proxmox changes naming scheme.
 
 ### `get-shit-done-cc` npm package
-Installed globally via `npx get-shit-done-cc --claude --global`. If package doesn't exist or changes API, it logs a warning and continues — not a blocking failure.
+Installed via `npx --yes get-shit-done-cc --claude --global`. Non-fatal if missing.
 
 ### Storage detection
-Script queries `pvesm status --content rootdir` at config time and lists active pools. Defaults to `local-lvm` if present, else first found. Falls back to `local-lvm` string if query returns nothing. User can override at the prompt.
+Queries `pvesm status --content rootdir`. Defaults to `local-lvm`. Falls back to string `local-lvm` if query returns nothing.
 
 ### Rust installed twice
-Rust is installed once as root (line 321) and again for the `claude-code` user (line 332). Root install is unused — only the user install matters. The root install is harmless but wasted time (~2 min). Consider removing it in a future cleanup.
+Root install (unused) + claude-code user install. Root install wastes ~2 min. Future cleanup candidate.
 
 ---
 
 ## TODOs / Future Work
 
-- [ ] Complete first successful end-to-end provision and document results
-- [ ] Verify all 4 skill repo URLs are live and correct
-- [ ] Verify plugin names against current Claude Code plugin registry
-- [ ] Remove redundant root Rust install (save ~2 min provision time)
-- [x] Add Proxmox VE attribution to README (text link in header)
+- [ ] Complete first clean end-to-end provision with latest script
+- [ ] Verify all 4 skill repo URLs are live
+- [ ] Verify plugin names against current Claude Code registry
+- [ ] Remove redundant root Rust install (~2 min savings)
 - [ ] Add `--non-interactive` / config-file mode for automated provisioning
-- [ ] Consider adding `CHANGELOG.md` once version bumps start
-- [ ] Test storage auto-detection on a standard `local-lvm` Proxmox install
-- [ ] Test SSH key install path with both RSA and ed25519 key files
-- [ ] Validate Playwright headless Chromium works inside unprivileged LXC (known issue area)
+- [ ] Consider `CHANGELOG.md` once version bumps start
+- [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
+- [ ] Test SSH key install with both RSA and ed25519
+- [x] Playwright — moved to on-demand `ccc-install-playwright`
+- [x] Proxmox VE attribution in README
+- [x] Skill discovery fix (copy .md files to skills/)
+- [x] statusLine wired into settings.json
+- [x] Interactive plugin/skill menu
+- [x] Post-install wizard (ccc-setup)
+- [x] Update command (ccc-update)
+- [x] Health check (ccc-doctor)
+- [x] code-server welcome file
+- [x] Codex CLI install (ccc-install-codex)
 
 ---
 
 ## File Map
 
 ```
-claude-code-commander.sh   Main provisioner script (~900 lines, bash)
+claude-code-commander.sh   Main provisioner (~1200 lines, bash)
 README.md                  User-facing docs
 HANDOFF.md                 This file — project status and context
 .gitignore                 Excludes Windows Zone.Identifier files
@@ -106,36 +128,48 @@ HANDOFF.md                 This file — project status and context
 |---|---|
 | Colors / helpers | Top of file |
 | `preflight()` | root + pct/pveam/pvesh check |
-| `check_ubuntu_connectivity()` | Canonical status API + archive.ubuntu.com curl |
-| `get_config()` | All interactive prompts incl. HA detection |
+| `check_apt_connectivity()` | Canonical status API + mirror reachability |
+| `get_config()` | All interactive prompts incl. OS choice, HA detection |
 | `get_template()` | pveam download if needed |
 | `create_container()` | pct create |
-| `configure_ha()` | ha-manager add (cluster only, skipped on single node) |
-| `start_container()` | pct start + gateway ping + internet check |
+| `configure_ha()` | ha-manager add (cluster only) |
+| `start_container()` | pct start + gateway ping |
 | `provision_container()` | Heredoc push + pct exec, elapsed timer |
-| `print_summary()` | Final ready box |
+| `print_summary()` | Final ready box (only prints on full success) |
 | `main()` | Wires all above in order |
 
-### Inside the provision heredoc (notable blocks)
-| Block | Approx lines |
+### Inside the provision heredoc (31 steps)
+
+| Step | Block |
 |---|---|
-| Locale / timezone | 218–230 |
-| Core apt packages | 236–251 |
-| Node.js 22 LTS + global npm | 288–307 |
-| Go install | 310–317 |
-| Rust (user) | 330–335 |
-| Python pip ecosystem | 337–344 |
-| Claude Code install + symlink | 346–360 |
-| Playwright | 362–368 |
-| `settings.json` (all perms, agent teams, 64k) | 370–403 |
-| `CLAUDE.md` | 405–475 |
-| Skill repo clones | 477–498 |
-| Statusline script | 500–561 |
-| code-server install + enable | 564–572 |
-| SSH hardening | 574–583 |
-| `.bashrc` (aliases, `ccc` function) | 585–689 |
-| `ccc-setup-plugins` script | 694–714 |
-| MOTD | 716–729 |
-| Git defaults | 731–736 |
-| Auto-update cron (Sundays 3 AM ET) | 738–755 |
-| Cleanup | 757–766 |
+| 1 | Locale / timezone |
+| 2 | System update |
+| 3 | Core apt packages |
+| 4 | Build tools & dev libraries |
+| 5 | Search & productivity tools |
+| 6 | Database clients |
+| 7 | yq (mikefarah Go binary) |
+| 8 | Node.js 22 LTS |
+| 9 | Global npm packages |
+| 10 | get-shit-done-cc |
+| 11 | Go |
+| 12 | Rust (system) |
+| 13 | Create claude-code user |
+| 14 | Rust (claude-code user) |
+| 15 | Python ecosystem |
+| 16 | Claude Code install + symlink (fatal on miss) |
+| 17 | Playwright (skipped — ccc-install-playwright) |
+| 18 | settings.json (all perms, statusLine, agent teams, 64k) |
+| 19 | CLAUDE.md |
+| 20 | Skill repos → skill-repos/ + copy .md to skills/ |
+| 21 | Statusline script |
+| 22 | code-server + WELCOME.md + .vscode workspace |
+| 23 | SSH hardening |
+| 24 | Shell environment + aliases + ccc function |
+| 25 | ccc-setup-plugins (interactive menu) |
+| 26 | ccc-install-playwright |
+| 27 | MOTD (live IPs, all ccc-* commands) |
+| 28 | Git defaults |
+| 29 | Auto-update cron (Sundays 3 AM ET) |
+| 30 | Cockpit + cockpit.conf + purge udisks2 |
+| 31 | Cleanup |

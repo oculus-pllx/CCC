@@ -15,11 +15,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** in a Proxmox LXC container
 - **Non-root `claude-code` user** with passwordless sudo
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
-- **Full test stack** — pytest, Jest, Vitest, httpie, nodemon, pm2 (Playwright installed manually post-provision)
-- **Claude Code** native install, all tools pre-approved, zero permission prompts
-- **4 skill repos** pre-cloned (Anthropic, Karpathy, Pocock, Caveman)
-- **code-server** (web VS Code) on port 8080 via native systemd
-- **Cockpit** on port 9090 — system monitoring (CPU/RAM/disk/network), file manager with upload/download, browser terminal
+- **Full test stack** — pytest, Jest, Vitest, httpie, nodemon, pm2
+- **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
+- **4 skill repos** pre-cloned and auto-discovered (Anthropic, Karpathy, Pocock, Caveman)
+- **Interactive plugin menu** — `ccc-setup-plugins` with install instructions for all plugins and skills
+- **Post-install wizard** — `ccc-setup` for git identity, SSH keygen, GitHub
+- **Update command** — `ccc-update` syncs packages, Claude Code, and skill repos
+- **Health check** — `ccc-doctor` checks network, runtimes, services, disk
+- **code-server** (web VS Code) on port 8080 — multi-terminal tabs, file editor, welcome guide
+- **Cockpit** on port 9090 — system monitoring, file manager with upload/download, browser terminal
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
@@ -158,13 +162,17 @@ Run `ccc-setup-plugins` at any time to reprint these.
 - Remote control enabled
 - Config at `~/.claude/settings.json`
 
-### Skills (pre-cloned at `~/.claude/skills/`)
+### Skills (pre-cloned, auto-discovered)
+Repos cloned to `~/.claude/skill-repos/`. Skill `.md` files copied to `~/.claude/skills/` so Claude Code discovers them automatically via `/skills`.
+
 | Repo | Source |
 |---|---|
 | `anthropic-skills` | github.com/anthropics/skills |
 | `karpathy-skills` | github.com/forrestchang/andrej-karpathy-skills |
 | `mattpocock-skills` | github.com/mattpocock/skills |
 | `caveman` | github.com/juliusbrussee/caveman |
+
+Run `ccc-update` to pull latest from all repos and re-sync skill files.
 
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
@@ -178,11 +186,11 @@ The `ccc` command prints the full reference. Quick shortcuts:
 ```bash
 # Maintenance
 ccc-setup              # post-install wizard: git identity, SSH key, GitHub
-ccc-update             # update system packages + Claude Code
+ccc-update             # update packages + Claude Code + skill repos
 ccc-doctor             # health check: network, runtimes, services, disk
-ccc-setup-plugins      # print plugin slash-commands
-ccc-install-playwright # install Playwright + headless Chromium
-ccc-install-codex      # install OpenAI Codex CLI
+ccc-setup-plugins      # interactive plugin & skill menu
+ccc-install-playwright # install Playwright + headless Chromium (optional)
+ccc-install-codex      # install OpenAI Codex CLI (optional)
 
 # Git
 gs    # git status
