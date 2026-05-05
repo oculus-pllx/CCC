@@ -115,7 +115,7 @@ get_config() {
   # ── OS selection ─────────────────────────────────────────────────────────────
   echo "  OS options:"
   echo "    1) Ubuntu 26.04 LTS  (default)"
-  echo "    2) Debian 12 (Bookworm)"
+  echo "    2) Debian 13 (Trixie)"
   echo ""
   read -rp "OS [1]: " _os_choice
   _os_choice="${_os_choice:-1}"
@@ -124,8 +124,8 @@ get_config() {
     2)
       CT_OS="debian"
       CT_OSTYPE="debian"
-      _tmpl_pattern='^debian-12-standard_12\.[0-9]+-[0-9]+_amd64\.tar\.zst$'
-      _tmpl_label="Debian 12"
+      _tmpl_pattern='^debian-13-standard_13\.[0-9]+-[0-9]+_amd64\.tar\.zst$'
+      _tmpl_label="Debian 13 (Trixie)"
       ;;
     *)
       CT_OS="ubuntu"
