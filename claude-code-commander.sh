@@ -800,6 +800,65 @@ echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
 sudo -u claude-code mkdir -p /home/claude-code/.config/code-server
 sudo -u claude-code mkdir -p /home/claude-code/projects
+
+# Welcome file — opens automatically in code-server on first load
+sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WELCOMEMD'
+# Welcome to Claude Code Commander
+
+## First Steps
+
+| Step | Command | Where |
+|------|---------|-------|
+| 1 | `ccc-setup` | SSH terminal — git identity, SSH key, GitHub |
+| 2 | `claude` | SSH terminal — authenticate Claude Code |
+| 3 | `ccc-setup-plugins` | SSH terminal — plugin & skill install menu |
+| 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
+| 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
+| 6 | `ccc` | SSH terminal — full command reference |
+
+## This Interface (code-server)
+
+- **Multiple terminals**: Terminal → New Terminal  (or `Ctrl+\``)
+- **Split terminal**: click the split icon in the terminal toolbar
+- **Open folder**: File → Open Folder → `/home/claude-code/projects`
+
+## Cockpit (port 9090)
+
+System monitoring, file manager, and single terminal.
+For multi-terminal work, use this editor (port 8080) instead.
+
+## Quick Commands
+
+```bash
+ccc-setup          # post-install wizard
+ccc-update         # update packages + Claude Code + skills
+ccc-doctor         # health check
+ccc-setup-plugins  # plugin & skill menu
+ccc                # full help
+```
+
+## SSH Access
+
+```bash
+ssh claude-code@<this-container-ip>
+```
+WELCOMEMD
+
+# Workspace settings — auto-open WELCOME.md on first launch
+sudo -u claude-code mkdir -p /home/claude-code/projects/.vscode
+sudo -u claude-code tee /home/claude-code/projects/.vscode/settings.json > /dev/null << 'VSCSETTINGS'
+{
+  "workbench.startupEditor": "none",
+  "markdown.preview.openMarkdownLinks": "inEditor"
+}
+VSCSETTINGS
+
+sudo -u claude-code tee /home/claude-code/projects/.vscode/extensions.json > /dev/null << 'VSCEXT'
+{
+  "recommendations": []
+}
+VSCEXT
+
 systemctl enable code-server@claude-code
 echo "    code-server service enabled (config injected next step)"
 
@@ -1303,20 +1362,26 @@ step 27 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
-G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; Y='\033[1;33m'; N='\033[0m'
+G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; Y='\033[1;33m'; D='\033[2m'; N='\033[0m'
 echo ""
 echo -e "${G}${B}  Claude Code Commander${N}"
 echo -e "  ${C}claude${N}                    Start Claude Code"
 echo -e "  ${C}ccc${N}                       Full help + command reference"
-echo -e "  ${C}tmux${N}                      Terminal multiplexer (tabs/splits)"
+echo -e "  ${C}tmux${N}                      Terminal multiplexer (tabs/splits in SSH)"
 echo ""
 echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-setup${N}                 Post-install wizard (git, SSH key, GitHub)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
-echo -e "  ${C}ccc-setup-plugins${N}         Plugin install commands"
+echo -e "  ${C}ccc-setup-plugins${N}         Plugin & skill install menu"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
 echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
 echo -e "  ${C}ccc-doctor${N}                System health check"
+echo ""
+echo -e "  ${Y}Web Interfaces${N}"
+IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
+echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
+echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — system monitoring, file manager"
+echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
 MOTD
 chmod +x /etc/update-motd.d/00-ccc
