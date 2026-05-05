@@ -571,7 +571,8 @@ if [[ -n "$CLAUDE_BIN" ]]; then
   ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
   echo "    Claude Code: $CLAUDE_BIN"
 else
-  echo "    [WARN] Claude binary not found — symlink skipped."
+  echo "[ERROR] Claude binary not found after install — provision failed."
+  exit 1
 fi
 
 # ── Playwright (headless browser testing) ────────────────────────────────────
@@ -986,7 +987,7 @@ rm -rf /var/lib/apt/lists/*
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
-echo "║          Base provisioning complete              ║"
+echo "║       Container provisioning script done         ║"
 echo "╚══════════════════════════════════════════════════╝"
 PROVISION_EOF
 
