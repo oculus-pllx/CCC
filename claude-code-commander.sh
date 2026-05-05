@@ -1414,8 +1414,7 @@ rm -f "$TMP"
 
 echo ""
 echo -e "${C}[3/3]${N} Applying updates..."
-# Strip the step() calls (cosmetic only) and run as root
-echo "$UPDATE_SCRIPT" | sed 's/^step [0-9]* .*//' | sudo bash
+(echo 'step() { echo "  >>> $2"; }'; echo "$UPDATE_SCRIPT") | sudo bash
 STATUS=$?
 
 echo ""
