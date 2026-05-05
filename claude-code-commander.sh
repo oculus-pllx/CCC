@@ -864,6 +864,7 @@ ccc() {
   echo -e "    ${C}claude --version${N}          Check version"
   echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude"
   echo -e "    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
+  echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
   echo ""
   echo -e "  ${B}MAINTENANCE${N}"
   echo -e "    ${C}ccc-setup${N}                 Post-install wizard (git identity, SSH key, GitHub)"
@@ -1264,6 +1265,39 @@ echo ""
 PWSCRIPT
 chmod +x /usr/local/bin/ccc-install-playwright
 
+# ── ccc-install-codex ─────────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-install-codex << 'CODEXSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+echo ""
+echo -e "${B}Installing OpenAI Codex CLI${N}"
+echo ""
+
+echo -e "${C}[1/2]${N} Installing @openai/codex..."
+npm install -g @openai/codex
+STATUS=$?
+
+if [[ $STATUS -ne 0 ]]; then
+  echo ""
+  echo -e "${R}Codex install failed (exit $STATUS).${N}"
+  echo -e "  Retry: ${C}ccc-install-codex${N}"
+  exit 1
+fi
+
+echo ""
+echo -e "${C}[2/2]${N} Setup"
+echo ""
+echo -e "${G}${B}Codex installed.${N}"
+echo ""
+echo -e "${Y}To use Codex you need an OpenAI API key:${N}"
+echo -e "  1. Get a key at ${C}https://platform.openai.com/api-keys${N}"
+echo -e "  2. Add to your shell:"
+echo -e "     ${C}echo 'export OPENAI_API_KEY=\"sk-...\"' >> ~/.bashrc && source ~/.bashrc${N}"
+echo -e "  3. Run: ${C}codex${N}"
+echo ""
+CODEXSCRIPT
+chmod +x /usr/local/bin/ccc-install-codex
+
 # ── MOTD ─────────────────────────────────────────────────────────────────────
 step 27 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
@@ -1281,6 +1315,7 @@ echo -e "  ${C}ccc-setup${N}                 Post-install wizard (git, SSH key, 
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-setup-plugins${N}         Plugin install commands"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
+echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
 echo -e "  ${C}ccc-doctor${N}                System health check"
 echo ""
 MOTD

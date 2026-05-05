@@ -182,6 +182,7 @@ ccc-update             # update system packages + Claude Code
 ccc-doctor             # health check: network, runtimes, services, disk
 ccc-setup-plugins      # print plugin slash-commands
 ccc-install-playwright # install Playwright + headless Chromium
+ccc-install-codex      # install OpenAI Codex CLI
 
 # Git
 gs    # git status
