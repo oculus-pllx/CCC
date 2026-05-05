@@ -186,6 +186,7 @@ The `ccc` command prints the full reference. Quick shortcuts:
 ```bash
 # Maintenance
 ccc-setup              # post-install wizard: git identity, SSH key, GitHub
+ccc-self-update        # pull latest ccc-* tools from GitHub (no reprovision needed)
 ccc-update             # update packages + Claude Code + skill repos
 ccc-doctor             # health check: network, runtimes, services, disk
 ccc-setup-plugins      # interactive plugin & skill menu

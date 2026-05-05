@@ -927,6 +927,7 @@ ccc() {
   echo ""
   echo -e "  ${B}MAINTENANCE${N}"
   echo -e "    ${C}ccc-setup${N}                 Post-install wizard (git identity, SSH key, GitHub)"
+  echo -e "    ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
   echo -e "    ${C}ccc-update${N}                Update system packages + Claude Code"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
   echo ""
@@ -988,6 +989,7 @@ BASHRC
 
 chown claude-code:claude-code /home/claude-code/.bashrc
 
+# CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 # ── ccc-setup-plugins (standalone script) ────────────────────────────────────
 step 25 "ccc-setup-plugins script"
 cat > /usr/local/bin/ccc-setup-plugins << 'PLUGINSCRIPT'
@@ -1357,6 +1359,53 @@ echo ""
 CODEXSCRIPT
 chmod +x /usr/local/bin/ccc-install-codex
 
+# ── ccc-self-update ───────────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-self-update << 'SELFUPDATESCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+REPO_URL="https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh"
+TMP="/tmp/ccc-provisioner-$$.sh"
+
+echo ""
+echo -e "${B}CCC Self-Update${N}"
+echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and skill sync.${N}"
+echo -e "${Y}Does NOT re-run apt installs, Node/Go/Rust, or user creation.${N}"
+echo ""
+
+echo -e "${C}[1/3]${N} Downloading latest provisioner..."
+if ! curl -fsSL "$REPO_URL" -o "$TMP"; then
+  echo -e "${R}Download failed. Check internet: ccc-doctor${N}"
+  exit 1
+fi
+echo -e "  Downloaded $(wc -l < "$TMP") lines"
+
+echo ""
+echo -e "${C}[2/3]${N} Extracting updateable sections..."
+UPDATE_SCRIPT=$(awk '/# CCC_UPDATEABLE_START/,/# CCC_UPDATEABLE_END/' "$TMP")
+if [[ -z "$UPDATE_SCRIPT" ]]; then
+  echo -e "${R}Could not find update markers in provisioner. Repo may be outdated.${N}"
+  rm -f "$TMP"
+  exit 1
+fi
+rm -f "$TMP"
+
+echo ""
+echo -e "${C}[3/3]${N} Applying updates..."
+# Strip the step() calls (cosmetic only) and run as root
+echo "$UPDATE_SCRIPT" | sed 's/^step [0-9]* .*//' | bash
+STATUS=$?
+
+echo ""
+if [[ $STATUS -eq 0 ]]; then
+  echo -e "${G}${B}Self-update complete.${N}"
+  echo -e "  ccc-* commands, MOTD, and skill sync updated to latest."
+else
+  echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
+fi
+echo ""
+SELFUPDATESCRIPT
+chmod +x /usr/local/bin/ccc-self-update
+
 # ── MOTD ─────────────────────────────────────────────────────────────────────
 step 27 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
@@ -1371,6 +1420,7 @@ echo -e "  ${C}tmux${N}                      Terminal multiplexer (tabs/splits i
 echo ""
 echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-setup${N}                 Post-install wizard (git, SSH key, GitHub)"
+echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-setup-plugins${N}         Plugin & skill install menu"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
@@ -1385,6 +1435,8 @@ echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New T
 echo ""
 MOTD
 chmod +x /etc/update-motd.d/00-ccc
+
+# CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
 step 28 "Git defaults"
