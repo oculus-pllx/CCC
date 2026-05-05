@@ -581,7 +581,7 @@ DEBIAN_FRONTEND=noninteractive sudo -u claude-code bash -c '
   export HOME=/home/claude-code
   export DEBIAN_FRONTEND=noninteractive
   export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
-  npx playwright install --with-deps chromium
+  npx --yes playwright install --with-deps chromium
 ' || echo "    [WARN] Playwright had errors — run: npx playwright install --with-deps chromium"
 
 # ── Claude Code settings.json ─────────────────────────────────────────────────
