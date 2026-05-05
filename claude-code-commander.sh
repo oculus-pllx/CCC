@@ -1536,17 +1536,17 @@ PROVISION_EOF
   pct exec "$CT_ID" -- bash -c "echo '${CC_USER}:${CC_PASSWORD}' | chpasswd"
 
   pct exec "$CT_ID" -- bash -c "
-    sudo -u claude-code mkdir -p /home/claude-code/.config/code-server
-    cat > /home/claude-code/.config/code-server/config.yaml << 'YAML'
+    sudo -u ${CC_USER} mkdir -p /home/${CC_USER}/.config/code-server
+    cat > /home/${CC_USER}/.config/code-server/config.yaml << YAML
 bind-addr: 0.0.0.0:8080
 auth: password
 password: ${CS_PASSWORD}
 cert: false
-user-data-dir: /home/claude-code/.local/share/code-server
-extensions-dir: /home/claude-code/.local/share/code-server/extensions
+user-data-dir: /home/${CC_USER}/.local/share/code-server
+extensions-dir: /home/${CC_USER}/.local/share/code-server/extensions
 socket-timeout: 0
 YAML
-    chown -R claude-code:claude-code /home/claude-code/.config/code-server
+    chown -R ${CC_USER}:${CC_USER} /home/${CC_USER}/.config/code-server
   "
 
   # ── code-server extensions ────────────────────────────────────────────────
