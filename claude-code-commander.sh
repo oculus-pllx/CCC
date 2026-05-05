@@ -690,9 +690,12 @@ Run `ccc-setup-plugins` in shell, then paste into Claude session:
 CLAUDEMD
 
 # ── Skill repos ───────────────────────────────────────────────────────────────
+# Clone repos to skill-repos/ (full repo kept for git pull updates).
+# Copy all .md files up to skills/ so Claude Code discovers them directly.
 step 20 "Skill repos"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
-cd /home/claude-code/.claude/skills
+sudo -u claude-code mkdir -p /home/claude-code/.claude/skill-repos
+cd /home/claude-code/.claude/skill-repos
 
 sudo -u claude-code git clone --depth 1 \
   https://github.com/anthropics/skills.git anthropic-skills 2>/dev/null \
@@ -709,6 +712,20 @@ sudo -u claude-code git clone --depth 1 \
 sudo -u claude-code git clone --depth 1 \
   https://github.com/juliusbrussee/caveman.git caveman 2>/dev/null \
   || echo "    [SKIP] caveman"
+
+# Copy all .md skill files to ~/.claude/skills/ so Claude Code discovers them
+find /home/claude-code/.claude/skill-repos -name "*.md" \
+  ! -name "README.md" ! -name "CHANGELOG.md" ! -name "LICENSE.md" \
+  | while read -r f; do
+    dest="/home/claude-code/.claude/skills/$(basename "$f")"
+    # Prefix with repo name if filename collision
+    repo=$(echo "$f" | awk -F'skill-repos/' '{print $2}' | cut -d'/' -f1)
+    [[ -f "$dest" ]] && dest="/home/claude-code/.claude/skills/${repo}-$(basename "$f")"
+    sudo -u claude-code cp "$f" "$dest"
+  done
+
+skill_count=$(find /home/claude-code/.claude/skills -maxdepth 1 -name "*.md" | wc -l)
+echo "    $skill_count skill files installed to ~/.claude/skills/"
 
 cd /root
 
@@ -1084,11 +1101,35 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; N='\033[0m'
 echo ""
 echo -e "${B}CCC Update${N}"
 echo ""
-echo -e "${C}[1/2]${N} System packages..."
+echo -e "${C}[1/3]${N} System packages..."
 sudo apt-get update -qq && sudo apt-get upgrade -y
 echo ""
-echo -e "${C}[2/2]${N} Claude Code..."
+echo -e "${C}[2/3]${N} Claude Code..."
 claude update
+echo ""
+echo -e "${C}[3/3]${N} Skill repos..."
+SKILL_REPOS="$HOME/.claude/skill-repos"
+SKILLS_DIR="$HOME/.claude/skills"
+if [[ -d "$SKILL_REPOS" ]]; then
+  for repo in "$SKILL_REPOS"/*/; do
+    [[ -d "$repo/.git" ]] || continue
+    name=$(basename "$repo")
+    printf "    pulling %s... " "$name"
+    git -C "$repo" pull -q 2>/dev/null && echo "done" || echo "skipped"
+  done
+  # Re-sync .md files
+  find "$SKILL_REPOS" -name "*.md" \
+    ! -name "README.md" ! -name "CHANGELOG.md" ! -name "LICENSE.md" \
+    | while read -r f; do
+      dest="$SKILLS_DIR/$(basename "$f")"
+      repo=$(echo "$f" | awk -F'skill-repos/' '{print $2}' | cut -d'/' -f1)
+      [[ -f "$dest" ]] && dest="$SKILLS_DIR/${repo}-$(basename "$f")"
+      cp "$f" "$dest" 2>/dev/null || true
+    done
+  echo "    skills synced"
+else
+  echo "    no skill-repos dir found — skipping"
+fi
 echo ""
 echo -e "${G}${B}Update complete.${N}"
 echo ""
