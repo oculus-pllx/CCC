@@ -394,20 +394,7 @@ start_container() {
     [[ $attempts -lt 30 ]] || error "Network timeout after 60s — check gateway/DNS: ${_ping_target}"
     sleep 2
   done
-  success "Container is online (local)."
-
-  # Verify actual internet — LXC containers often have local routing but no IPv6/internet
-  info "Verifying internet access (archive.ubuntu.com) ..."
-  attempts=0
-  while ! pct exec "$CT_ID" -- curl -fsSL --max-time 5 --ipv4 \
-      "http://archive.ubuntu.com" &>/dev/null; do
-    attempts=$(( attempts + 1 ))
-    if [[ $attempts -ge 10 ]]; then
-      error "Container cannot reach archive.ubuntu.com — check router/firewall or gateway ${_ping_target}"
-    fi
-    sleep 3
-  done
-  success "Internet access confirmed."
+  success "Container is online."
 }
 
 # ── Provision Container ───────────────────────────────────────────────────────
