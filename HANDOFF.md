@@ -1,8 +1,8 @@
 # CCC Handoff / Status
 
 **Repo:** https://github.com/oculus-pllx/CCC  
-**Date:** 2026-05-04  
-**Status:** First live provision failed (CT 119 — IPv6/apt issue, fixed). Re-provisioning.
+**Date:** 2026-05-05  
+**Status:** Iterative live provisions on CT 119 — multiple bugs fixed, final provision in progress.
 
 ---
 
@@ -21,14 +21,18 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Script structure | Complete |
 | README | ✅ Synced to all fixes |
 | Repo pushed | ✅ `main` branch at `oculus-pllx/CCC` |
-| Live provision test | ❌ CT 119 failed (IPv6/apt), destroyed. Re-running with fixes. |
+| Live provision test | ⚠️ CT 119 — multiple runs, bugs fixed iteratively. Pending clean end-to-end pass. |
 | Static IP / gateway / DNS validation | ✅ All three re-prompt on bad format |
 | Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
 | Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) — no hardcoded IPs |
-| Progress indicators | ✅ `[N/29]` step labels + 30s elapsed ticker on host |
+| Progress indicators | ✅ `[N/30]` step labels + 30s elapsed ticker on host |
 | IPv6 disabled in container | ✅ sysctl + apt ForceIPv4 at provision start |
 | Ubuntu status pre-check | ✅ Checks status.canonical.com + archive.ubuntu.com before config |
 | Proxmox HA support | ✅ Cluster-only, optional group, non-fatal on failure |
+| Claude binary find | ✅ Broadened to full `/home/claude-code` (excl. node_modules); fatal on miss |
+| pip PATH warnings | ✅ `--no-warn-script-location` added |
+| False "Ready!" on failure | ✅ Claude binary miss now exits 1 — summary never prints |
+| npx install prompt | ✅ `npx --yes` |
 | Skill repo URLs | Unverified — see Risks below |
 | Plugin names | Unverified — see Risks below |
 
@@ -76,6 +80,7 @@ Rust is installed once as root (line 321) and again for the `claude-code` user (
 - [ ] Verify all 4 skill repo URLs are live and correct
 - [ ] Verify plugin names against current Claude Code plugin registry
 - [ ] Remove redundant root Rust install (save ~2 min provision time)
+- [x] Add Proxmox VE attribution to README (text link in header)
 - [ ] Add `--non-interactive` / config-file mode for automated provisioning
 - [ ] Consider adding `CHANGELOG.md` once version bumps start
 - [ ] Test storage auto-detection on a standard `local-lvm` Proxmox install

@@ -2,6 +2,8 @@
 
 A Proxmox LXC provisioner that creates a lean, production-ready **Ubuntu 26.04** container for agentic coding with Claude Code. No Docker. No bloat. Everything pre-installed and pre-approved at provision time.
 
+> Built on [Proxmox Virtual Environment](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — open-source server virtualization platform.
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
 ```
