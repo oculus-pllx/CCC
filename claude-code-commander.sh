@@ -1558,7 +1558,6 @@ password: ${CS_PASSWORD}
 cert: false
 user-data-dir: /home/${CC_USER}/.local/share/code-server
 extensions-dir: /home/${CC_USER}/.local/share/code-server/extensions
-socket-timeout: 0
 YAML
     chown -R ${CC_USER}:${CC_USER} /home/${CC_USER}/.config/code-server
   "
