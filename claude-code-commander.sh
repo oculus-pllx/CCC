@@ -455,7 +455,7 @@ apt-get upgrade -y -qq
 step 3 "Core packages"
 apt-get install -y -qq \
   git curl wget unzip zip \
-  ca-certificates gnupg lsb-release apt-transport-https software-properties-common \
+  ca-certificates gnupg lsb-release apt-transport-https \
   bash-completion \
   htop nano vim tmux screen \
   jq tree \
@@ -920,9 +920,10 @@ alias ga="git add -A"
 alias gc="git commit -m"
 alias gp="git push"
 
-# Aliases — Ubuntu binary naming (batcat/fdfind are the Ubuntu binary names)
-command -v batcat  &>/dev/null && alias cat='batcat'
-command -v fdfind  &>/dev/null && alias fd='fdfind'
+# bat/fd have different binary names on Ubuntu vs Debian
+command -v batcat &>/dev/null && alias bat='batcat'
+command -v bat    &>/dev/null && alias cat='bat'
+command -v fdfind &>/dev/null && alias fd='fdfind'
 
 # Aliases — dev
 alias pytest="python3 -m pytest"
