@@ -1492,9 +1492,9 @@ LOGROTATE
 
 # ── Cockpit (web admin UI) ────────────────────────────────────────────────────
 step 30 "Cockpit (web admin UI)"
-apt-get install -y -qq cockpit
-apt-get install -y -qq cockpit-files 2>/dev/null || true
-apt-get purge -y -qq udisks2 2>/dev/null || true
+apt-get install -y cockpit > /dev/null 2>&1
+apt-get install -y cockpit-files > /dev/null 2>&1 || true
+apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
 mkdir -p /etc/cockpit
 cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
 [WebService]
