@@ -565,7 +565,7 @@ sudo -u claude-code bash -c '
   curl -fsSL https://claude.ai/install.sh | bash
 '
 
-CLAUDE_BIN=$(find /home/claude-code -name "claude" -type f 2>/dev/null \
+CLAUDE_BIN=$(find /home/claude-code -name "claude" \( -type f -o -type l \) 2>/dev/null \
   | grep -v node_modules | head -1 || true)
 if [[ -n "$CLAUDE_BIN" ]]; then
   ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
