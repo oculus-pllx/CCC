@@ -78,7 +78,7 @@ After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
-Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+Provisioning takes **10–15 minutes**. Each of the 30 steps prints `[N/30]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
@@ -298,6 +298,13 @@ Add manually from the Proxmox host:
 ```bash
 ha-manager add ct:<CT_ID> --state started --group <group>
 ```
+
+**Cockpit not loading (port 9090)**
+```bash
+pct exec <CT_ID> -- systemctl status cockpit.socket
+pct exec <CT_ID> -- systemctl restart cockpit.socket
+```
+Cockpit uses a self-signed cert — accept the browser security warning on first load. Login with `claude-code` user credentials.
 
 ---
 
