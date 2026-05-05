@@ -1403,7 +1403,8 @@ echo -e "  Downloaded $(wc -l < "$TMP") lines"
 
 echo ""
 echo -e "${C}[2/3]${N} Extracting updateable sections..."
-UPDATE_SCRIPT=$(awk '/# CCC_UPDATEABLE_START/,/# CCC_UPDATEABLE_END/' "$TMP")
+_S="CCC_UPDATEABLE_START"; _E="CCC_UPDATEABLE_END"
+UPDATE_SCRIPT=$(awk "/# $_S/,/# $_E/" "$TMP")
 if [[ -z "$UPDATE_SCRIPT" ]]; then
   echo -e "${R}Could not find update markers in provisioner. Repo may be outdated.${N}"
   rm -f "$TMP"
