@@ -362,16 +362,16 @@ configure_ha() {
 # ── Start & Wait for Network ──────────────────────────────────────────────────
 start_container() {
   info "Starting container $CT_ID ..."
-  pct start "$CT_ID"
+  pct start "$CT_ID" || true  # HA-managed start returns non-zero (async request)
 
-  # HA-managed containers start asynchronously — poll until actually running
+  # Poll until actually running — needed for both HA and non-HA
   info "Waiting for container to reach running state ..."
   local _run_attempts=0
   while true; do
     local _state
     _state=$(pct status "$CT_ID" 2>/dev/null | awk '{print $2}')
     [[ "$_state" == "running" ]] && break
-    (( _run_attempts++ ))
+    _run_attempts=$(( _run_attempts + 1 ))
     [[ $_run_attempts -lt 60 ]] || error "Container $CT_ID did not reach running state after 120s."
     sleep 2
   done
@@ -390,7 +390,7 @@ start_container() {
   info "Waiting for network (pinging ${_ping_target}) ..."
   local attempts=0
   while ! pct exec "$CT_ID" -- ping -c1 -W2 "$_ping_target" &>/dev/null; do
-    (( attempts++ ))
+    attempts=$(( attempts + 1 ))
     [[ $attempts -lt 30 ]] || error "Network timeout after 60s — check gateway/DNS: ${_ping_target}"
     sleep 2
   done
@@ -401,7 +401,7 @@ start_container() {
   attempts=0
   while ! pct exec "$CT_ID" -- curl -fsSL --max-time 5 --ipv4 \
       "http://archive.ubuntu.com" &>/dev/null; do
-    (( attempts++ ))
+    attempts=$(( attempts + 1 ))
     if [[ $attempts -ge 10 ]]; then
       error "Container cannot reach archive.ubuntu.com — check router/firewall or gateway ${_ping_target}"
     fi
