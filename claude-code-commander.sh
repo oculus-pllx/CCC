@@ -713,15 +713,30 @@ sudo -u claude-code git clone --depth 1 \
   https://github.com/juliusbrussee/caveman.git caveman 2>/dev/null \
   || echo "    [SKIP] caveman"
 
-# Copy all .md skill files to ~/.claude/skills/ so Claude Code discovers them
+# Copy .md skill files to ~/.claude/skills/ and inject frontmatter if missing
 find /home/claude-code/.claude/skill-repos -name "*.md" \
   ! -name "README.md" ! -name "CHANGELOG.md" ! -name "LICENSE.md" \
+  ! -name "THIRD_PARTY_NOTICES.md" ! -name "SECURITY.md" ! -name "CONTRIBUTING.md" \
   | while read -r f; do
-    dest="/home/claude-code/.claude/skills/$(basename "$f")"
-    # Prefix with repo name if filename collision
+    base=$(basename "$f" .md)
     repo=$(echo "$f" | awk -F'skill-repos/' '{print $2}' | cut -d'/' -f1)
-    [[ -f "$dest" ]] && dest="/home/claude-code/.claude/skills/${repo}-$(basename "$f")"
-    sudo -u claude-code cp "$f" "$dest"
+    dest="/home/claude-code/.claude/skills/${repo}-${base}.md"
+
+    # Inject frontmatter if file doesn't already have it
+    if head -1 "$f" | grep -q '^---'; then
+      sudo -u claude-code cp "$f" "$dest"
+    else
+      # Derive description from first non-empty line of content
+      desc=$(grep -m1 -v '^\s*$' "$f" | sed 's/^#\+\s*//' | cut -c1-80)
+      [[ -z "$desc" ]] && desc="$base skill"
+      sudo -u claude-code bash -c "cat > '$dest' << 'FRONTMATTER'
+---
+name: $base
+description: $desc
+---
+FRONTMATTER
+cat '$f' >> '$dest'"
+    fi
   done
 
 skill_count=$(find /home/claude-code/.claude/skills -maxdepth 1 -name "*.md" | wc -l)
@@ -1179,14 +1194,21 @@ if [[ -d "$SKILL_REPOS" ]]; then
     printf "    pulling %s... " "$name"
     git -C "$repo" pull -q 2>/dev/null && echo "done" || echo "skipped"
   done
-  # Re-sync .md files
+  # Re-sync .md files with frontmatter injection
   find "$SKILL_REPOS" -name "*.md" \
     ! -name "README.md" ! -name "CHANGELOG.md" ! -name "LICENSE.md" \
+    ! -name "THIRD_PARTY_NOTICES.md" ! -name "SECURITY.md" ! -name "CONTRIBUTING.md" \
     | while read -r f; do
-      dest="$SKILLS_DIR/$(basename "$f")"
+      base=$(basename "$f" .md)
       repo=$(echo "$f" | awk -F'skill-repos/' '{print $2}' | cut -d'/' -f1)
-      [[ -f "$dest" ]] && dest="$SKILLS_DIR/${repo}-$(basename "$f")"
-      cp "$f" "$dest" 2>/dev/null || true
+      dest="$SKILLS_DIR/${repo}-${base}.md"
+      if head -1 "$f" | grep -q '^---'; then
+        cp "$f" "$dest" 2>/dev/null || true
+      else
+        desc=$(grep -m1 -v '^\s*$' "$f" | sed 's/^#\+\s*//' | cut -c1-80)
+        [[ -z "$desc" ]] && desc="$base skill"
+        { printf -- '---\nname: %s\ndescription: %s\n---\n' "$base" "$desc"; cat "$f"; } > "$dest" 2>/dev/null || true
+      fi
     done
   echo "    skills synced"
 else
