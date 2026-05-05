@@ -15,7 +15,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** in a Proxmox LXC container
 - **Non-root `claude-code` user** with passwordless sudo
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
-- **Full test stack** — pytest, Jest, Vitest, Playwright (headless Chromium), httpie, nodemon, pm2
+- **Full test stack** — pytest, Jest, Vitest, httpie, nodemon, pm2 (Playwright installed manually post-provision)
 - **Claude Code** native install, all tools pre-approved, zero permission prompts
 - **4 skill repos** pre-cloned (Anthropic, Karpathy, Pocock, Caveman)
 - **code-server** (web VS Code) on port 8080 via native systemd
@@ -265,10 +265,10 @@ pct exec <CT_ID> -- systemctl status code-server@claude-code
 pct exec <CT_ID> -- journalctl -u code-server@claude-code -n 50
 ```
 
-**Playwright install failed during provisioning**
+**Playwright (not installed at provision time)**
+Playwright is skipped during provisioning — Chromium download hangs in LXC. Install manually after first login:
 ```bash
-# Inside the container as claude-code:
-npx playwright install --with-deps chromium
+npx --yes playwright install --with-deps chromium
 ```
 
 **Claude Code binary not found after provision**

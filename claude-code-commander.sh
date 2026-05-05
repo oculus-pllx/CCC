@@ -576,13 +576,10 @@ else
 fi
 
 # ── Playwright (headless browser testing) ────────────────────────────────────
-step 17 "Playwright (headless Chromium)"
-DEBIAN_FRONTEND=noninteractive sudo -u claude-code bash -c '
-  export HOME=/home/claude-code
-  export DEBIAN_FRONTEND=noninteractive
-  export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
-  npx --yes playwright install --with-deps chromium
-' || echo "    [WARN] Playwright had errors — run: npx playwright install --with-deps chromium"
+# Skipped at provision time — hangs in LXC due to Chromium download size/networking.
+# Install manually after provision: npx --yes playwright install --with-deps chromium
+step 17 "Playwright (skipped — install manually after provision)"
+echo "    Run after provision: npx --yes playwright install --with-deps chromium"
 
 # ── Claude Code settings.json ─────────────────────────────────────────────────
 step 18 "Claude Code settings.json"
