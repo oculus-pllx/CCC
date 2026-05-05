@@ -1474,6 +1474,9 @@ cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
 [WebService]
 LoginTitle = Claude Code Commander
 LoginTo = false
+
+[Session]
+IdleTimeout = 0
 COCKPITCONF
 systemctl enable --now cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
@@ -1511,6 +1514,7 @@ password: ${CS_PASSWORD}
 cert: false
 user-data-dir: /home/claude-code/.local/share/code-server
 extensions-dir: /home/claude-code/.local/share/code-server/extensions
+socket-timeout: 0
 YAML
     chown -R claude-code:claude-code /home/claude-code/.config/code-server
   "
