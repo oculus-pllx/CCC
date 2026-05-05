@@ -518,8 +518,8 @@ npm install -g \
 
 # ── get-shit-done-cc ──────────────────────────────────────────────────────────
 step 10 "get-shit-done-cc"
-npx get-shit-done-cc --claude --global 2>/dev/null \
-  || echo "    [WARN] get-shit-done-cc — run manually: npx get-shit-done-cc --claude --global"
+npx --yes get-shit-done-cc --claude --global 2>/dev/null \
+  || echo "    [WARN] get-shit-done-cc — run manually: npx --yes get-shit-done-cc --claude --global"
 
 # ── Go ────────────────────────────────────────────────────────────────────────
 step 11 "Go"
