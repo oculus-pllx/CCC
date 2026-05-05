@@ -47,44 +47,57 @@ preflight() {
   command -v pvesh  &>/dev/null || error "pvesh not found. Run this on a Proxmox host."
 }
 
-# ── Ubuntu / Canonical connectivity check ─────────────────────────────────────
-check_ubuntu_connectivity() {
-  info "Checking Ubuntu infrastructure status ..."
+# ── APT mirror / OS status check ──────────────────────────────────────────────
+check_apt_connectivity() {
+  # CT_OS set by get_config: "ubuntu" or "debian"
+  local apt_mirror status_url status_label
 
-  # 1. Canonical status API (Statuspage.io)
-  local status_json indicator description
-  status_json=$(curl -fsSL --max-time 8 --ipv4 \
-    "https://status.canonical.com/api/v2/status.json" 2>/dev/null || echo "")
-
-  if [[ -n "$status_json" ]]; then
-    indicator=$(echo "$status_json" | grep -o '"indicator":"[^"]*"' | cut -d'"' -f4)
-    description=$(echo "$status_json" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
-    case "$indicator" in
-      none)
-        success "Canonical status: ${description:-All Systems Operational}" ;;
-      minor)
-        warn "Canonical status: MINOR OUTAGE — ${description}"
-        warn "Some packages may fail. Check https://status.canonical.com/"
-        read -rp "Continue anyway? (y/N): " _cont
-        [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
-      major|critical)
-        warn "Canonical status: ${indicator^^} OUTAGE — ${description}"
-        warn "See https://status.canonical.com/"
-        read -rp "Continue anyway? (y/N): " _cont
-        [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
-      *)
-        warn "Canonical status API returned unknown indicator: '${indicator}'" ;;
-    esac
+  if [[ "${CT_OS:-ubuntu}" == "debian" ]]; then
+    apt_mirror="http://deb.debian.org"
+    status_url=""   # No public Debian status API — skip
+    status_label="deb.debian.org"
   else
-    warn "Could not reach status.canonical.com — skipping status check."
+    apt_mirror="http://archive.ubuntu.com"
+    status_url="https://status.canonical.com/api/v2/status.json"
+    status_label="archive.ubuntu.com"
   fi
 
-  # 2. Direct reachability check from this host
-  info "Checking archive.ubuntu.com reachability from this host ..."
-  if curl -fsSL --max-time 8 --ipv4 "http://archive.ubuntu.com" &>/dev/null; then
-    success "archive.ubuntu.com is reachable."
+  # 1. Canonical status API (Ubuntu only)
+  if [[ -n "$status_url" ]]; then
+    info "Checking Canonical infrastructure status ..."
+    local status_json indicator description
+    status_json=$(curl -fsSL --max-time 8 --ipv4 "$status_url" 2>/dev/null || echo "")
+    if [[ -n "$status_json" ]]; then
+      indicator=$(echo "$status_json" | grep -o '"indicator":"[^"]*"' | cut -d'"' -f4)
+      description=$(echo "$status_json" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
+      case "$indicator" in
+        none)
+          success "Canonical status: ${description:-All Systems Operational}" ;;
+        minor)
+          warn "Canonical status: MINOR OUTAGE — ${description}"
+          warn "Some packages may fail. Check https://status.canonical.com/"
+          read -rp "Continue anyway? (y/N): " _cont
+          [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
+        major|critical)
+          warn "Canonical status: ${indicator^^} OUTAGE — ${description}"
+          warn "Consider using Debian instead: re-run and select option 2."
+          warn "See https://status.canonical.com/"
+          read -rp "Continue anyway? (y/N): " _cont
+          [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
+        *)
+          warn "Canonical status API returned unknown indicator: '${indicator}'" ;;
+      esac
+    else
+      warn "Could not reach status.canonical.com — skipping status check."
+    fi
+  fi
+
+  # 2. Direct mirror reachability
+  info "Checking ${status_label} reachability from this host ..."
+  if curl -fsSL --max-time 8 --ipv4 "$apt_mirror" &>/dev/null; then
+    success "${status_label} is reachable."
   else
-    warn "archive.ubuntu.com is NOT reachable from this Proxmox host."
+    warn "${status_label} is NOT reachable from this Proxmox host."
     warn "Provisioning will likely fail at the apt install steps."
     read -rp "Continue anyway? (y/N): " _cont
     [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
@@ -96,25 +109,44 @@ get_config() {
   local next_id
   next_id=$(pvesh get /cluster/nextid 2>/dev/null || echo "100")
 
-  # Resolve the latest available 26.04 standard template (suffix may be -1, -2, etc.)
-  TEMPLATE=$(pveam available --section system 2>/dev/null \
-    | awk '{print $2}' \
-    | grep -E '^ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst$' \
-    | sort -V | tail -1)
-
-  if [[ -z "$TEMPLATE" ]]; then
-    warn "Ubuntu 26.04 template not in local index. Running pveam update ..."
-    pveam update 2>/dev/null || true
-    TEMPLATE=$(pveam available --section system 2>/dev/null \
-      | awk '{print $2}' \
-      | grep -E '^ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst$' \
-      | sort -V | tail -1)
-    [[ -n "$TEMPLATE" ]] \
-      || error "Ubuntu 26.04 LXC template not found. Ensure Proxmox can reach download.proxmox.com."
-  fi
-
   echo -e "${BOLD}Container Configuration${NC}"
   echo "─────────────────────────────────────────────────"
+
+  # ── OS selection ─────────────────────────────────────────────────────────────
+  echo "  OS options:"
+  echo "    1) Ubuntu 26.04 LTS  (default)"
+  echo "    2) Debian 12 (Bookworm)"
+  echo ""
+  read -rp "OS [1]: " _os_choice
+  _os_choice="${_os_choice:-1}"
+
+  case "$_os_choice" in
+    2)
+      CT_OS="debian"
+      CT_OSTYPE="debian"
+      _tmpl_pattern='^debian-12-standard_12\.[0-9]+-[0-9]+_amd64\.tar\.zst$'
+      _tmpl_label="Debian 12"
+      ;;
+    *)
+      CT_OS="ubuntu"
+      CT_OSTYPE="ubuntu"
+      _tmpl_pattern='^ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst$'
+      _tmpl_label="Ubuntu 26.04"
+      ;;
+  esac
+
+  # Resolve template
+  TEMPLATE=$(pveam available --section system 2>/dev/null \
+    | awk '{print $2}' | grep -E "$_tmpl_pattern" | sort -V | tail -1)
+
+  if [[ -z "$TEMPLATE" ]]; then
+    warn "${_tmpl_label} template not in local index. Running pveam update ..."
+    pveam update 2>/dev/null || true
+    TEMPLATE=$(pveam available --section system 2>/dev/null \
+      | awk '{print $2}' | grep -E "$_tmpl_pattern" | sort -V | tail -1)
+    [[ -n "$TEMPLATE" ]] \
+      || error "${_tmpl_label} LXC template not found. Ensure Proxmox can reach download.proxmox.com."
+  fi
 
   read -rp "Container ID [$next_id]: " CT_ID
   CT_ID="${CT_ID:-$next_id}"
@@ -241,6 +273,7 @@ get_config() {
   echo ""
   echo -e "${BOLD}Summary${NC}"
   echo "─────────────────────────────────────────────────"
+  echo "  OS:           ${_tmpl_label}"
   echo "  CT ID:        $CT_ID"
   echo "  Hostname:     $CT_HOSTNAME"
   echo "  Template:     $TEMPLATE"
@@ -297,7 +330,7 @@ create_container() {
     --rootfs       "$CT_STORAGE:$CT_DISK"
     --net0         "$net_str"
     --nameserver   "$CT_DNS"
-    --ostype       ubuntu
+    --ostype       "$CT_OSTYPE"
     --unprivileged 1
     --features     nesting=1,keyctl=1
     --onboot       1
@@ -1025,7 +1058,7 @@ print_summary() {
   echo -e "${GREEN}${BOLD}║          Claude Code Commander — Ready!          ║${NC}"
   echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
-  echo -e "  ${BOLD}Container:${NC}    $CT_ID ($CT_HOSTNAME)"
+  echo -e "  ${BOLD}Container:${NC}    $CT_ID ($CT_HOSTNAME) — $CT_OS"
   echo -e "  ${BOLD}IP:${NC}           ${ct_ip:-pending (DHCP)}"
   echo -e "  ${BOLD}Resources:${NC}    ${CT_CORES} vCPU / $(( CT_RAM / 1024 )) GB RAM / ${CT_DISK} GB disk"
   echo -e "  ${BOLD}Storage:${NC}      $CT_STORAGE"
@@ -1064,8 +1097,8 @@ print_summary() {
 main() {
   header
   preflight
-  check_ubuntu_connectivity
   get_config
+  check_apt_connectivity
   get_template
   create_container
   configure_ha
