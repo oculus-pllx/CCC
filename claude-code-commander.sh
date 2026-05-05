@@ -612,7 +612,8 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
     "MAX_THINKING_TOKENS": "31999"
   },
   "alwaysThinkingEnabled": true,
-  "enableRemoteControl": true
+  "enableRemoteControl": true,
+  "statusLine": "~/.claude/bin/statusline-command.sh"
 }
 SETTINGS
 
@@ -844,8 +845,13 @@ ccc() {
   echo -e "  ${B}CLAUDE CODE${N}"
   echo -e "    ${C}claude${N}                   Start Claude Code session"
   echo -e "    ${C}claude --version${N}          Check version"
-  echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude
-    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
+  echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude"
+  echo -e "    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
+  echo ""
+  echo -e "  ${B}MAINTENANCE${N}"
+  echo -e "    ${C}ccc-setup${N}                 Post-install wizard (git identity, SSH key, GitHub)"
+  echo -e "    ${C}ccc-update${N}                Update system packages + Claude Code"
+  echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
   echo ""
   echo -e "  ${B}PLUGINS${N} ${Y}— paste inside a Claude Code session${N}"
   echo -e "    ${C}/plugin install skill-creator@claude-plugins-official${N}"
@@ -929,6 +935,118 @@ echo ""
 PLUGINSCRIPT
 chmod +x /usr/local/bin/ccc-setup-plugins
 
+# ── ccc-update ────────────────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; N='\033[0m'
+echo ""
+echo -e "${B}CCC Update${N}"
+echo ""
+echo -e "${C}[1/2]${N} System packages..."
+sudo apt-get update -qq && sudo apt-get upgrade -y
+echo ""
+echo -e "${C}[2/2]${N} Claude Code..."
+claude update
+echo ""
+echo -e "${G}${B}Update complete.${N}"
+echo ""
+UPDATESCRIPT
+chmod +x /usr/local/bin/ccc-update
+
+# ── ccc-setup (post-install wizard) ──────────────────────────────────────────
+cat > /usr/local/bin/ccc-setup << 'SETUPSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
+echo ""
+echo -e "${B}CCC Post-Install Setup Wizard${N}"
+echo ""
+
+# Git identity
+echo -e "${C}── Git Identity ──────────────────────────────${N}"
+read -rp "  Your name (for git commits): " GIT_NAME
+read -rp "  Your email (for git commits): " GIT_EMAIL
+git config --global user.name "$GIT_NAME"
+git config --global user.email "$GIT_EMAIL"
+echo -e "  ${G}✓ Git identity set${N}"
+echo ""
+
+# SSH key
+echo -e "${C}── SSH Key for GitHub ────────────────────────${N}"
+if [[ -f ~/.ssh/id_ed25519.pub ]]; then
+  echo -e "  ${Y}Existing key found:${N}"
+else
+  echo "  Generating ed25519 SSH key..."
+  ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f ~/.ssh/id_ed25519 -N ""
+  echo -e "  ${G}✓ Key generated${N}"
+fi
+echo ""
+echo -e "  ${B}Add this public key to GitHub:${N}"
+echo -e "  ${Y}https://github.com/settings/ssh/new${N}"
+echo ""
+echo -e "  ${C}$(cat ~/.ssh/id_ed25519.pub)${N}"
+echo ""
+
+# Test GitHub connection
+echo -e "${C}── Test GitHub Connection ────────────────────${N}"
+read -rp "  Test SSH connection to GitHub now? [y/N] " TEST_GH
+if [[ "$TEST_GH" =~ ^[Yy]$ ]]; then
+  ssh -T git@github.com 2>&1 || true
+fi
+echo ""
+echo -e "${G}${B}Setup complete. Run 'ccc' for full help.${N}"
+echo ""
+SETUPSCRIPT
+chmod +x /usr/local/bin/ccc-setup
+
+# ── ccc-doctor ────────────────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-doctor << 'DOCTORSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; R='\033[0;31m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
+ok()   { echo -e "  ${G}✓${N} $*"; }
+fail() { echo -e "  ${R}✗${N} $*"; }
+warn() { echo -e "  ${Y}!${N} $*"; }
+echo ""
+echo -e "${B}CCC Doctor — System Check${N}"
+echo ""
+
+echo -e "${C}── Network ───────────────────────────────────${N}"
+ping -c1 -W2 1.1.1.1 &>/dev/null     && ok "Internet (ping)" || fail "Internet unreachable"
+curl -fsSL --max-time 5 https://api.github.com &>/dev/null && ok "GitHub API" || fail "GitHub unreachable"
+curl -fsSL --max-time 5 https://registry.npmjs.org &>/dev/null && ok "npm registry" || fail "npm registry unreachable"
+echo ""
+
+echo -e "${C}── Runtimes ──────────────────────────────────${N}"
+command -v node &>/dev/null   && ok "Node.js $(node --version)" || fail "Node.js missing"
+command -v python3 &>/dev/null && ok "Python $(python3 --version)" || fail "Python3 missing"
+command -v go &>/dev/null     && ok "Go $(go version | awk '{print $3}')" || fail "Go missing"
+command -v cargo &>/dev/null  && ok "Rust $(cargo --version)" || fail "Rust missing"
+echo ""
+
+echo -e "${C}── Claude Code ───────────────────────────────${N}"
+command -v claude &>/dev/null && ok "claude binary: $(which claude)" || fail "claude not in PATH"
+[[ -f ~/.claude/settings.json ]] && ok "settings.json present" || fail "settings.json missing"
+[[ -f ~/.claude/bin/statusline-command.sh ]] && ok "statusline script present" || warn "statusline script missing"
+echo ""
+
+echo -e "${C}── Services ──────────────────────────────────${N}"
+systemctl is-active --quiet "code-server@claude-code" && ok "code-server running" || fail "code-server not running — sudo systemctl start code-server@claude-code"
+systemctl is-active --quiet cockpit.socket            && ok "cockpit running"     || fail "cockpit not running — sudo systemctl start cockpit.socket"
+echo ""
+
+echo -e "${C}── Storage ───────────────────────────────────${N}"
+df -h / | awk 'NR==2 {
+  used=$3; avail=$4; pct=$5
+  if (pct+0 > 90) printf "  \033[0;31m✗\033[0m Disk %s used (%s free) — LOW\n", pct, avail
+  else            printf "  \033[0;32m✓\033[0m Disk %s used (%s free)\n", pct, avail
+}'
+free -h | awk '/^Mem/ {
+  used=$3; avail=$7
+  printf "  \033[0;32m✓\033[0m RAM %s used, %s available\n", used, avail
+}'
+echo ""
+DOCTORSCRIPT
+chmod +x /usr/local/bin/ccc-doctor
+
 # ── ccc-install-playwright (standalone script) ───────────────────────────────
 step 26 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
@@ -968,14 +1086,19 @@ step 27 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
-G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; N='\033[0m'
+G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; Y='\033[1;33m'; N='\033[0m'
 echo ""
 echo -e "${G}${B}  Claude Code Commander${N}"
 echo -e "  ${C}claude${N}                    Start Claude Code"
 echo -e "  ${C}ccc${N}                       Full help + command reference"
+echo -e "  ${C}tmux${N}                      Terminal multiplexer (tabs/splits)"
+echo ""
+echo -e "  ${Y}Setup & Maintenance${N}"
+echo -e "  ${C}ccc-setup${N}                 Post-install wizard (git, SSH key, GitHub)"
+echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-setup-plugins${N}         Plugin install commands"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
-echo -e "  ${C}http://<ip>:8080${N}          Web VS Code (code-server)"
+echo -e "  ${C}ccc-doctor${N}                System health check"
 echo ""
 MOTD
 chmod +x /etc/update-motd.d/00-ccc
@@ -1010,6 +1133,12 @@ LOGROTATE
 step 30 "Cockpit (web admin UI)"
 apt-get install -y -qq cockpit
 apt-get install -y -qq cockpit-files 2>/dev/null || true
+mkdir -p /etc/cockpit
+cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
+[WebService]
+LoginTitle = Claude Code Commander
+LoginTo = false
+COCKPITCONF
 systemctl enable --now cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 

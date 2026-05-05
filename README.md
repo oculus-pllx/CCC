@@ -90,16 +90,19 @@ Provisioning takes **10–15 minutes**. Each of the 30 steps prints `[N/30]` pro
 # 1. SSH in as the working user
 ssh claude-code@<container-ip>
 
-# 2. Authenticate Claude Code
+# 2. Run post-install wizard (git identity, SSH key, GitHub)
+ccc-setup
+
+# 3. Authenticate Claude Code
 claude
 
-# 3. Install plugins (see commands printed by this)
+# 4. Install plugins (see commands printed by this)
 ccc-setup-plugins
 
-# 4. Install Playwright + headless Chromium (optional, takes 5–15 min)
+# 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 5. Full help and command reference
+# 6. Full help and command reference
 ccc
 ```
 
@@ -173,6 +176,13 @@ Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vites
 The `ccc` command prints the full reference. Quick shortcuts:
 
 ```bash
+# Maintenance
+ccc-setup              # post-install wizard: git identity, SSH key, GitHub
+ccc-update             # update system packages + Claude Code
+ccc-doctor             # health check: network, runtimes, services, disk
+ccc-setup-plugins      # print plugin slash-commands
+ccc-install-playwright # install Playwright + headless Chromium
+
 # Git
 gs    # git status
 gl    # git log --oneline -20
