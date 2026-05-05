@@ -1183,6 +1183,7 @@ echo ""
 echo -e "${B}CCC Update${N}"
 echo ""
 echo -e "${C}[1/3]${N} System packages..."
+sudo systemctl restart NetworkManager 2>/dev/null || true
 sudo apt-get update -qq && sudo apt-get upgrade -y
 echo ""
 echo -e "${C}[2/3]${N} Claude Code..."
@@ -1476,7 +1477,7 @@ step 29 "Auto-update cron"
 cat > /etc/cron.d/system-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-0 3 * * 0 root apt-get update -qq && apt-get upgrade -y -qq && apt-get autoremove -y -qq && apt-get clean -qq >> /var/log/system-update.log 2>&1
+0 3 * * 0 root systemctl restart NetworkManager 2>/dev/null; apt-get update -qq && apt-get upgrade -y -qq && apt-get autoremove -y -qq && apt-get clean -qq >> /var/log/system-update.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/system-update
 
@@ -1492,6 +1493,19 @@ LOGROTATE
 
 # ── Cockpit (web admin UI) ────────────────────────────────────────────────────
 step 30 "Cockpit (web admin UI)"
+# network-manager needed for PackageKit (Cockpit updates) to detect online state in LXC
+apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
+# Keep NM from touching LXC interfaces — systemd-networkd owns them
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf << 'NMCONF'
+[main]
+plugins=keyfile
+
+[keyfile]
+unmanaged-devices=interface-name:eth*;interface-name:en*
+NMCONF
+systemctl enable NetworkManager 2>/dev/null || true
+systemctl start  NetworkManager 2>/dev/null || true
 apt-get install -y cockpit > /dev/null 2>&1
 apt-get install -y cockpit-files > /dev/null 2>&1 || true
 apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
