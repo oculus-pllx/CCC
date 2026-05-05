@@ -96,7 +96,10 @@ claude
 # 3. Install plugins (see commands printed by this)
 ccc-setup-plugins
 
-# 4. Full help and command reference
+# 4. Install Playwright + headless Chromium (optional, takes 5–15 min)
+ccc-install-playwright
+
+# 5. Full help and command reference
 ccc
 ```
 

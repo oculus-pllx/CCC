@@ -416,7 +416,7 @@ provision_container() {
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-_STEPS=30
+_STEPS=31
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
@@ -844,7 +844,8 @@ ccc() {
   echo -e "  ${B}CLAUDE CODE${N}"
   echo -e "    ${C}claude${N}                   Start Claude Code session"
   echo -e "    ${C}claude --version${N}          Check version"
-  echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude"
+  echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude
+    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
   echo ""
   echo -e "  ${B}PLUGINS${N} ${Y}— paste inside a Claude Code session${N}"
   echo -e "    ${C}/plugin install skill-creator@claude-plugins-official${N}"
@@ -928,31 +929,66 @@ echo ""
 PLUGINSCRIPT
 chmod +x /usr/local/bin/ccc-setup-plugins
 
+# ── ccc-install-playwright (standalone script) ───────────────────────────────
+step 26 "ccc-install-playwright script"
+cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+echo ""
+echo -e "${B}Installing Playwright + headless Chromium${N}"
+echo -e "${Y}This downloads ~300MB and takes 5–15 minutes. Do not interrupt.${N}"
+echo ""
+
+export HOME=/home/claude-code
+export DEBIAN_FRONTEND=noninteractive
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+
+echo -e "${C}[1/3]${N} Installing Playwright npm package..."
+npx --yes playwright install --with-deps chromium
+STATUS=$?
+
+if [[ $STATUS -eq 0 ]]; then
+  echo ""
+  echo -e "${G}${B}Playwright installed successfully.${N}"
+  echo -e "  Run tests: ${C}npx playwright test${N}"
+  echo -e "  Docs:      ${C}https://playwright.dev${N}"
+else
+  echo ""
+  echo -e "${R}Playwright install failed (exit $STATUS).${N}"
+  echo -e "  Retry: ${C}ccc-install-playwright${N}"
+  echo -e "  Log:   ${C}~/.npm/_logs/${N}"
+  exit 1
+fi
+echo ""
+PWSCRIPT
+chmod +x /usr/local/bin/ccc-install-playwright
+
 # ── MOTD ─────────────────────────────────────────────────────────────────────
-step 26 "MOTD"
+step 27 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
 G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; N='\033[0m'
 echo ""
 echo -e "${G}${B}  Claude Code Commander${N}"
-echo -e "  ${C}claude${N}               Start Claude Code"
-echo -e "  ${C}ccc${N}                  Full help + command reference"
-echo -e "  ${C}ccc-setup-plugins${N}    Plugin install commands"
-echo -e "  ${C}http://<ip>:8080${N}     Web VS Code (code-server)"
+echo -e "  ${C}claude${N}                    Start Claude Code"
+echo -e "  ${C}ccc${N}                       Full help + command reference"
+echo -e "  ${C}ccc-setup-plugins${N}         Plugin install commands"
+echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
+echo -e "  ${C}http://<ip>:8080${N}          Web VS Code (code-server)"
 echo ""
 MOTD
 chmod +x /etc/update-motd.d/00-ccc
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
-step 27 "Git defaults"
+step 28 "Git defaults"
 sudo -u claude-code git config --global init.defaultBranch main
 sudo -u claude-code git config --global core.editor nano
 sudo -u claude-code git config --global pull.rebase false
 sudo -u claude-code git config --global core.autocrlf false
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-step 28 "Auto-update cron"
+step 29 "Auto-update cron"
 cat > /etc/cron.d/system-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
@@ -971,14 +1007,14 @@ cat > /etc/logrotate.d/system-update << 'LOGROTATE'
 LOGROTATE
 
 # ── Cockpit (web admin UI) ────────────────────────────────────────────────────
-step 29 "Cockpit (web admin UI)"
+step 30 "Cockpit (web admin UI)"
 apt-get install -y -qq cockpit
 apt-get install -y -qq cockpit-files 2>/dev/null || true
 systemctl enable --now cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 30 "Cleanup"
+step 31 "Cleanup"
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*
