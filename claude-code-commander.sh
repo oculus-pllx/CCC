@@ -290,6 +290,7 @@ get_config() {
   fi
   echo "  User:         claude-code (non-root, passwordless sudo)"
   echo "  code-server:  port 8080 (web VS Code)"
+  echo "  Cockpit:      port 9090 (system monitoring + file manager)"
   echo "─────────────────────────────────────────────────"
   echo ""
   read -rp "Proceed? (y/N): " confirm
@@ -415,7 +416,7 @@ provision_container() {
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-_STEPS=29
+_STEPS=30
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
@@ -970,8 +971,15 @@ cat > /etc/logrotate.d/system-update << 'LOGROTATE'
 }
 LOGROTATE
 
+# ── Cockpit (web admin UI) ────────────────────────────────────────────────────
+step 29 "Cockpit (web admin UI)"
+apt-get install -y -qq cockpit
+apt-get install -y -qq cockpit-files 2>/dev/null || true
+systemctl enable --now cockpit.socket
+echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
+
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 29 "Cleanup"
+step 30 "Cleanup"
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*
@@ -1073,6 +1081,8 @@ print_summary() {
   echo -e "    SSH:              ${CYAN}ssh claude-code@${ct_ip}${NC}"
   [[ -n "${ct_ip:-}" ]] && \
   echo -e "    Web VS Code:      ${CYAN}http://${ct_ip}:8080${NC}  (password: $CS_PASSWORD)"
+  [[ -n "${ct_ip:-}" ]] && \
+  echo -e "    Cockpit:          ${CYAN}https://${ct_ip}:9090${NC}  (user: claude-code)"
   echo ""
   echo -e "  ${BOLD}First steps:${NC}"
   echo -e "    1. ${CYAN}ssh claude-code@${ct_ip:-<ip>}${NC}"

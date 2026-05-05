@@ -17,6 +17,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Claude Code** native install, all tools pre-approved, zero permission prompts
 - **4 skill repos** pre-cloned (Anthropic, Karpathy, Pocock, Caveman)
 - **code-server** (web VS Code) on port 8080 via native systemd
+- **Cockpit** on port 9090 — system monitoring (CPU/RAM/disk/network), file manager with upload/download, browser terminal
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
@@ -192,6 +193,8 @@ http :3000/endpoint # httpie HTTP test
 sudo systemctl status  code-server@claude-code
 sudo systemctl restart code-server@claude-code
 sudo systemctl start   redis-server
+sudo systemctl status  cockpit.socket
+sudo systemctl restart cockpit.socket
 ```
 
 ---
