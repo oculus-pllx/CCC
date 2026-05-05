@@ -64,8 +64,9 @@ The script is interactive. You'll be prompted for:
 |---|---|---|
 | Container ID | next available | Auto-detected via `pvesh` |
 | Hostname | `ccc-dev` | |
+| **Username** | `claude-code` | Your working user — used for SSH, Cockpit, code-server |
 | Root password | — | Temporary, setup only |
-| claude-code password | — | Your working user |
+| User password | — | Password for your chosen username |
 | code-server password | `codeserver` | Web VS Code UI |
 | CPU cores | `4` | |
 | RAM | `10240` MB | |
@@ -75,7 +76,7 @@ The script is interactive. You'll be prompted for:
 | IP | `dhcp` | Or `x.x.x.x/xx` for static — CIDR prefix required, re-prompts if missing |
 | Gateway | — | Required for static IP — plain IPv4, re-prompts if missing or has CIDR |
 | DNS | `1.1.1.1` | Plain IPv4, re-prompts on invalid format |
-| SSH public key | optional | Installed for claude-code user |
+| SSH public key | optional | Installed for chosen username |
 | High Availability | — | Cluster only — lists HA groups, optional group selection |
 
 **OS choice** is the first prompt — Ubuntu 26.04 LTS (default) or Debian 13 (Trixie). Useful fallback when Ubuntu/Canonical is having issues.

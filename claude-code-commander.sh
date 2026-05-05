@@ -156,13 +156,17 @@ get_config() {
   read -rp "Hostname [ccc-dev]: " CT_HOSTNAME
   CT_HOSTNAME="${CT_HOSTNAME:-ccc-dev}"
 
+  read -rp  "Working username [claude-code]: " CC_USER
+  CC_USER="${CC_USER:-claude-code}"
+  [[ "$CC_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || error "Invalid username — use lowercase letters, numbers, hyphens, underscores."
+
   read -rsp "Root password (temporary, setup only): " CT_PASSWORD
   echo ""
   [[ -n "$CT_PASSWORD" ]] || error "Password cannot be empty."
 
-  read -rsp "claude-code user password: " CC_PASSWORD
+  read -rsp "${CC_USER} user password: " CC_PASSWORD
   echo ""
-  [[ -n "$CC_PASSWORD" ]] || error "claude-code password cannot be empty."
+  [[ -n "$CC_PASSWORD" ]] || error "User password cannot be empty."
 
   read -rsp "code-server web UI password [default: codeserver]: " CS_PASSWORD
   echo ""
@@ -288,7 +292,7 @@ get_config() {
   else
     echo "  HA:           disabled"
   fi
-  echo "  User:         claude-code (non-root, passwordless sudo)"
+  echo "  User:         ${CC_USER} (non-root, passwordless sudo)"
   echo "  code-server:  port 8080 (web VS Code)"
   echo "  Cockpit:      port 9090 (system monitoring + file manager)"
   echo "─────────────────────────────────────────────────"
@@ -1515,6 +1519,10 @@ echo "║       Container provisioning script done         ║"
 echo "╚══════════════════════════════════════════════════╝"
 PROVISION_EOF
 
+  # Substitute username — heredoc is single-quoted so we sed before pushing
+  if [[ "$CC_USER" != "claude-code" ]]; then
+    sed -i "s/claude-code/${CC_USER}/g" /tmp/provision-${CT_ID}.sh
+  fi
   chmod +x /tmp/provision-${CT_ID}.sh
   pct push "$CT_ID" /tmp/provision-${CT_ID}.sh /tmp/provision.sh
   pct exec "$CT_ID" -- chmod +x /tmp/provision.sh
@@ -1525,7 +1533,7 @@ PROVISION_EOF
   # ── Passwords + code-server config (variable expansion — outside heredoc) ───
   info "Setting passwords and finalizing code-server ..."
 
-  pct exec "$CT_ID" -- bash -c "echo 'claude-code:${CC_PASSWORD}' | chpasswd"
+  pct exec "$CT_ID" -- bash -c "echo '${CC_USER}:${CC_PASSWORD}' | chpasswd"
 
   pct exec "$CT_ID" -- bash -c "
     sudo -u claude-code mkdir -p /home/claude-code/.config/code-server
@@ -1557,28 +1565,28 @@ YAML
     ms-vscode.vscode-json
   )
   for ext in "${extensions[@]}"; do
-    pct exec "$CT_ID" -- sudo -u claude-code \
+    pct exec "$CT_ID" -- sudo -u "${CC_USER}" \
       code-server --install-extension "$ext" 2>/dev/null || true
   done
 
-  pct exec "$CT_ID" -- systemctl start "code-server@claude-code"
+  pct exec "$CT_ID" -- systemctl start "code-server@${CC_USER}"
   success "code-server started on port 8080."
 
-  # ── SSH key for claude-code user ─────────────────────────────────────────────
+  # ── SSH key for user ──────────────────────────────────────────────────────────
   if [[ -n "${CT_SSH_KEY:-}" && -f "$CT_SSH_KEY" ]]; then
-    info "Installing SSH public key for claude-code user ..."
+    info "Installing SSH public key for ${CC_USER} ..."
     pct exec "$CT_ID" -- bash -c "
-      sudo -u claude-code mkdir -p /home/claude-code/.ssh
-      sudo -u claude-code chmod 700 /home/claude-code/.ssh
+      sudo -u ${CC_USER} mkdir -p /home/${CC_USER}/.ssh
+      sudo -u ${CC_USER} chmod 700 /home/${CC_USER}/.ssh
     "
     pct push "$CT_ID" "$CT_SSH_KEY" /tmp/authorized_keys
     pct exec "$CT_ID" -- bash -c "
-      cat /tmp/authorized_keys >> /home/claude-code/.ssh/authorized_keys
-      chown claude-code:claude-code /home/claude-code/.ssh/authorized_keys
-      chmod 600 /home/claude-code/.ssh/authorized_keys
+      cat /tmp/authorized_keys >> /home/${CC_USER}/.ssh/authorized_keys
+      chown ${CC_USER}:${CC_USER} /home/${CC_USER}/.ssh/authorized_keys
+      chmod 600 /home/${CC_USER}/.ssh/authorized_keys
       rm /tmp/authorized_keys
     "
-    success "SSH key installed for claude-code."
+    success "SSH key installed for ${CC_USER}."
   fi
 }
 
@@ -1604,14 +1612,14 @@ print_summary() {
   echo -e "  ${BOLD}Connect:${NC}"
   echo -e "    Proxmox console:  ${CYAN}pct enter $CT_ID${NC}"
   [[ -n "${ct_ip:-}" ]] && \
-  echo -e "    SSH:              ${CYAN}ssh claude-code@${ct_ip}${NC}"
+  echo -e "    SSH:              ${CYAN}ssh ${CC_USER}@${ct_ip}${NC}"
   [[ -n "${ct_ip:-}" ]] && \
   echo -e "    Web VS Code:      ${CYAN}http://${ct_ip}:8080${NC}  (password: $CS_PASSWORD)"
   [[ -n "${ct_ip:-}" ]] && \
-  echo -e "    Cockpit:          ${CYAN}https://${ct_ip}:9090${NC}  (user: claude-code)"
+  echo -e "    Cockpit:          ${CYAN}https://${ct_ip}:9090${NC}  (user: ${CC_USER})"
   echo ""
   echo -e "  ${BOLD}First steps:${NC}"
-  echo -e "    1. ${CYAN}ssh claude-code@${ct_ip:-<ip>}${NC}"
+  echo -e "    1. ${CYAN}ssh ${CC_USER}@${ct_ip:-<ip>}${NC}"
   echo -e "    2. ${CYAN}claude${NC}            (authenticate + start coding)"
   echo -e "    3. ${CYAN}ccc-setup-plugins${NC} (plugin install commands)"
   echo -e "    4. ${CYAN}ccc${NC}               (full help reference)"
@@ -1624,7 +1632,7 @@ print_summary() {
   echo -e "  ${BOLD}Redis:${NC}        Server available — ${CYAN}sudo systemctl start redis-server${NC}"
   echo -e "  ${BOLD}yq:${NC}           mikefarah Go binary at /usr/local/bin/yq"
   echo -e "  ${BOLD}Permissions:${NC}  All tools pre-approved (no prompts)"
-  echo -e "  ${BOLD}SSH:${NC}          Root login disabled — use claude-code user"
+  echo -e "  ${BOLD}SSH:${NC}          Root login disabled — use ${CC_USER}"
   echo -e "  ${BOLD}Auto-updates:${NC} Sundays 3 AM ET"
   echo ""
 }
