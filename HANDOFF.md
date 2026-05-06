@@ -42,6 +42,7 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Cockpit "offline" update error | ✅ `network-manager` installed, unmanaged-devices config keeps it off LXC interfaces |
 | code-server start failure | ✅ Removed invalid `socket-timeout` option from config.yaml |
 | Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
+| ccc-self-update | ✅ Downloads latest script, re-runs steps 25–27 (tools only, no reprovision) |
 | ccc-setup-plugins | ✅ Interactive menu — plugins + pre-installed skills |
 | ccc-setup | ✅ Post-install wizard: git identity, SSH keygen, GitHub |
 | ccc-update | ✅ apt + claude update + skill repo sync |

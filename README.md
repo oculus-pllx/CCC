@@ -85,7 +85,7 @@ After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
-Provisioning takes **10–15 minutes**. Each of the 30 steps prints `[N/30]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+Provisioning takes **10–15 minutes**. Each of the 31 steps prints `[N/31]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
