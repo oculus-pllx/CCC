@@ -21,7 +21,7 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Script structure | Complete |
 | README | ✅ Synced |
 | Repo | ✅ `main` at `oculus-pllx/CCC` |
-| Live provision test | ⚠️ Multiple runs on CT 119 — bugs fixed iteratively. Pending clean pass. |
+| Live provision test | ⚠️ Multiple runs — bugs fixed iteratively. Pending first clean end-to-end pass. |
 | Static IP / gateway / DNS validation | ✅ Re-prompt on bad format |
 | Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
 | Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) |
@@ -39,6 +39,9 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | statusLine in settings.json | ✅ Wired to `~/.claude/bin/statusline-command.sh` |
 | Cockpit title | ✅ "Claude Code Commander" via `cockpit.conf` |
 | udisks2 noise | ✅ Purged after Cockpit install |
+| Cockpit "offline" update error | ✅ `network-manager` installed, unmanaged-devices config keeps it off LXC interfaces |
+| code-server start failure | ✅ Removed invalid `socket-timeout` option from config.yaml |
+| Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
 | ccc-setup-plugins | ✅ Interactive menu — plugins + pre-installed skills |
 | ccc-setup | ✅ Post-install wizard: git identity, SSH keygen, GitHub |
 | ccc-update | ✅ apt + claude update + skill repo sync |
