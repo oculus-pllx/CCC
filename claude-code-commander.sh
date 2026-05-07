@@ -837,9 +837,22 @@ sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WE
 
 ## This Interface (code-server)
 
-- **Multiple terminals**: Terminal → New Terminal  (or `Ctrl+\``)
-- **Split terminal**: click the split icon in the terminal toolbar
+- **New terminal tab**: Terminal → New Terminal (or click **+** in terminal tab bar)
+- **Split terminal**: click the split icon in the terminal tab bar
+- **Switch tabs**: click tab names in the right-side tab panel
 - **Open folder**: File → Open Folder → `/home/claude-code/projects`
+
+## tmux (SSH sessions)
+
+```bash
+tmux                  # start / attach to session
+tmux new -s work      # named session
+Ctrl+B c              # new window
+Ctrl+B |              # split vertical
+Ctrl+B -              # split horizontal
+Alt+Arrow             # switch panes (no prefix)
+Ctrl+B d              # detach (session keeps running)
+```
 
 ## Cockpit (port 9090)
 
@@ -863,12 +876,23 @@ ssh claude-code@<this-container-ip>
 ```
 WELCOMEMD
 
-# Workspace settings — auto-open WELCOME.md on first launch
+# User-level code-server settings (applies to all workspaces)
+sudo -u claude-code mkdir -p /home/claude-code/.local/share/code-server/User
+sudo -u claude-code tee /home/claude-code/.local/share/code-server/User/settings.json > /dev/null << 'USERSETTINGS'
+{
+  "terminal.integrated.tabs.enabled": true,
+  "terminal.integrated.tabs.location": "right",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "workbench.startupEditor": "none",
+  "markdown.preview.openMarkdownLinks": "inEditor"
+}
+USERSETTINGS
+
+# Workspace settings
 sudo -u claude-code mkdir -p /home/claude-code/projects/.vscode
 sudo -u claude-code tee /home/claude-code/projects/.vscode/settings.json > /dev/null << 'VSCSETTINGS'
 {
-  "workbench.startupEditor": "none",
-  "markdown.preview.openMarkdownLinks": "inEditor"
+  "workbench.startupEditor": "none"
 }
 VSCSETTINGS
 
@@ -981,9 +1005,9 @@ ccc() {
   echo ""
   echo -e "  ${B}DEV TOOLS${N}"
   echo -e "    ${C}rg <pattern>${N}              ripgrep search"
-  echo -e "    ${C}fdfind <name>${N}              find files"
+  echo -e "    ${C}fd <name>${N}                 find files (alias → fdfind/fd)"
   echo -e "    ${C}fzf${N}                       fuzzy finder  (pipe with |)"
-  echo -e "    ${C}batcat <file>${N}              syntax-highlighted cat"
+  echo -e "    ${C}bat <file>${N}                syntax-highlighted cat"
   echo -e "    ${C}jq '.field' file.json${N}      JSON processor"
   echo -e "    ${C}yq '.field' file.yaml${N}      YAML processor (mikefarah binary)"
   echo -e "    ${C}direnv allow${N}               Load .envrc in current dir"
@@ -1008,6 +1032,36 @@ ccc() {
 BASHRC
 
 chown claude-code:claude-code /home/claude-code/.bashrc
+
+# tmux config
+sudo -u claude-code tee /home/claude-code/.tmux.conf > /dev/null << 'TMUXCONF'
+set -g mouse on
+set -g default-terminal "screen-256color"
+set -g history-limit 10000
+set -g base-index 1
+setw -g pane-base-index 1
+set -g renumber-windows on
+
+# Status bar
+set -g status-style bg=colour235,fg=colour136
+set -g status-left "#[bold]#S #[default]"
+set -g status-right "#[fg=colour136]%H:%M %d-%b#[default]"
+set -g status-interval 30
+
+# Easier splits: | and -
+bind | split-window -h -c "#{pane_current_path}"
+bind - split-window -v -c "#{pane_current_path}"
+
+# New window keeps current path
+bind c new-window -c "#{pane_current_path}"
+
+# Quick pane navigation with Alt+arrow (no prefix)
+bind -n M-Left  select-pane -L
+bind -n M-Right select-pane -R
+bind -n M-Up    select-pane -U
+bind -n M-Down  select-pane -D
+TMUXCONF
+chown claude-code:claude-code /home/claude-code/.tmux.conf
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 # ── ccc-setup-plugins (standalone script) ────────────────────────────────────
