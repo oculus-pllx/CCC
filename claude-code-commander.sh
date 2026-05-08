@@ -1238,7 +1238,7 @@ echo ""
 echo -e "${B}CCC Update${N}"
 echo ""
 echo -e "${C}[1/3]${N} System packages..."
-sudo systemctl restart NetworkManager 2>/dev/null || true
+sudo nmcli con up ccc-online 2>/dev/null || true
 sudo apt-get update -qq && sudo apt-get upgrade -y
 echo ""
 echo -e "${C}[2/3]${N} Claude Code..."
@@ -1548,10 +1548,10 @@ LOGROTATE
 
 # ── Cockpit (web admin UI) ────────────────────────────────────────────────────
 step 30 "Cockpit (web admin UI)"
-# network-manager needed for PackageKit (Cockpit updates) to detect online state in LXC
+# NM needed for PackageKit connectivity check — without it Cockpit reports "offline"
 apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
-# Keep NM from touching LXC interfaces — systemd-networkd owns them
 mkdir -p /etc/NetworkManager/conf.d
+# Keep NM off real LXC interfaces — systemd-networkd owns them
 cat > /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf << 'NMCONF'
 [main]
 plugins=keyfile
@@ -1561,6 +1561,11 @@ unmanaged-devices=interface-name:eth*;interface-name:en*
 NMCONF
 systemctl enable NetworkManager 2>/dev/null || true
 systemctl start  NetworkManager 2>/dev/null || true
+# Dummy connection — NM manages it, reports CONNECTED_GLOBAL so PackageKit sees online
+nmcli con add type dummy ifname dummy0 con-name ccc-online \
+  ipv4.method manual ipv4.addresses 10.255.255.1/32 \
+  ipv6.method disabled autoconnect yes 2>/dev/null || true
+nmcli con up ccc-online 2>/dev/null || true
 apt-get install -y cockpit > /dev/null 2>&1
 apt-get install -y cockpit-files > /dev/null 2>&1 || true
 apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
@@ -1578,6 +1583,9 @@ echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 step 31 "Cleanup"
+# Disable noisy motd-news fetch (fails in LXC due to permissions)
+chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
+systemctl disable motd-news 2>/dev/null || true
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*
