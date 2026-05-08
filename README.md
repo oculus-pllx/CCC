@@ -107,7 +107,10 @@ ccc-setup-plugins
 # 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 6. Full help and command reference
+# 6. Install jCodeMunch MCP — 95% token reduction via symbol-level retrieval (optional)
+ccc-install-jcodemunch
+
+# 7. Full help and command reference
 ccc
 ```
 
@@ -191,8 +194,9 @@ ccc-self-update        # pull latest ccc-* tools from GitHub (no reprovision nee
 ccc-update             # update packages + Claude Code + skill repos
 ccc-doctor             # health check: network, runtimes, services, disk
 ccc-setup-plugins      # interactive plugin & skill menu
-ccc-install-playwright # install Playwright + headless Chromium (optional)
-ccc-install-codex      # install OpenAI Codex CLI (optional)
+ccc-install-playwright  # install Playwright + headless Chromium (optional)
+ccc-install-codex       # install OpenAI Codex CLI (optional)
+ccc-install-jcodemunch  # install jCodeMunch MCP — 95% token reduction (optional)
 
 # Git
 gs    # git status

@@ -833,7 +833,8 @@ sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WE
 | 3 | `ccc-setup-plugins` | SSH terminal — plugin & skill install menu |
 | 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
 | 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
-| 6 | `ccc` | SSH terminal — full command reference |
+| 6 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
+| 7 | `ccc` | SSH terminal — full command reference |
 
 ## This Interface (code-server)
 
@@ -968,6 +969,7 @@ ccc() {
   echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude"
   echo -e "    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
   echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
+  echo -e "    ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
   echo ""
   echo -e "  ${B}MAINTENANCE${N}"
   echo -e "    ${C}ccc-setup${N}                 Post-install wizard (git identity, SSH key, GitHub)"
@@ -1441,6 +1443,41 @@ echo ""
 CODEXSCRIPT
 chmod +x /usr/local/bin/ccc-install-codex
 
+# ── ccc-install-jcodemunch ────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-install-jcodemunch << 'JCODEMUNCHSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+echo ""
+echo -e "${B}Installing jCodeMunch MCP${N}"
+echo -e "  Symbol-level code retrieval — cuts token usage ~95%"
+echo ""
+
+echo -e "${C}[1/3]${N} Installing pip package..."
+pip install --quiet --break-system-packages jcodemunch-mcp
+if [[ $? -ne 0 ]]; then
+  echo -e "${R}pip install failed.${N}"
+  exit 1
+fi
+
+echo -e "${C}[2/3]${N} Registering MCP server with Claude Code..."
+claude mcp add -s user jcodemunch jcodemunch-mcp
+if [[ $? -ne 0 ]]; then
+  echo -e "${Y}Auto-register failed — run manually inside Claude Code:${N}"
+  echo -e "  ${C}claude mcp add -s user jcodemunch jcodemunch-mcp${N}"
+fi
+
+echo -e "${C}[3/3]${N} Initialising index in current directory..."
+jcodemunch-mcp init 2>/dev/null || true
+
+echo ""
+echo -e "${G}${B}jCodeMunch installed.${N}"
+echo ""
+echo -e "  In any project dir: ${C}jcodemunch-mcp init${N}  (builds symbol index)"
+echo -e "  Docs: ${C}https://github.com/jgravelle/jcodemunch-mcp${N}"
+echo ""
+JCODEMUNCHSCRIPT
+chmod +x /usr/local/bin/ccc-install-jcodemunch
+
 # ── ccc-self-update ───────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-self-update << 'SELFUPDATESCRIPT'
 #!/bin/bash
@@ -1507,6 +1544,7 @@ echo -e "  ${C}ccc-update${N}                Update system packages + Claude Cod
 echo -e "  ${C}ccc-setup-plugins${N}         Plugin & skill install menu"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
 echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
+echo -e "  ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
 echo -e "  ${C}ccc-doctor${N}                System health check"
 echo ""
 echo -e "  ${Y}Web Interfaces${N}"
