@@ -420,7 +420,7 @@ provision_container() {
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-_STEPS=31
+_STEPS=32
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
@@ -1550,6 +1550,7 @@ echo ""
 echo -e "  ${Y}Web Interfaces${N}"
 IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
 echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
+echo -e "  ${C}http://\${IP}:8090${N}   Kit Manager — connect plugin repo, copy install commands"
 echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — system monitoring, file manager"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
@@ -1619,8 +1620,334 @@ COCKPITCONF
 systemctl enable --now cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 
+# ── Kit Manager (port 8090) ───────────────────────────────────────────────────
+step 31 "Kit Manager (port 8090)"
+mkdir -p /home/claude-code/.ccc/kit-manager/public
+
+# Server
+cat > /home/claude-code/.ccc/kit-manager/server.js << 'KITSERVER'
+#!/usr/bin/env node
+'use strict';
+const http  = require('http');
+const https = require('https');
+const fs    = require('fs');
+const path  = require('path');
+
+const PORT   = 8090;
+const PUBLIC = path.join(__dirname, 'public');
+const STATE  = path.join(__dirname, 'state.json');
+
+function loadState() {
+  try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return { repoUrl: '' }; }
+}
+function saveState(s) { fs.writeFileSync(STATE, JSON.stringify(s, null, 2)); }
+
+function ghRaw(repoUrl, filePath) {
+  const m = repoUrl.match(/github\.com[:/]([^/]+)\/([^/\s.]+?)(?:\.git)?(?:\/.*)?$/);
+  if (!m) throw new Error('Not a valid GitHub URL');
+  return `https://api.github.com/repos/${m[1]}/${m[2]}/contents/${filePath}`;
+}
+
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const opts = { headers: { 'User-Agent': 'ccc-kit-manager/1.0', 'Accept': 'application/vnd.github.v3+json' } };
+    https.get(url, opts, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+
+async function fetchManifest(repoUrl) {
+  const apiUrl = ghRaw(repoUrl, '.claude-plugin/marketplace.json');
+  const raw = await fetchJson(apiUrl);
+  if (raw.message) throw new Error(raw.message);
+  return JSON.parse(Buffer.from(raw.content, 'base64').toString('utf8'));
+}
+
+async function fetchFile(repoUrl, filePath) {
+  const apiUrl = ghRaw(repoUrl, filePath);
+  const raw = await fetchJson(apiUrl);
+  if (raw.message) return null;
+  return Buffer.from(raw.content, 'base64').toString('utf8');
+}
+
+function readBody(req) {
+  return new Promise(resolve => {
+    let b = '';
+    req.on('data', c => b += c);
+    req.on('end', () => resolve(b));
+  });
+}
+
+function json(res, code, obj) {
+  res.writeHead(code, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(obj));
+}
+
+const server = http.createServer(async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const url = req.url.split('?')[0];
+
+  if (req.method === 'GET' && url === '/') {
+    fs.readFile(path.join(PUBLIC, 'index.html'), (e, d) => {
+      if (e) { res.writeHead(500); res.end('Error'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(d);
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && url === '/api/state') {
+    return json(res, 200, loadState());
+  }
+
+  if (req.method === 'POST' && url === '/api/connect') {
+    const body = JSON.parse(await readBody(req));
+    const repoUrl = (body.repoUrl || '').trim();
+    try {
+      const manifest = await fetchManifest(repoUrl);
+      saveState({ repoUrl });
+      return json(res, 200, { manifest });
+    } catch (e) {
+      return json(res, 400, { error: e.message });
+    }
+  }
+
+  if (req.method === 'POST' && url === '/api/template') {
+    const body = JSON.parse(await readBody(req));
+    const repoUrl = (body.repoUrl || '').trim();
+    try {
+      const content = await fetchFile(repoUrl, 'templates/project-SETUP.md');
+      return json(res, 200, { content: content || '(no template found)' });
+    } catch (e) {
+      return json(res, 400, { error: e.message });
+    }
+  }
+
+  res.writeHead(404);
+  res.end('Not found');
+});
+
+server.listen(PORT, '0.0.0.0', () => console.log(`Kit Manager on http://0.0.0.0:${PORT}`));
+KITSERVER
+
+# UI
+cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CCC Kit Manager</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+  header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;gap:12px}
+  header h1{font-size:18px;font-weight:600;color:#f0f6fc}
+  header span{font-size:12px;color:#8b949e;background:#21262d;padding:2px 8px;border-radius:12px}
+  .container{max-width:960px;margin:0 auto;padding:24px}
+  .connect-bar{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px}
+  .connect-bar h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+  .input-row{display:flex;gap:8px}
+  input[type=text]{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#e6edf3;font-size:14px;outline:none}
+  input[type=text]:focus{border-color:#388bfd}
+  button{background:#238636;border:none;border-radius:6px;color:#fff;padding:8px 16px;font-size:14px;cursor:pointer;white-space:nowrap}
+  button:hover{background:#2ea043}
+  button.secondary{background:#21262d;border:1px solid #30363d}
+  button.secondary:hover{background:#30363d}
+  button.copy{background:#21262d;border:1px solid #30363d;font-size:12px;padding:4px 10px}
+  button.copy:hover{background:#30363d}
+  .status{font-size:13px;margin-top:10px;color:#8b949e}
+  .status.err{color:#f85149}
+  .status.ok{color:#3fb950}
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .section-header h2{font-size:16px;font-weight:600}
+  .marketplace-cmd{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:24px}
+  .marketplace-cmd h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+  .cmd-block{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-family:monospace;font-size:13px;color:#79c0ff;position:relative}
+  .cmd-block .copy-btn{position:absolute;top:8px;right:8px}
+  .plugins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+  .plugin-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  .plugin-card:hover{border-color:#388bfd}
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .card-name{font-size:15px;font-weight:600;color:#f0f6fc}
+  .card-version{font-size:11px;color:#8b949e;background:#21262d;padding:2px 6px;border-radius:4px;white-space:nowrap}
+  .card-category{font-size:11px;color:#79c0ff;text-transform:uppercase;letter-spacing:.05em}
+  .card-desc{font-size:13px;color:#8b949e;line-height:1.5;flex:1}
+  .card-cmd{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;font-family:monospace;font-size:12px;color:#79c0ff;display:flex;align-items:center;justify-content:space-between;gap:8px;word-break:break-all}
+  .install-all{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px}
+  .install-all h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+  .template-section{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+  .template-section h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+  pre{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-size:12px;color:#e6edf3;overflow-x:auto;white-space:pre-wrap;max-height:300px;overflow-y:auto}
+  .hidden{display:none}
+  .tag{display:inline-block;background:#21262d;color:#8b949e;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:4px}
+  .copied{color:#3fb950!important}
+</style>
+</head>
+<body>
+<header>
+  <svg width="20" height="20" viewBox="0 0 16 16" fill="#f78166"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+  <h1>CCC Kit Manager</h1>
+  <span>port 8090</span>
+</header>
+<div class="container">
+
+  <div class="connect-bar">
+    <h2>Connect Kit Repository</h2>
+    <div class="input-row">
+      <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" />
+      <button onclick="connect()">Connect</button>
+    </div>
+    <div class="status hidden" id="connectStatus"></div>
+  </div>
+
+  <div class="hidden" id="kitContent">
+
+    <div class="marketplace-cmd">
+      <h2>Step 1 — Add Marketplace (paste inside Claude Code session)</h2>
+      <div class="cmd-block" id="marketplaceCmd">
+        <button class="copy copy-btn" onclick="copyEl('marketplaceCmd', this)">Copy</button>
+      </div>
+    </div>
+
+    <div class="install-all">
+      <h2>Step 2 — Install All Plugins (paste inside Claude Code session)</h2>
+      <div class="cmd-block" id="installAllCmd">
+        <button class="copy copy-btn" onclick="copyEl('installAllCmd', this)">Copy</button>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2>Plugins</h2>
+      <button class="secondary" onclick="loadTemplate()">View Project Template</button>
+    </div>
+    <div class="plugins-grid" id="pluginsGrid"></div>
+
+    <div class="template-section hidden" id="templateSection">
+      <h2>Project SETUP.md Template</h2>
+      <pre id="templateContent"></pre>
+    </div>
+
+  </div>
+</div>
+<script>
+async function connect() {
+  const url = document.getElementById('repoUrl').value.trim();
+  const status = document.getElementById('connectStatus');
+  if (!url) return;
+  status.className = 'status'; status.textContent = 'Connecting...'; status.classList.remove('hidden');
+  try {
+    const r = await fetch('/api/connect', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ repoUrl: url }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed');
+    status.className = 'status ok'; status.textContent = `Connected — ${d.manifest.name || 'kit'} (${(d.manifest.plugins||[]).length} plugins)`;
+    renderKit(url, d.manifest);
+  } catch(e) {
+    status.className = 'status err'; status.textContent = e.message;
+  }
+}
+
+function renderKit(repoUrl, manifest) {
+  const kitName = manifest.name || 'kit';
+  const plugins = manifest.plugins || [];
+
+  document.getElementById('marketplaceCmd').innerHTML =
+    `/plugin marketplace add ${repoUrl}` +
+    `<button class="copy copy-btn" onclick="copyText('/plugin marketplace add ${repoUrl}', this)">Copy</button>`;
+
+  const allCmds = plugins.map(p => `/plugin install ${p.name}@${kitName}`).join('\n');
+  document.getElementById('installAllCmd').innerHTML =
+    allCmds.replace(/\n/g, '<br>') +
+    `<button class="copy copy-btn" onclick="copyText(\`${allCmds}\`, this)">Copy</button>`;
+
+  const grid = document.getElementById('pluginsGrid');
+  grid.innerHTML = plugins.map(p => {
+    const cmd = `/plugin install ${p.name}@${kitName}`;
+    return `<div class="plugin-card">
+      <div class="card-top">
+        <span class="card-name">${p.name}</span>
+        <span class="card-version">v${p.version||'?'}</span>
+      </div>
+      <div class="card-category">${p.category||''}</div>
+      <div class="card-desc">${p.description||''}</div>
+      ${(p.keywords||[]).map(k=>`<span class="tag">${k}</span>`).join('')}
+      <div class="card-cmd">
+        <span>${cmd}</span>
+        <button class="copy" onclick="copyText('${cmd}', this)">Copy</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('kitContent').classList.remove('hidden');
+  document.getElementById('templateSection').classList.add('hidden');
+  window._currentRepoUrl = repoUrl;
+}
+
+async function loadTemplate() {
+  const sec = document.getElementById('templateSection');
+  const pre = document.getElementById('templateContent');
+  if (!sec.classList.contains('hidden')) { sec.classList.add('hidden'); return; }
+  pre.textContent = 'Loading...';
+  sec.classList.remove('hidden');
+  try {
+    const r = await fetch('/api/template', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ repoUrl: window._currentRepoUrl }) });
+    const d = await r.json();
+    pre.textContent = d.content || '(empty)';
+  } catch(e) { pre.textContent = 'Error: ' + e.message; }
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+  });
+}
+function copyEl(id, btn) {
+  const el = document.getElementById(id);
+  const text = el.innerText.replace(/Copy$/,'').trim();
+  copyText(text, btn);
+}
+
+// Restore last URL on load
+fetch('/api/state').then(r=>r.json()).then(s => {
+  if (s.repoUrl) document.getElementById('repoUrl').value = s.repoUrl;
+});
+</script>
+</body>
+</html>
+KITHTML
+
+chown -R claude-code:claude-code /home/claude-code/.ccc
+
+# Systemd service
+cat > /etc/systemd/system/ccc-kit-manager.service << 'KITSVC'
+[Unit]
+Description=CCC Kit Manager
+After=network.target
+
+[Service]
+Type=simple
+User=claude-code
+WorkingDirectory=/home/claude-code/.ccc/kit-manager
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+KITSVC
+
+systemctl daemon-reload
+systemctl enable ccc-kit-manager
+systemctl start ccc-kit-manager
+echo "    Kit Manager: http://<ip>:8090"
+
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 31 "Cleanup"
+step 32 "Cleanup"
 # Disable noisy motd-news fetch (fails in LXC due to permissions)
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 systemctl disable motd-news 2>/dev/null || true

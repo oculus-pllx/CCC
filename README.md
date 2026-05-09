@@ -23,6 +23,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Update command** — `ccc-update` syncs packages, Claude Code, and skill repos
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server** (web VS Code) on port 8080 — multi-terminal tabs, file editor, welcome guide
+- **Kit Manager** on port 8090 — connect a GitHub plugin repo, browse plugins, copy Claude Code install commands
 - **Cockpit** on port 9090 — system monitoring, file manager with upload/download, browser terminal
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -85,7 +86,7 @@ After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
-Provisioning takes **10–15 minutes**. Each of the 31 steps prints `[N/31]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+Provisioning takes **10–15 minutes**. Each of the 32 steps prints `[N/32]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
