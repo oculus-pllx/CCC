@@ -49,6 +49,8 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check |
 | ccc-install-playwright | ✅ On-demand with live output |
 | ccc-install-codex | ✅ OpenAI Codex CLI on demand |
+| ccc-install-jcodemunch | ✅ jCodeMunch MCP — pip install + claude mcp add |
+| Kit Manager (port 8090) | ✅ Node.js web UI — connect GitHub kit repo, browse plugins, copy install commands |
 | code-server WELCOME.md | ✅ Opens in projects/ — first steps, multi-terminal tip |
 | MOTD | ✅ Shows live IPs for :8080/:9090, all ccc-* commands |
 | Skill repo URLs | Unverified — see Risks |
@@ -95,6 +97,8 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 ## TODOs / Future Work
 
 - [ ] Complete first clean end-to-end provision with latest script
+- [ ] Verify Kit Manager loads and connects to a GitHub repo on fresh provision
+- [ ] Verify Cockpit GUI updates work (NM dummy connection fix)
 - [ ] Verify all 4 skill repo URLs are live
 - [ ] Verify plugin names against current Claude Code registry
 - [ ] Remove redundant root Rust install (~2 min savings)
@@ -102,6 +106,7 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 - [ ] Consider `CHANGELOG.md` once version bumps start
 - [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
 - [ ] Test SSH key install with both RSA and ed25519
+- [ ] Kit Manager: add support for private repos via SSH key (post-ccc-setup)
 - [x] Playwright — moved to on-demand `ccc-install-playwright`
 - [x] Proxmox VE attribution in README
 - [x] Skill discovery fix (copy .md files to skills/)
@@ -142,7 +147,7 @@ HANDOFF.md                 This file — project status and context
 | `print_summary()` | Final ready box (only prints on full success) |
 | `main()` | Wires all above in order |
 
-### Inside the provision heredoc (31 steps)
+### Inside the provision heredoc (32 steps)
 
 | Step | Block |
 |---|---|
@@ -175,5 +180,6 @@ HANDOFF.md                 This file — project status and context
 | 27 | MOTD (live IPs, all ccc-* commands) |
 | 28 | Git defaults |
 | 29 | Auto-update cron (Sundays 3 AM ET) |
-| 30 | Cockpit + cockpit.conf + purge udisks2 |
-| 31 | Cleanup |
+| 30 | Cockpit + NM dummy connection + cockpit.conf |
+| 31 | Kit Manager (Node.js :8090 + systemd service) |
+| 32 | Cleanup |

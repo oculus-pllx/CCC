@@ -105,13 +105,16 @@ claude
 # 4. Install plugins (see commands printed by this)
 ccc-setup-plugins
 
-# 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
+# 5. Connect your plugin kit (see Kit Manager below)
+# Open http://<container-ip>:8090 in a browser
+
+# 6. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 6. Install jCodeMunch MCP — 95% token reduction via symbol-level retrieval (optional)
+# 7. Install jCodeMunch MCP — 95% token reduction via symbol-level retrieval (optional)
 ccc-install-jcodemunch
 
-# 7. Full help and command reference
+# 8. Full help and command reference
 ccc
 ```
 
@@ -132,6 +135,49 @@ Plugins require an authenticated Claude Code session. After running `claude` for
 ```
 
 Run `ccc-setup-plugins` at any time to reprint these.
+
+---
+
+## Kit Manager
+
+The Kit Manager (port 8090) lets you connect a private GitHub plugin repository and install its contents into Claude Code with one copy-paste.
+
+Open `http://<container-ip>:8090` in a browser after provisioning.
+
+### What it does
+
+- Reads a `.claude-plugin/marketplace.json` from any GitHub repo
+- Lists all plugins with name, description, version, and category
+- Generates the exact `/plugin marketplace add` and `/plugin install` commands
+- Copy individual commands or the full install block
+- Fetches project `SETUP.md` templates from the kit repo
+- Remembers the last connected repo URL
+
+### Setting up your own kit repo
+
+1. Create a private GitHub repo (e.g. `your-org/your-claude-kit`)
+2. Add a `.claude-plugin/marketplace.json`:
+
+```json
+{
+  "name": "your-kit",
+  "plugins": [
+    {
+      "name": "your-plugin",
+      "source": "./plugins/your-plugin",
+      "description": "What it does",
+      "version": "0.1.0",
+      "category": "engineering"
+    }
+  ]
+}
+```
+
+3. Add plugin folders under `plugins/` following Claude Code plugin structure
+4. **SSH access**: run `ccc-setup` first to generate an SSH key, then add the public key to GitHub (`~/.ssh/id_ed25519.pub` → GitHub → Settings → SSH Keys)
+5. Open Kit Manager, paste your repo URL, hit Connect
+
+> **Private repos** require SSH key access to be configured before the Kit Manager can reach them. Run `ccc-setup` → generate SSH key → add to GitHub first.
 
 ---
 
@@ -226,6 +272,8 @@ sudo systemctl restart code-server@claude-code
 sudo systemctl start   redis-server
 sudo systemctl status  cockpit.socket
 sudo systemctl restart cockpit.socket
+sudo systemctl status  ccc-kit-manager
+sudo systemctl restart ccc-kit-manager
 ```
 
 ---
