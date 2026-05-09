@@ -420,7 +420,7 @@ provision_container() {
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-_STEPS=32
+_STEPS=29
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
@@ -510,23 +510,12 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y -qq nodejs
 echo "    Node $(node --version) / npm $(npm --version)"
 
-# ── Global npm: dev, test, and Claude ecosystem ───────────────────────────────
+# ── Global npm: TypeScript runtime only ───────────────────────────────────────
 step 9 "Global npm packages"
-npm install -g \
-  typescript ts-node tsx \
-  eslint prettier \
-  jest vitest \
-  nodemon concurrently \
-  http-server \
-  pm2
-
-# ── get-shit-done-cc ──────────────────────────────────────────────────────────
-step 10 "get-shit-done-cc"
-npx --yes get-shit-done-cc --claude --global 2>/dev/null \
-  || echo "    [WARN] get-shit-done-cc — run manually: npx --yes get-shit-done-cc --claude --global"
+npm install -g typescript ts-node tsx
 
 # ── Go ────────────────────────────────────────────────────────────────────────
-step 11 "Go"
+step 10 "Go"
 GO_VERSION=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1)
 curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
 rm -rf /usr/local/go
@@ -536,34 +525,28 @@ echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
 echo "    $(/usr/local/go/bin/go version | awk '{print $3}')"
 
 # ── Rust (system — build tooling) ─────────────────────────────────────────────
-step 12 "Rust (system)"
+step 11 "Rust (system)"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # ── claude-code user ─────────────────────────────────────────────────────────
-step 13 "Creating claude-code user"
+step 12 "Creating claude-code user"
 useradd -m -s /bin/bash -d /home/claude-code claude-code 2>/dev/null || true
 usermod -aG sudo claude-code
 echo "claude-code ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-code
 chmod 0440 /etc/sudoers.d/claude-code
 
 # ── Rust for claude-code user ─────────────────────────────────────────────────
-step 14 "Rust (claude-code user)"
+step 13 "Rust (claude-code user)"
 sudo -u claude-code bash -c '
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 '
 
 # ── Python testing & linting ecosystem ───────────────────────────────────────
-step 15 "Python ecosystem"
-pip3 install --break-system-packages --quiet --no-warn-script-location \
-  pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist \
-  black ruff mypy \
-  httpx requests python-dotenv \
-  rich typer \
-  pyyaml toml
-echo "    pytest, black, ruff, mypy, httpx, rich, typer installed"
+step 14 "Python ecosystem"
+echo "    pip3 available — install packages per-project with: pip install --break-system-packages <pkg>"
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
-step 16 "Claude Code"
+step 15 "Claude Code"
 sudo -u claude-code bash -c '
   export HOME=/home/claude-code
   curl -fsSL https://claude.ai/install.sh | bash
@@ -582,11 +565,11 @@ fi
 # ── Playwright (headless browser testing) ────────────────────────────────────
 # Skipped at provision time — hangs in LXC due to Chromium download size/networking.
 # Install manually after provision: npx --yes playwright install --with-deps chromium
-step 17 "Playwright (skipped — install manually after provision)"
+step 16 "Playwright (skipped — install manually after provision)"
 echo "    Run after provision: npx --yes playwright install --with-deps chromium"
 
 # ── Claude Code settings.json ─────────────────────────────────────────────────
-step 18 "Claude Code settings.json"
+step 17 "Claude Code settings.json"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
 
 sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << 'SETTINGS'
@@ -622,7 +605,7 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
 SETTINGS
 
 # ── CLAUDE.md ─────────────────────────────────────────────────────────────────
-step 19 "CLAUDE.md"
+step 18 "CLAUDE.md"
 sudo -u claude-code mkdir -p /home/claude-code/projects
 sudo -u claude-code tee /home/claude-code/.claude/CLAUDE.md > /dev/null << 'CLAUDEMD'
 # Claude Code Workspace
@@ -676,80 +659,14 @@ Use /remote-control or press spacebar to show QR code.
 - Python packages: pip install --break-system-packages <pkg>
 - Extended thinking always on
 
-## Skills (pre-cloned at ~/.claude/skills/)
-- anthropic-skills      — Official Anthropic skill library
-- karpathy-skills       — Andrej Karpathy ML/AI skills
-- mattpocock-skills     — TypeScript/FP skills (Matt Pocock)
-- caveman               — Foundational development skills (Julius Brussee)
-
-## Plugins (run inside Claude after first login)
-Run `ccc-setup-plugins` in shell, then paste into Claude session:
-  /plugin install skill-creator@claude-plugins-official
-  /plugin install superpowers@claude-plugins-official
-  /plugin install frontend-design@claude-plugins-official
-  /plugin marketplace add mksglu/context-mode
-  /plugin install context-mode@context-mode
-  /plugin marketplace add thedotmack/claude-mem
-  /plugin install claude-mem
+## Plugins & Skills
+Connect your kit repo at http://&lt;ip&gt;:8090 (Kit Manager) to browse and install plugins.
 CLAUDEMD
 
-# ── Skill repos ───────────────────────────────────────────────────────────────
-# Clone repos to skill-repos/ (full repo kept for git pull updates).
-# Copy all .md files up to skills/ so Claude Code discovers them directly.
-step 20 "Skill repos"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
-sudo -u claude-code mkdir -p /home/claude-code/.claude/skill-repos
-cd /home/claude-code/.claude/skill-repos
-
-sudo -u claude-code git clone --depth 1 \
-  https://github.com/anthropics/skills.git anthropic-skills 2>/dev/null \
-  || echo "    [SKIP] anthropic-skills"
-
-sudo -u claude-code git clone --depth 1 \
-  https://github.com/forrestchang/andrej-karpathy-skills.git karpathy-skills 2>/dev/null \
-  || echo "    [SKIP] karpathy-skills"
-
-sudo -u claude-code git clone --depth 1 \
-  https://github.com/mattpocock/skills.git mattpocock-skills 2>/dev/null \
-  || echo "    [SKIP] mattpocock-skills"
-
-sudo -u claude-code git clone --depth 1 \
-  https://github.com/juliusbrussee/caveman.git caveman 2>/dev/null \
-  || echo "    [SKIP] caveman"
-
-# Copy .md skill files to ~/.claude/skills/ and inject frontmatter if missing
-find /home/claude-code/.claude/skill-repos -name "*.md" \
-  ! -name "README.md" ! -name "CHANGELOG.md" ! -name "LICENSE.md" \
-  ! -name "THIRD_PARTY_NOTICES.md" ! -name "SECURITY.md" ! -name "CONTRIBUTING.md" \
-  | while read -r f; do
-    base=$(basename "$f" .md)
-    repo=$(echo "$f" | awk -F'skill-repos/' '{print $2}' | cut -d'/' -f1)
-    dest="/home/claude-code/.claude/skills/${repo}-${base}.md"
-
-    # Inject frontmatter if file doesn't already have it
-    if head -1 "$f" | grep -q '^---'; then
-      sudo -u claude-code cp "$f" "$dest"
-    else
-      # Derive description from first non-empty line of content
-      desc=$(grep -m1 -v '^\s*$' "$f" | sed 's/^#\+\s*//' | cut -c1-80)
-      [[ -z "$desc" ]] && desc="$base skill"
-      sudo -u claude-code bash -c "cat > '$dest' << 'FRONTMATTER'
----
-name: $base
-description: $desc
----
-FRONTMATTER
-cat '$f' >> '$dest'"
-    fi
-  done
-
-skill_count=$(find /home/claude-code/.claude/skills -maxdepth 1 -name "*.md" | wc -l)
-echo "    $skill_count skill files installed to ~/.claude/skills/"
-
-cd /root
 
 # ── Statusline ────────────────────────────────────────────────────────────────
-step 21 "Statusline"
+step 19 "Statusline"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
 cat > /home/claude-code/.claude/bin/statusline-command.sh << 'STATUSLINE'
 #!/bin/bash
@@ -813,7 +730,7 @@ chown claude-code:claude-code /home/claude-code/.claude/bin/statusline-command.s
 echo "    Statusline: ~/.claude/bin/statusline-command.sh"
 
 # ── code-server (web VS Code) ─────────────────────────────────────────────────
-step 22 "code-server (web VS Code)"
+step 20 "code-server (web VS Code)"
 curl -fsSL https://code-server.dev/install.sh | sh
 echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
@@ -830,11 +747,10 @@ sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WE
 |------|---------|-------|
 | 1 | `ccc-setup` | SSH terminal — git identity, SSH key, GitHub |
 | 2 | `claude` | SSH terminal — authenticate Claude Code |
-| 3 | `ccc-setup-plugins` | SSH terminal — plugin & skill install menu |
-| 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
-| 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
-| 6 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
-| 7 | `ccc` | SSH terminal — full command reference |
+| 3 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
+| 4 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
+| 5 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
+| 6 | `ccc` | SSH terminal — full command reference |
 
 ## This Interface (code-server)
 
@@ -864,9 +780,8 @@ For multi-terminal work, use this editor (port 8080) instead.
 
 ```bash
 ccc-setup          # post-install wizard
-ccc-update         # update packages + Claude Code + skills
+ccc-update         # update packages + Claude Code
 ccc-doctor         # health check
-ccc-setup-plugins  # plugin & skill menu
 ccc                # full help
 ```
 
@@ -907,7 +822,7 @@ systemctl enable code-server@claude-code
 echo "    code-server service enabled (config injected next step)"
 
 # ── SSH hardening ─────────────────────────────────────────────────────────────
-step 23 "SSH hardening"
+step 21 "SSH hardening"
 sed -i "s/^#*PermitRootLogin.*/PermitRootLogin no/"               /etc/ssh/sshd_config
 sed -i "s/^#*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
 sed -i "s/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/"     /etc/ssh/sshd_config
@@ -918,7 +833,7 @@ systemctl enable ssh
 systemctl restart ssh
 
 # ── Shell environment ─────────────────────────────────────────────────────────
-step 24 "Shell environment & aliases"
+step 22 "Shell environment & aliases"
 cat >> /home/claude-code/.bashrc << 'BASHRC'
 
 # ── Claude Code Commander ─────────────────────────────────────────────────────
@@ -966,7 +881,6 @@ ccc() {
   echo -e "  ${B}CLAUDE CODE${N}"
   echo -e "    ${C}claude${N}                   Start Claude Code session"
   echo -e "    ${C}claude --version${N}          Check version"
-  echo -e "    ${C}ccc-setup-plugins${N}         Print plugin slash-commands for Claude"
   echo -e "    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
   echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
   echo -e "    ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
@@ -977,17 +891,9 @@ ccc() {
   echo -e "    ${C}ccc-update${N}                Update system packages + Claude Code"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
   echo ""
-  echo -e "  ${B}PLUGINS${N} ${Y}— paste inside a Claude Code session${N}"
-  echo -e "    ${C}/plugin install skill-creator@claude-plugins-official${N}"
-  echo -e "    ${C}/plugin install superpowers@claude-plugins-official${N}"
-  echo -e "    ${C}/plugin install frontend-design@claude-plugins-official${N}"
-  echo -e "    ${C}/plugin marketplace add mksglu/context-mode${N}"
-  echo -e "    ${C}/plugin install context-mode@context-mode${N}"
-  echo -e "    ${C}/plugin marketplace add thedotmack/claude-mem${N}"
-  echo -e "    ${C}/plugin install claude-mem${N}"
+  echo -e "  ${B}PLUGINS & SKILLS${N}"
+  echo -e "    Kit Manager at ${C}http://$(hostname -I | awk '{print $1}'):8090${N}"
   echo ""
-  echo -e "  ${B}SKILLS${N} ${G}(pre-cloned at ~/.claude/skills/)${N}"
-  echo -e "    anthropic-skills   karpathy-skills   mattpocock-skills   caveman"
   echo ""
   echo -e "  ${B}SERVICES${N}"
   echo -e "    ${C}sudo systemctl status  code-server@claude-code${N}   Web VS Code status"
@@ -1066,172 +972,6 @@ TMUXCONF
 chown claude-code:claude-code /home/claude-code/.tmux.conf
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
-# ── ccc-setup-plugins (standalone script) ────────────────────────────────────
-step 25 "ccc-setup-plugins script"
-cat > /usr/local/bin/ccc-setup-plugins << 'PLUGINSCRIPT'
-#!/bin/bash
-B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; G='\033[0;32m'; D='\033[2m'; R='\033[0;31m'; N='\033[0m'
-
-# Plugins — require manual /plugin install inside Claude Code session
-# Format: "Name|description|step1|step2|..."
-PLUGINS=(
-  "Skill Creator|Create and manage reusable Claude skills|/plugin install skill-creator@claude-plugins-official"
-  "Superpowers|Agent teams, code review, TDD, debugging workflows|/plugin install superpowers@claude-plugins-official"
-  "Frontend Design|UI/UX design and component workflows|/plugin install frontend-design@claude-plugins-official"
-  "Context Mode|Fine-grained control over Claude context|/plugin marketplace add mksglu/context-mode|/plugin install context-mode@context-mode"
-  "Claude Mem|Persistent memory across Claude sessions|/plugin marketplace add thedotmack/claude-mem|/plugin install claude-mem"
-)
-
-# Pre-installed skills — already cloned to ~/.claude/skills/ at provision time
-# Format: "Name|description|path|source"
-SKILLS=(
-  "Anthropic Skills|Official Anthropic prompt and workflow skills|~/.claude/skills/anthropic-skills|github.com/anthropics/skills"
-  "Karpathy Skills|Andrej Karpathy AI/ML workflow skills|~/.claude/skills/karpathy-skills|github.com/forrestchang/andrej-karpathy-skills"
-  "Matt Pocock Skills|TypeScript and developer workflow skills|~/.claude/skills/mattpocock-skills|github.com/mattpocock/skills"
-  "Caveman|Terse caveman-mode communication skill|~/.claude/skills/caveman|github.com/juliusbrussee/caveman"
-)
-
-show_how_to_plugin() {
-  echo ""
-  echo -e "${Y}How to install plugins:${N}"
-  echo -e "  1. Open a terminal and run ${C}claude${N} to start Claude Code"
-  echo -e "  2. Copy the command shown below"
-  echo -e "  3. Paste it into the Claude Code prompt and press Enter"
-  echo -e "  4. Wait for the confirmation message before the next step"
-  echo -e "  ${D}Plugins require an authenticated Claude Code session.${N}"
-  echo ""
-}
-
-show_plugin() {
-  local idx=$1
-  local entry="${PLUGINS[$idx]}"
-  local name=$(echo "$entry" | cut -d'|' -f1)
-  local desc=$(echo "$entry" | cut -d'|' -f2)
-  local cmds=$(echo "$entry" | cut -d'|' -f3-)
-  echo ""
-  echo -e "${B}$name${N}"
-  echo -e "${D}$desc${N}"
-  echo ""
-  echo -e "${Y}Paste into Claude Code (run: claude):${N}"
-  IFS='|' read -ra steps <<< "$cmds"
-  local i=1
-  for cmd in "${steps[@]}"; do
-    echo -e "  ${G}Step $i:${N} ${C}${cmd}${N}"
-    i=$(( i + 1 ))
-  done
-  echo ""
-}
-
-show_skill() {
-  local idx=$1
-  local entry="${SKILLS[$idx]}"
-  local name=$(echo "$entry"  | cut -d'|' -f1)
-  local desc=$(echo "$entry"  | cut -d'|' -f2)
-  local path=$(echo "$entry"  | cut -d'|' -f3)
-  local src=$(echo "$entry"   | cut -d'|' -f4)
-  echo ""
-  echo -e "${B}$name${N} ${G}[pre-installed]${N}"
-  echo -e "${D}$desc${N}"
-  echo -e "  Location: ${C}$path${N}"
-  echo -e "  Source:   ${C}https://$src${N}"
-  echo ""
-  if [[ -d "${path/\~/$HOME}" ]]; then
-    echo -e "  ${G}✓ Present on disk${N}"
-  else
-    echo -e "  ${R}✗ Not found — re-run: git clone https://$src ${path/\~/$HOME}${N}"
-  fi
-  echo ""
-}
-
-show_all_plugins() {
-  show_how_to_plugin
-  echo -e "${B}Full plugin install sequence — paste into Claude Code in order:${N}"
-  echo ""
-  for entry in "${PLUGINS[@]}"; do
-    local name=$(echo "$entry" | cut -d'|' -f1)
-    local cmds=$(echo "$entry" | cut -d'|' -f3-)
-    echo -e "  ${G}── $name${N}"
-    IFS='|' read -ra steps <<< "$cmds"
-    for cmd in "${steps[@]}"; do
-      echo -e "     ${C}$cmd${N}"
-    done
-    echo ""
-  done
-}
-
-show_all_skills() {
-  echo ""
-  echo -e "${B}Pre-installed Skills${N} ${D}(already on disk — no install needed)${N}"
-  echo ""
-  for entry in "${SKILLS[@]}"; do
-    local name=$(echo "$entry" | cut -d'|' -f1)
-    local path=$(echo "$entry" | cut -d'|' -f3)
-    local src=$(echo "$entry"  | cut -d'|' -f4)
-    if [[ -d "${path/\~/$HOME}" ]]; then
-      echo -e "  ${G}✓${N} ${B}$name${N} — ${C}$path${N}"
-    else
-      echo -e "  ${R}✗${N} ${B}$name${N} — missing (${D}https://$src${N})"
-    fi
-  done
-  echo ""
-  echo -e "  ${D}Also pre-installed: get-shit-done-cc (global npm package)${N}"
-  echo ""
-}
-
-plugin_count=${#PLUGINS[@]}
-skill_count=${#SKILLS[@]}
-
-while true; do
-  echo ""
-  echo -e "${B}╔════════════════════════════════════════════════╗${N}"
-  echo -e "${B}║        CCC Plugins & Skills Menu               ║${N}"
-  echo -e "${B}╚════════════════════════════════════════════════╝${N}"
-  echo ""
-  echo -e "  ${Y}── Plugins (require manual install in Claude Code) ──${N}"
-  for i in "${!PLUGINS[@]}"; do
-    local_name=$(echo "${PLUGINS[$i]}" | cut -d'|' -f1)
-    local_desc=$(echo "${PLUGINS[$i]}" | cut -d'|' -f2)
-    echo -e "  ${C}$((i+1))${N}. ${B}$local_name${N} — ${D}$local_desc${N}"
-  done
-  echo ""
-  echo -e "  ${Y}── Pre-installed Skills (already on disk) ──${N}"
-  for i in "${!SKILLS[@]}"; do
-    local_name=$(echo "${SKILLS[$i]}" | cut -d'|' -f1)
-    local_desc=$(echo "${SKILLS[$i]}" | cut -d'|' -f2)
-    local_path=$(echo "${SKILLS[$i]}" | cut -d'|' -f3)
-    if [[ -d "${local_path/\~/$HOME}" ]]; then
-      echo -e "  ${C}$((i+plugin_count+1))${N}. ${B}$local_name${N} ${G}✓${N} — ${D}$local_desc${N}"
-    else
-      echo -e "  ${C}$((i+plugin_count+1))${N}. ${B}$local_name${N} ${R}✗ missing${N} — ${D}$local_desc${N}"
-    fi
-  done
-  echo ""
-  echo -e "  ${C}a${N}. Install all plugins (full sequence)"
-  echo -e "  ${C}s${N}. Show all pre-installed skills"
-  echo -e "  ${C}h${N}. How to install plugins"
-  echo -e "  ${C}q${N}. Quit"
-  echo ""
-  read -rp "  Choice: " CHOICE
-
-  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && (( CHOICE >= 1 && CHOICE <= plugin_count )); then
-    show_plugin $(( CHOICE - 1 ))
-  elif [[ "$CHOICE" =~ ^[0-9]+$ ]] && (( CHOICE >= plugin_count+1 && CHOICE <= plugin_count+skill_count )); then
-    show_skill $(( CHOICE - plugin_count - 1 ))
-  else
-    case "$CHOICE" in
-      a|A) show_all_plugins ;;
-      s|S) show_all_skills ;;
-      h|H) show_how_to_plugin ;;
-      q|Q) echo ""; exit 0 ;;
-      *) echo -e "  ${Y}Enter 1–$((plugin_count+skill_count)), a, s, h, or q${N}" ;;
-    esac
-  fi
-
-  read -rp "  Press Enter to return to menu..." _
-done
-PLUGINSCRIPT
-chmod +x /usr/local/bin/ccc-setup-plugins
-
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
 #!/bin/bash
@@ -1246,36 +986,7 @@ echo ""
 echo -e "${C}[2/3]${N} Claude Code..."
 claude update
 echo ""
-echo -e "${C}[3/3]${N} Skill repos..."
-SKILL_REPOS="$HOME/.claude/skill-repos"
-SKILLS_DIR="$HOME/.claude/skills"
-if [[ -d "$SKILL_REPOS" ]]; then
-  for repo in "$SKILL_REPOS"/*/; do
-    [[ -d "$repo/.git" ]] || continue
-    name=$(basename "$repo")
-    printf "    pulling %s... " "$name"
-    git -C "$repo" pull -q 2>/dev/null && echo "done" || echo "skipped"
-  done
-  # Re-sync .md files with frontmatter injection
-  find "$SKILL_REPOS" -name "*.md" \
-    ! -name "README.md" ! -name "CHANGELOG.md" ! -name "LICENSE.md" \
-    ! -name "THIRD_PARTY_NOTICES.md" ! -name "SECURITY.md" ! -name "CONTRIBUTING.md" \
-    | while read -r f; do
-      base=$(basename "$f" .md)
-      repo=$(echo "$f" | awk -F'skill-repos/' '{print $2}' | cut -d'/' -f1)
-      dest="$SKILLS_DIR/${repo}-${base}.md"
-      if head -1 "$f" | grep -q '^---'; then
-        cp "$f" "$dest" 2>/dev/null || true
-      else
-        desc=$(grep -m1 -v '^\s*$' "$f" | sed 's/^#\+\s*//' | cut -c1-80)
-        [[ -z "$desc" ]] && desc="$base skill"
-        { printf -- '---\nname: %s\ndescription: %s\n---\n' "$base" "$desc"; cat "$f"; } > "$dest" 2>/dev/null || true
-      fi
-    done
-  echo "    skills synced"
-else
-  echo "    no skill-repos dir found — skipping"
-fi
+echo -e "${C}[3/3]${N} Plugins — managed via Kit Manager at http://$(hostname -I | awk '{print $1}'):8090"
 echo ""
 echo -e "${G}${B}Update complete.${N}"
 echo ""
@@ -1377,7 +1088,7 @@ DOCTORSCRIPT
 chmod +x /usr/local/bin/ccc-doctor
 
 # ── ccc-install-playwright (standalone script) ───────────────────────────────
-step 26 "ccc-install-playwright script"
+step 23 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
@@ -1526,7 +1237,7 @@ SELFUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-self-update
 
 # ── MOTD ─────────────────────────────────────────────────────────────────────
-step 27 "MOTD"
+step 24 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
@@ -1541,7 +1252,6 @@ echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-setup${N}                 Post-install wizard (git, SSH key, GitHub)"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
-echo -e "  ${C}ccc-setup-plugins${N}         Plugin & skill install menu"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
 echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
 echo -e "  ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
@@ -1560,14 +1270,14 @@ chmod +x /etc/update-motd.d/00-ccc
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
-step 28 "Git defaults"
+step 25 "Git defaults"
 sudo -u claude-code git config --global init.defaultBranch main
 sudo -u claude-code git config --global core.editor nano
 sudo -u claude-code git config --global pull.rebase false
 sudo -u claude-code git config --global core.autocrlf false
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-step 29 "Auto-update cron"
+step 26 "Auto-update cron"
 cat > /etc/cron.d/system-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
@@ -1586,7 +1296,7 @@ cat > /etc/logrotate.d/system-update << 'LOGROTATE'
 LOGROTATE
 
 # ── Cockpit (web admin UI) ────────────────────────────────────────────────────
-step 30 "Cockpit (web admin UI)"
+step 27 "Cockpit (web admin UI)"
 # NM needed for PackageKit connectivity check — without it Cockpit reports "offline"
 apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
 mkdir -p /etc/NetworkManager/conf.d
@@ -1621,7 +1331,7 @@ systemctl enable --now cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 
 # ── Kit Manager (port 8090) ───────────────────────────────────────────────────
-step 31 "Kit Manager (port 8090)"
+step 28 "Kit Manager (port 8090)"
 mkdir -p /home/claude-code/.ccc/kit-manager/public
 
 # Server
@@ -1947,7 +1657,7 @@ systemctl start ccc-kit-manager
 echo "    Kit Manager: http://<ip>:8090"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 32 "Cleanup"
+step 29 "Cleanup"
 # Disable noisy motd-news fetch (fails in LXC due to permissions)
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 systemctl disable motd-news 2>/dev/null || true
@@ -1975,20 +1685,13 @@ PROVISION_EOF
   # ── Passwords + code-server config (variable expansion — outside heredoc) ───
   info "Setting passwords and finalizing code-server ..."
 
-  pct exec "$CT_ID" -- bash -c "echo '${CC_USER}:${CC_PASSWORD}' | chpasswd"
+  printf '%s:%s\n' "${CC_USER}" "${CC_PASSWORD}" | pct exec "$CT_ID" -- chpasswd
 
-  pct exec "$CT_ID" -- bash -c "
-    sudo -u ${CC_USER} mkdir -p /home/${CC_USER}/.config/code-server
-    cat > /home/${CC_USER}/.config/code-server/config.yaml << YAML
-bind-addr: 0.0.0.0:8080
-auth: password
-password: ${CS_PASSWORD}
-cert: false
-user-data-dir: /home/${CC_USER}/.local/share/code-server
-extensions-dir: /home/${CC_USER}/.local/share/code-server/extensions
-YAML
-    chown -R ${CC_USER}:${CC_USER} /home/${CC_USER}/.config/code-server
-  "
+  pct exec "$CT_ID" -- bash -c "mkdir -p /home/${CC_USER}/.config/code-server"
+  printf 'bind-addr: 0.0.0.0:8080\nauth: password\npassword: %s\ncert: false\nuser-data-dir: /home/%s/.local/share/code-server\nextensions-dir: /home/%s/.local/share/code-server/extensions\n' \
+    "${CS_PASSWORD}" "${CC_USER}" "${CC_USER}" \
+    | pct exec "$CT_ID" -- tee /home/${CC_USER}/.config/code-server/config.yaml > /dev/null
+  pct exec "$CT_ID" -- chown -R "${CC_USER}:${CC_USER}" "/home/${CC_USER}/.config/code-server"
 
   # ── code-server extensions ────────────────────────────────────────────────
   info "Installing code-server extensions (best-effort) ..."
@@ -2062,14 +1765,11 @@ print_summary() {
   echo -e "  ${BOLD}First steps:${NC}"
   echo -e "    1. ${CYAN}ssh ${CC_USER}@${ct_ip:-<ip>}${NC}"
   echo -e "    2. ${CYAN}claude${NC}            (authenticate + start coding)"
-  echo -e "    3. ${CYAN}ccc-setup-plugins${NC} (plugin install commands)"
-  echo -e "    4. ${CYAN}ccc${NC}               (full help reference)"
+  echo -e "    3. ${CYAN}ccc${NC}               (full help reference)"
   echo ""
   echo -e "  ${BOLD}Languages:${NC}    Node.js 22 LTS, Python 3, Go, Rust"
-  echo -e "  ${BOLD}Testing:${NC}      pytest, jest, vitest, Playwright, httpie, nodemon, entr"
-  echo -e "  ${BOLD}Skills:${NC}       anthropic, karpathy, mattpocock, caveman"
   echo -e "  ${BOLD}Statusline:${NC}   ~/.claude/bin/statusline-command.sh"
-  echo -e "  ${BOLD}Plugins:${NC}      Run ${CYAN}ccc-setup-plugins${NC} after first claude login"
+  echo -e "  ${BOLD}Plugins:${NC}      http://<ip>:8090 — Kit Manager (connect your kit repo)"
   echo -e "  ${BOLD}Redis:${NC}        Server available — ${CYAN}sudo systemctl start redis-server${NC}"
   echo -e "  ${BOLD}yq:${NC}           mikefarah Go binary at /usr/local/bin/yq"
   echo -e "  ${BOLD}Permissions:${NC}  All tools pre-approved (no prompts)"
