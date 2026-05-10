@@ -15,15 +15,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** in a Proxmox LXC container
 - **Non-root `claude-code` user** with passwordless sudo
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
-- **Full test stack** — pytest, Jest, Vitest, httpie, nodemon, pm2
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
-- **4 skill repos** pre-cloned and auto-discovered (Anthropic, Karpathy, Pocock, Caveman)
-- **Interactive plugin menu** — `ccc-setup-plugins` with install instructions for all plugins and skills
+- **Kit Manager** on port 8090 — connect your GitHub plugin kit repo, browse plugins, copy Claude Code install commands
 - **Post-install wizard** — `ccc-setup` for git identity, SSH keygen, GitHub
-- **Update command** — `ccc-update` syncs packages, Claude Code, and skill repos
+- **Update command** — `ccc-update` syncs packages and Claude Code
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server** (web VS Code) on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Kit Manager** on port 8090 — connect a GitHub plugin repo, browse plugins, copy Claude Code install commands
 - **Cockpit** on port 9090 — system monitoring, file manager with upload/download, browser terminal
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -86,7 +83,7 @@ After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
-Provisioning takes **10–15 minutes**. Each of the 32 steps prints `[N/32]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
@@ -102,45 +99,24 @@ ccc-setup
 # 3. Authenticate Claude Code
 claude
 
-# 4. Install plugins (see commands printed by this)
-ccc-setup-plugins
-
-# 5. Connect your plugin kit (see Kit Manager below)
+# 4. Connect your plugin kit
 # Open http://<container-ip>:8090 in a browser
 
-# 6. Install Playwright + headless Chromium (optional, takes 5–15 min)
+# 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 7. Install jCodeMunch MCP — 95% token reduction via symbol-level retrieval (optional)
+# 6. Install jCodeMunch MCP — 95% token reduction via symbol-level retrieval (optional)
 ccc-install-jcodemunch
 
-# 8. Full help and command reference
+# 7. Full help and command reference
 ccc
 ```
 
 ---
 
-## Plugin Setup
-
-Plugins require an authenticated Claude Code session. After running `claude` for the first time, paste these inside the Claude Code interface:
-
-```
-/plugin install skill-creator@claude-plugins-official
-/plugin install superpowers@claude-plugins-official
-/plugin install frontend-design@claude-plugins-official
-/plugin marketplace add mksglu/context-mode
-/plugin install context-mode@context-mode
-/plugin marketplace add thedotmack/claude-mem
-/plugin install claude-mem
-```
-
-Run `ccc-setup-plugins` at any time to reprint these.
-
----
-
 ## Kit Manager
 
-The Kit Manager (port 8090) lets you connect a private GitHub plugin repository and install its contents into Claude Code with one copy-paste.
+The Kit Manager (port 8090) is the sole plugin and skill entry point. Connect your GitHub kit repo and get all install commands in one place.
 
 Open `http://<container-ip>:8090` in a browser after provisioning.
 
@@ -155,7 +131,7 @@ Open `http://<container-ip>:8090` in a browser after provisioning.
 
 ### Setting up your own kit repo
 
-1. Create a private GitHub repo (e.g. `your-org/your-claude-kit`)
+1. Create a GitHub repo (e.g. `your-org/your-claude-kit`)
 2. Add a `.claude-plugin/marketplace.json`:
 
 ```json
@@ -174,10 +150,10 @@ Open `http://<container-ip>:8090` in a browser after provisioning.
 ```
 
 3. Add plugin folders under `plugins/` following Claude Code plugin structure
-4. **SSH access**: run `ccc-setup` first to generate an SSH key, then add the public key to GitHub (`~/.ssh/id_ed25519.pub` → GitHub → Settings → SSH Keys)
+4. **SSH access for private repos**: run `ccc-setup` first to generate an SSH key, then add the public key to GitHub (`~/.ssh/id_ed25519.pub` → GitHub → Settings → SSH Keys)
 5. Open Kit Manager, paste your repo URL, hit Connect
 
-> **Private repos** require SSH key access to be configured before the Kit Manager can reach them. Run `ccc-setup` → generate SSH key → add to GitHub first.
+> **Private repos** require SSH key access before the Kit Manager can reach them. Run `ccc-setup` → generate SSH key → add to GitHub first.
 
 ---
 
@@ -189,14 +165,6 @@ Open `http://<container-ip>:8090` in a browser after provisioning.
 - **Go** (latest) — via official tarball, on PATH
 - **Rust** (latest) — via rustup, installed for claude-code user
 
-### Testing
-- **Python** — pytest, pytest-asyncio, pytest-cov, pytest-mock, pytest-xdist
-- **JS/TS** — Jest, Vitest (global), nodemon, concurrently
-- **Browser** — Playwright + headless Chromium
-- **HTTP** — httpie (`http` command), httpx (Python async)
-- **Process** — pm2, http-server, entr (file watching)
-- **Redis** — server available, disabled at boot: `sudo systemctl start redis-server`
-
 ### Tools
 - **Search** — ripgrep (`rg`), fd (`fdfind`), fzf, bat (`batcat`)
 - **Data** — jq, yq (mikefarah Go binary), sqlite3
@@ -204,6 +172,7 @@ Open `http://<container-ip>:8090` in a browser after provisioning.
 - **Env** — direnv (per-directory `.envrc`)
 - **Terminal** — tmux, screen, nano, vim, htop
 - **Build** — gcc, clang, make, cmake, pkg-config, autoconf
+- **Redis** — server available, disabled at boot: `sudo systemctl start redis-server`
 
 ### Claude Code
 - All permissions pre-approved — `Bash(*)`, `Read(*)`, `Write(*)`, `Edit(*)`, `WebFetch(*)`, `WebSearch(*)`, `Task(*)`, `mcp__*`
@@ -212,18 +181,6 @@ Open `http://<container-ip>:8090` in a browser after provisioning.
 - 64k output tokens
 - Remote control enabled
 - Config at `~/.claude/settings.json`
-
-### Skills (pre-cloned, auto-discovered)
-Repos cloned to `~/.claude/skill-repos/`. Skill `.md` files copied to `~/.claude/skills/` so Claude Code discovers them automatically via `/skills`.
-
-| Repo | Source |
-|---|---|
-| `anthropic-skills` | github.com/anthropics/skills |
-| `karpathy-skills` | github.com/forrestchang/andrej-karpathy-skills |
-| `mattpocock-skills` | github.com/mattpocock/skills |
-| `caveman` | github.com/juliusbrussee/caveman |
-
-Run `ccc-update` to pull latest from all repos and re-sync skill files.
 
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
@@ -236,11 +193,10 @@ The `ccc` command prints the full reference. Quick shortcuts:
 
 ```bash
 # Maintenance
-ccc-setup              # post-install wizard: git identity, SSH key, GitHub
-ccc-self-update        # pull latest ccc-* tools from GitHub (no reprovision needed)
-ccc-update             # update packages + Claude Code + skill repos
-ccc-doctor             # health check: network, runtimes, services, disk
-ccc-setup-plugins      # interactive plugin & skill menu
+ccc-setup               # post-install wizard: git identity, SSH key, GitHub
+ccc-self-update         # pull latest ccc-* tools from GitHub (no reprovision needed)
+ccc-update              # update packages + Claude Code
+ccc-doctor              # health check: network, runtimes, services, disk
 ccc-install-playwright  # install Playwright + headless Chromium (optional)
 ccc-install-codex       # install OpenAI Codex CLI (optional)
 ccc-install-jcodemunch  # install jCodeMunch MCP — 95% token reduction (optional)
@@ -255,16 +211,7 @@ gp    # git push
 
 # Dev
 py    # python3
-serve # http-server on port 8000
 ll    # ls -lah
-
-# Testing
-pytest              # python3 -m pytest
-pytest --cov=. -v   # with coverage
-npx vitest          # Vite-native tests
-npx jest            # Jest tests
-npx playwright test # headless browser tests
-http :3000/endpoint # httpie HTTP test
 
 # Services
 sudo systemctl status  code-server@claude-code
@@ -306,12 +253,8 @@ echo '{"model":{"id":"claude-sonnet-4"},"thinking":{"enabled":true}}' \
 System packages update automatically every Sunday at 3 AM ET. To update manually:
 
 ```bash
-sudo apt-get update && sudo apt-get upgrade -y
-```
-
-To update Claude Code:
-```bash
-claude update
+ccc-update        # system packages + Claude Code
+claude update     # Claude Code only
 ```
 
 ---
@@ -345,7 +288,7 @@ pct exec <CT_ID> -- journalctl -u code-server@claude-code -n 50
 **Playwright (not installed at provision time)**
 Playwright is skipped during provisioning — Chromium download hangs in LXC. Install manually after first login:
 ```bash
-npx --yes playwright install --with-deps chromium
+ccc-install-playwright
 ```
 
 **Claude Code binary not found after provision**
@@ -385,6 +328,12 @@ pct exec <CT_ID> -- systemctl restart cockpit.socket
 ```
 Cockpit uses a self-signed cert — accept the browser security warning on first load. Login with `claude-code` user credentials.
 
+**Kit Manager not loading (port 8090)**
+```bash
+pct exec <CT_ID> -- systemctl status ccc-kit-manager
+pct exec <CT_ID> -- journalctl -u ccc-kit-manager -n 50
+```
+
 ---
 
 ## Notes
@@ -393,9 +342,8 @@ Cockpit uses a self-signed cert — accept the browser security warning on first
 - The Ubuntu 26.04 LXC template is auto-resolved via `pveam` — run `pveam update` on your Proxmox host if it can't be found.
 - `yq` is the [mikefarah Go binary](https://github.com/mikefarah/yq), not the apt Python wrapper.
 - Redis server is installed but disabled at boot. Start it when tests need it.
-- Playwright browser deps are installed via `--with-deps`. If it failed during provisioning, re-run: `npx playwright install --with-deps chromium`
-- Skill repos are cloned with `--depth 1` (shallow). Run `git fetch --unshallow` inside a repo if you need full history.
-- Plugin names (`superpowers@claude-plugins-official`, etc.) are set at provision time. If Claude Code changes plugin registry format, update manually inside the session.
+- Plugins and skills are managed via Kit Manager at `:8090` — connect your kit repo to get install commands.
+- Rust is installed twice (root + claude-code user). Root install is a known cleanup candidate.
 
 ---
 
