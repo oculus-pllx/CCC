@@ -25,7 +25,7 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Static IP / gateway / DNS validation | ✅ Re-prompt on bad format |
 | Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
 | Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) |
-| Progress indicators | ✅ `[N/29]` step labels + 30s elapsed ticker |
+| Progress indicators | ✅ `[N/28]` step labels + 30s elapsed ticker |
 | IPv6 disabled | ✅ sysctl + apt ForceIPv4 |
 | Ubuntu status pre-check | ✅ status.canonical.com + archive.ubuntu.com |
 | Debian 13 (Trixie) option | ✅ OS choice at provision start |
@@ -43,19 +43,17 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | code-server password special chars | ✅ `printf` + `tee` — no heredoc expansion, handles any char |
 | chpasswd special chars | ✅ `printf '%s:%s'` piped via stdin — no shell expansion truncation |
 | Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
-| ccc-self-update | ✅ Downloads latest script, re-runs tools/MOTD steps only (no reprovision), reads `/etc/ccc/config` |
+| ccc-self-update | ✅ Downloads latest script, falls back to GitHub clone, re-runs tools/MOTD steps only (no reprovision), reads `/etc/ccc/config` |
 | ccc-onboarding / ccc-setup | ✅ First-login wizard: git identity, SSH keygen, GitHub known_hosts |
-| ccc-kit | ✅ Prints Cockpit Command Center URL, public/private GitHub URL examples, and where to paste plugin commands |
-| ccc-update | ✅ apt + Claude update as provisioned user; plugin mgmt delegated to CCC Command Center |
+| ccc-update | ✅ apt + Claude update as provisioned user |
 | ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check, custom-user aware |
 | ccc-install-playwright | ✅ On-demand with live output |
 | ccc-install-codex | ✅ OpenAI Codex CLI on demand |
 | ccc-install-jcodemunch | ✅ jCodeMunch MCP — pip install + claude mcp add |
-| CCC Command Center (Cockpit) | ✅ Cockpit page — connect GitHub kit repo, browse plugins, copy commands, run tools/updates; local Node helper supports SSH private repos |
 | code-server WELCOME.md | ✅ Opens in projects/ — first steps, multi-terminal tip |
 | MOTD | ✅ Shows live IPs for :8080/:9090, all ccc-* commands |
-| Hardcoded skill repos | ✅ Removed — CCC Command Center owns plugin/skill install |
-| ccc-setup-plugins | ✅ Removed — CCC Command Center replaces entirely |
+| Hardcoded skill repos | ✅ Removed |
+| ccc-setup-plugins | ✅ Removed |
 | Caveman in kit repo | ✅ Added as git submodule to oculus-pllx/oculus-claude-kit |
 
 ---
@@ -76,14 +74,12 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 ## TODOs / Future Work
 
 - [ ] Complete first clean end-to-end provision with latest script
-- [ ] Verify CCC Command Center loads and connects to a GitHub repo on fresh provision
 - [ ] Verify Cockpit GUI updates work (NM dummy connection fix)
 - [ ] Remove redundant root Rust install (~2 min savings)
 - [ ] Add `--non-interactive` / config-file mode for automated provisioning
 - [ ] Consider `CHANGELOG.md` once version bumps start
 - [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
 - [ ] Test SSH key install with both RSA and ed25519
-- [x] CCC Command Center: add support for private repos via SSH key (post-ccc-onboarding)
 - [x] Playwright — moved to on-demand `ccc-install-playwright`
 - [x] Proxmox VE attribution in README
 - [x] statusLine wired into settings.json
@@ -92,7 +88,7 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 - [x] Health check (ccc-doctor)
 - [x] code-server welcome file
 - [x] Codex CLI install (ccc-install-codex)
-- [x] Strip hardcoded skill repos + ccc-setup-plugins — CCC Command Center owns plugin install
+- [x] Strip hardcoded skill repos + ccc-setup-plugins
 - [x] Password special char truncation fix (chpasswd + code-server config.yaml)
 - [x] Caveman added to oculus-claude-kit as git submodule
 
@@ -125,7 +121,7 @@ HANDOFF.md                 This file — project status and context
 | `print_summary()` | Final ready box (only prints on full success) |
 | `main()` | Wires all above in order |
 
-### Inside the provision heredoc (29 steps)
+### Inside the provision heredoc (28 steps)
 
 | Step | Block |
 |---|---|
@@ -156,5 +152,4 @@ HANDOFF.md                 This file — project status and context
 | 25 | Git defaults |
 | 26 | Auto-update cron (Sundays 3 AM ET) |
 | 27 | Cockpit + NM dummy connection + PackageKit offline fix + cockpit.conf |
-| 28 | CCC Command Center Cockpit package + local kit API helper |
-| 29 | Cleanup |
+| 28 | Cleanup |

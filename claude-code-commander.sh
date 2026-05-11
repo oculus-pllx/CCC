@@ -420,7 +420,7 @@ provision_container() {
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-_STEPS=29
+_STEPS=28
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
@@ -540,7 +540,9 @@ cat > /etc/ccc/config << 'CCCONFIG'
 CCC_USER="claude-code"
 CCC_HOME="/home/claude-code"
 CCC_CODE_SERVER_SERVICE="code-server@claude-code"
-CCC_COMMAND_CENTER_PATH="/usr/share/cockpit/ccc"
+CCC_SELF_UPDATE_REPO="git@github.com:oculus-pllx/CCC.git"
+CCC_SELF_UPDATE_REF="main"
+CCC_SELF_UPDATE_SCRIPT="claude-code-commander.sh"
 CCCONFIG
 chmod 0644 /etc/ccc/config
 
@@ -669,7 +671,7 @@ Use /remote-control or press spacebar to show QR code.
 - Extended thinking always on
 
 ## Plugins & Skills
-Open Cockpit at https://&lt;ip&gt;:9090 and select CCC Command Center to browse and install kits.
+Install Claude Code plugins from inside a running `claude` session with `/plugin`.
 CLAUDEMD
 
 sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
@@ -756,30 +758,10 @@ sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WE
 |------|---------|-------|
 | 1 | `ccc-onboarding` | SSH terminal — git identity, SSH key, GitHub |
 | 2 | `claude` | SSH terminal — authenticate Claude Code |
-| 3 | `ccc-kit` | SSH terminal — how to connect a GitHub kit repo |
-| 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
-| 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
-| 6 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
-| 7 | `ccc` | SSH terminal — full command reference |
-
-## GitHub Kits
-
-Open Cockpit at `https://<this-container-ip>:9090`, then select **CCC Command Center**.
-
-Public kit:
-
-```text
-https://github.com/owner/repo
-```
-
-Private kit:
-
-```text
-git@github.com:owner/repo.git
-```
-
-Private repos require `ccc-onboarding` first, then add `~/.ssh/id_ed25519.pub` to GitHub.
-After connecting, copy the generated `/plugin marketplace add` and `/plugin install` commands into a running `claude` session.
+| 3 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
+| 4 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
+| 5 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
+| 6 | `ccc` | SSH terminal — full command reference |
 
 ## This Interface (code-server)
 
@@ -809,7 +791,6 @@ For multi-terminal work, use this editor (port 8080) instead.
 
 ```bash
 ccc-onboarding     # first-login wizard
-ccc-kit            # GitHub kit repo instructions
 ccc-update         # update packages + Claude Code
 ccc-fix-cockpit-updates  # fix Cockpit offline update cache error
 ccc-doctor         # health check
@@ -916,9 +897,8 @@ ccc() {
   echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
   echo -e "    ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
   echo ""
-  echo -e "  ${B}KITS & PLUGINS${N}"
-  echo -e "    ${C}ccc-kit${N}                   How to connect a GitHub kit repo"
-  echo -e "    ${C}https://$(hostname -I | awk '{print $1}'):9090${N}  Cockpit CCC Command Center"
+  echo -e "  ${B}PLUGINS${N}"
+  echo -e "    ${C}/plugin${N}                   Manage plugins inside a running Claude Code session"
   echo ""
   echo -e "  ${B}MAINTENANCE${N}"
   echo -e "    ${C}ccc-onboarding${N}            First-login wizard (git identity, SSH key, GitHub)"
@@ -1020,6 +1000,17 @@ TMUXCONF
 chown claude-code:claude-code /home/claude-code/.tmux.conf
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+
+# Remove the retired Cockpit kit UI and standalone helper.
+rm -f /usr/local/bin/ccc-kit
+systemctl disable --now ccc-kit-manager 2>/dev/null || true
+rm -f /etc/systemd/system/ccc-kit-manager.service
+systemctl daemon-reload 2>/dev/null || true
+rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
+
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
 #!/bin/bash
@@ -1031,17 +1022,15 @@ CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 echo ""
 echo -e "${B}CCC Update${N}"
 echo ""
-echo -e "${C}[1/3]${N} System packages..."
+echo -e "${C}[1/2]${N} System packages..."
 if command -v ccc-fix-cockpit-updates &>/dev/null; then
   sudo ccc-fix-cockpit-updates --quiet || true
 fi
 sudo nmcli con up ccc-online 2>/dev/null || true
 sudo apt-get update -qq && sudo apt-get upgrade -y
 echo ""
-echo -e "${C}[2/3]${N} Claude Code..."
+echo -e "${C}[2/2]${N} Claude Code..."
 sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$CCC_HOME/.local/bin:$CCC_HOME/.claude/bin:$CCC_HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin" claude update
-echo ""
-echo -e "${C}[3/3]${N} Plugins — managed in Cockpit at https://$(hostname -I | awk '{print $1}'):9090"
 echo ""
 echo -e "${G}${B}Update complete.${N}"
 echo ""
@@ -1097,32 +1086,6 @@ echo -e "${G}${B}Setup complete. Run 'ccc' for full help.${N}"
 echo ""
 SETUPSCRIPT
 chmod +x /usr/local/bin/ccc-setup
-
-cat > /usr/local/bin/ccc-kit << 'KITSCRIPT'
-#!/bin/bash
-B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
-IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-echo ""
-echo -e "${B}CCC Command Center${N}"
-echo ""
-echo -e "  Open: ${C}https://${IP:-<container-ip>}:9090${N}"
-echo -e "  Select: ${C}CCC Command Center${N}"
-echo ""
-echo -e "${Y}Public GitHub kit:${N}"
-echo -e "  1. Paste: ${C}https://github.com/owner/repo${N}"
-echo -e "  2. Click Connect"
-echo -e "  3. Copy the marketplace and plugin install commands"
-echo -e "  4. Paste those commands inside a running ${C}claude${N} session"
-echo ""
-echo -e "${Y}Private GitHub kit:${N}"
-echo -e "  1. Run: ${C}ccc-onboarding${N}"
-echo -e "  2. Add ${C}~/.ssh/id_ed25519.pub${N} to GitHub"
-echo -e "  3. Paste an SSH URL: ${C}git@github.com:owner/repo.git${N}"
-echo ""
-echo -e "Manifest path required in the repo: ${C}.claude-plugin/marketplace.json${N}"
-echo ""
-KITSCRIPT
-chmod +x /usr/local/bin/ccc-kit
 
 cat > /usr/local/bin/ccc-onboarding << 'ONBOARDINGSCRIPT'
 #!/bin/bash
@@ -1315,7 +1278,6 @@ echo ""
 echo -e "${C}── Services ──────────────────────────────────${N}"
 systemctl is-active --quiet "$CCC_CODE_SERVER_SERVICE" && ok "code-server running" || fail "code-server not running — sudo systemctl start $CCC_CODE_SERVER_SERVICE"
 systemctl is-active --quiet cockpit.socket            && ok "cockpit running"     || fail "cockpit not running — sudo systemctl start cockpit.socket"
-[[ -d /usr/share/cockpit/ccc ]] && ok "CCC Cockpit Command Center installed" || fail "CCC Cockpit Command Center missing"
 ccc-verify-cockpit-updates &>/dev/null && ok "Cockpit software updates ready" || warn "Cockpit software updates need repair — sudo ccc-fix-cockpit-updates"
 if [[ -f /etc/PackageKit/PackageKit.conf ]] && grep -q '^UseNetworkManager=false' /etc/PackageKit/PackageKit.conf; then
   ok "PackageKit ignores NetworkManager offline state"
@@ -1459,19 +1421,74 @@ chmod +x /usr/local/bin/ccc-install-jcodemunch
 # ── ccc-self-update ───────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-self-update << 'SELFUPDATESCRIPT'
 #!/bin/bash
+set -euo pipefail
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
-REPO_URL="https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh"
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
+CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
+CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-claude-code-commander.sh}"
+CCC_SELF_UPDATE_RAW_URL="${CCC_SELF_UPDATE_RAW_URL:-https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/${CCC_SELF_UPDATE_SCRIPT}}"
 TMP="/tmp/ccc-provisioner-$$.sh"
+CLONE_DIR=""
+
+cleanup() {
+  rm -f "$TMP"
+  [[ -n "${CLONE_DIR:-}" ]] && rm -rf "$CLONE_DIR"
+}
+trap cleanup EXIT
+
+run_as_user() {
+  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
+    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  else
+    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  fi
+}
+
+download_latest() {
+  echo -e "  Raw URL: ${C}${CCC_SELF_UPDATE_RAW_URL}${N}"
+  if curl -fsSL "$CCC_SELF_UPDATE_RAW_URL" -o "$TMP"; then
+    return 0
+  fi
+
+  echo -e "  ${Y}Raw download failed; trying Git clone fallback.${N}"
+  CLONE_DIR=$(mktemp -d /tmp/ccc-self-update.XXXXXX)
+  if run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$CLONE_DIR"; then
+    if [[ -f "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" ]]; then
+      cp "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" "$TMP"
+      return 0
+    fi
+    echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
+    return 1
+  fi
+
+  local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
+  https_repo="${https_repo%.git}.git"
+  echo -e "  ${Y}SSH clone failed; trying HTTPS clone: ${https_repo}${N}"
+  rm -rf "$CLONE_DIR"
+  CLONE_DIR=$(mktemp -d /tmp/ccc-self-update.XXXXXX)
+  run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$CLONE_DIR"
+  [[ -f "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" ]] || {
+    echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
+    return 1
+  }
+  cp "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" "$TMP"
+}
 
 echo ""
 echo -e "${B}CCC Self-Update${N}"
-echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, Cockpit fixes, and CCC Command Center.${N}"
+echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and Cockpit fixes.${N}"
 echo -e "${Y}Does NOT re-run Node/Go/Rust, Claude install, or user creation.${N}"
 echo ""
 
 echo -e "${C}[1/3]${N} Downloading latest provisioner..."
-if ! curl -fsSL "$REPO_URL" -o "$TMP"; then
-  echo -e "${R}Download failed. Check internet: ccc-doctor${N}"
+echo -e "  Repo:    ${C}${CCC_SELF_UPDATE_REPO}${N}"
+echo -e "  Ref:     ${C}${CCC_SELF_UPDATE_REF}${N}"
+echo -e "  Script:  ${C}${CCC_SELF_UPDATE_SCRIPT}${N}"
+if ! download_latest; then
+  echo -e "${R}Download failed. Check internet, GitHub access, and SSH keys: ccc-doctor${N}"
   exit 1
 fi
 echo -e "  Downloaded $(wc -l < "$TMP") lines"
@@ -1485,7 +1502,6 @@ if [[ -z "$UPDATE_SCRIPT" ]]; then
   rm -f "$TMP"
   exit 1
 fi
-rm -f "$TMP"
 
 echo ""
 echo -e "${C}[3/3]${N} Applying updates..."
@@ -1495,7 +1511,7 @@ STATUS=$?
 echo ""
 if [[ $STATUS -eq 0 ]]; then
   echo -e "${G}${B}Self-update complete.${N}"
-  echo -e "  ccc-* commands, MOTD, Cockpit fixes, and CCC Command Center updated to latest."
+  echo -e "  ccc-* commands, MOTD, and Cockpit fixes updated to latest."
 else
   echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
 fi
@@ -1518,7 +1534,6 @@ echo ""
 echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, GitHub)"
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
-echo -e "  ${C}ccc-kit${N}                   How to connect a GitHub kit repo"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"
@@ -1531,7 +1546,6 @@ echo ""
 echo -e "  ${Y}Web Interfaces${N}"
 IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
 echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
-echo -e "  ${C}https://\${IP}:9090${N}  CCC Command Center — kits, updates, services"
 echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — system monitoring, file manager"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
@@ -1653,699 +1667,10 @@ COCKPITCONF
 systemctl enable --now cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 
-# ── CCC Command Center (Cockpit) ──────────────────────────────────────────────
-step 28 "CCC Command Center (Cockpit)"
-mkdir -p /home/claude-code/.ccc/kit-manager/public
-
-# Server
-cat > /home/claude-code/.ccc/kit-manager/server.js << 'KITSERVER'
-#!/usr/bin/env node
-'use strict';
-const http  = require('http');
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
-const os    = require('os');
-const { execFile } = require('child_process');
-
-const PORT   = 8090;
-const PUBLIC = path.join(__dirname, 'public');
-const STATE  = path.join(__dirname, 'state.json');
-
-function loadState() {
-  try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return { repoUrl: '' }; }
-}
-function saveState(s) { fs.writeFileSync(STATE, JSON.stringify(s, null, 2)); }
-
-function ghRaw(repoUrl, filePath) {
-  const m = repoUrl.match(/github\.com[:/]([^/]+)\/([^/\s.]+?)(?:\.git)?(?:\/.*)?$/);
-  if (!m) throw new Error('Not a valid GitHub URL');
-  return `https://api.github.com/repos/${m[1]}/${m[2]}/contents/${filePath}`;
-}
-
-function run(cmd, args, opts = {}) {
-  return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 30000, maxBuffer: 1024 * 1024, ...opts }, (err, stdout, stderr) => {
-      if (err) {
-        err.message = `${err.message}${stderr ? `\n${stderr}` : ''}`;
-        reject(err);
-      } else {
-        resolve(stdout);
-      }
-    });
-  });
-}
-
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    const opts = { headers: { 'User-Agent': 'ccc-kit-manager/1.0', 'Accept': 'application/vnd.github.v3+json' } };
-    https.get(url, opts, res => {
-      let d = '';
-      res.on('data', c => d += c);
-      res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { reject(e); } });
-    }).on('error', reject);
-  });
-}
-
-async function fetchManifest(repoUrl) {
-  const content = await fetchFile(repoUrl, '.claude-plugin/marketplace.json');
-  if (!content) throw new Error('Missing .claude-plugin/marketplace.json');
-  return JSON.parse(content);
-}
-
-async function fetchFile(repoUrl, filePath) {
-  try {
-    const apiUrl = ghRaw(repoUrl, filePath);
-    const raw = await fetchJson(apiUrl);
-    if (!raw.message && raw.content) return Buffer.from(raw.content, 'base64').toString('utf8');
-  } catch {}
-
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ccc-kit-'));
-  try {
-    const env = {
-      ...process.env,
-      GIT_TERMINAL_PROMPT: '0',
-      GIT_SSH_COMMAND: 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new'
-    };
-    await run('git', ['clone', '--depth', '1', repoUrl, tmp], { env });
-    const target = path.join(tmp, filePath);
-    if (!fs.existsSync(target)) return null;
-    return fs.readFileSync(target, 'utf8');
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
-function readBody(req) {
-  return new Promise(resolve => {
-    let b = '';
-    req.on('data', c => b += c);
-    req.on('end', () => resolve(b));
-  });
-}
-
-function json(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(obj));
-}
-
-const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  const url = req.url.split('?')[0];
-
-  if (req.method === 'GET' && url === '/') {
-    fs.readFile(path.join(PUBLIC, 'index.html'), (e, d) => {
-      if (e) { res.writeHead(500); res.end('Error'); return; }
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(d);
-    });
-    return;
-  }
-
-  if (req.method === 'GET' && url === '/api/state') {
-    return json(res, 200, loadState());
-  }
-
-  if (req.method === 'POST' && url === '/api/connect') {
-    const body = JSON.parse(await readBody(req));
-    const repoUrl = (body.repoUrl || '').trim();
-    try {
-      const manifest = await fetchManifest(repoUrl);
-      saveState({ repoUrl });
-      return json(res, 200, { manifest });
-    } catch (e) {
-      return json(res, 400, { error: e.message });
-    }
-  }
-
-  if (req.method === 'POST' && url === '/api/template') {
-    const body = JSON.parse(await readBody(req));
-    const repoUrl = (body.repoUrl || '').trim();
-    try {
-      const content = await fetchFile(repoUrl, 'templates/project-SETUP.md');
-      return json(res, 200, { content: content || '(no template found)' });
-    } catch (e) {
-      return json(res, 400, { error: e.message });
-    }
-  }
-
-  res.writeHead(404);
-  res.end('Not found');
-});
-
-server.listen(PORT, '0.0.0.0', () => console.log(`Kit Manager on http://0.0.0.0:${PORT}`));
-KITSERVER
-
-# UI
-cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CCC Kit Manager</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
-  header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;gap:12px}
-  header h1{font-size:18px;font-weight:600;color:#f0f6fc}
-  header span{font-size:12px;color:#8b949e;background:#21262d;padding:2px 8px;border-radius:12px}
-  .container{max-width:960px;margin:0 auto;padding:24px}
-  .guide{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px 20px;margin-bottom:16px}
-  .guide h2{font-size:14px;font-weight:600;color:#f0f6fc;margin-bottom:12px}
-  .guide-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
-  .guide-step{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:12px;min-height:92px}
-  .guide-step b{display:block;color:#79c0ff;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
-  .guide-step p{font-size:13px;color:#8b949e;line-height:1.45}
-  .examples{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .example{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px}
-  .example-label{display:block;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-  .example code{display:block;color:#79c0ff;font-size:13px;word-break:break-all;margin-bottom:8px}
-  .example button{font-size:12px;padding:5px 10px}
-  .note{font-size:13px;color:#8b949e;line-height:1.5;margin-top:12px}
-  .note code{color:#79c0ff}
-  .connect-bar{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px}
-  .connect-bar h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-  .input-row{display:flex;gap:8px}
-  input[type=text]{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#e6edf3;font-size:14px;outline:none}
-  input[type=text]:focus{border-color:#388bfd}
-  button{background:#238636;border:none;border-radius:6px;color:#fff;padding:8px 16px;font-size:14px;cursor:pointer;white-space:nowrap}
-  button:hover{background:#2ea043}
-  button.secondary{background:#21262d;border:1px solid #30363d}
-  button.secondary:hover{background:#30363d}
-  button.copy{background:#21262d;border:1px solid #30363d;font-size:12px;padding:4px 10px}
-  button.copy:hover{background:#30363d}
-  .status{font-size:13px;margin-top:10px;color:#8b949e}
-  .status.err{color:#f85149}
-  .status.ok{color:#3fb950}
-  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-  .section-header h2{font-size:16px;font-weight:600}
-  .marketplace-cmd{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:24px}
-  .marketplace-cmd h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-  .cmd-block{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-family:monospace;font-size:13px;color:#79c0ff;position:relative}
-  .cmd-block .copy-btn{position:absolute;top:8px;right:8px}
-  .plugins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px}
-  .plugin-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px}
-  .plugin-card:hover{border-color:#388bfd}
-  .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-  .card-name{font-size:15px;font-weight:600;color:#f0f6fc}
-  .card-version{font-size:11px;color:#8b949e;background:#21262d;padding:2px 6px;border-radius:4px;white-space:nowrap}
-  .card-category{font-size:11px;color:#79c0ff;text-transform:uppercase;letter-spacing:.05em}
-  .card-desc{font-size:13px;color:#8b949e;line-height:1.5;flex:1}
-  .card-cmd{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;font-family:monospace;font-size:12px;color:#79c0ff;display:flex;align-items:center;justify-content:space-between;gap:8px;word-break:break-all}
-  .install-all{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px}
-  .install-all h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-  .template-section{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
-  .template-section h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-  pre{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-size:12px;color:#e6edf3;overflow-x:auto;white-space:pre-wrap;max-height:300px;overflow-y:auto}
-  .hidden{display:none}
-  .tag{display:inline-block;background:#21262d;color:#8b949e;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:4px}
-  .copied{color:#3fb950!important}
-  @media(max-width:760px){.guide-grid,.examples{grid-template-columns:1fr}.input-row{flex-direction:column}}
-</style>
-</head>
-<body>
-<header>
-  <svg width="20" height="20" viewBox="0 0 16 16" fill="#f78166"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-  <h1>CCC Kit Manager</h1>
-  <span>port 8090</span>
-</header>
-<div class="container">
-
-  <div class="guide">
-    <h2>Install Plugins From a GitHub Kit</h2>
-    <div class="guide-grid">
-      <div class="guide-step">
-        <b>1. Connect</b>
-        <p>Paste a GitHub repo URL that contains <code>.claude-plugin/marketplace.json</code>.</p>
-      </div>
-      <div class="guide-step">
-        <b>2. Copy</b>
-        <p>Use the generated marketplace and plugin install commands below.</p>
-      </div>
-      <div class="guide-step">
-        <b>3. Paste</b>
-        <p>Paste those commands inside an active <code>claude</code> session in your terminal.</p>
-      </div>
-    </div>
-    <div class="examples">
-      <div class="example">
-        <span class="example-label">Public repo</span>
-        <code>https://github.com/owner/repo</code>
-        <button class="secondary" onclick="setExample('https://github.com/owner/repo')">Use Example</button>
-      </div>
-      <div class="example">
-        <span class="example-label">Private repo after ccc-onboarding</span>
-        <code>git@github.com:owner/repo.git</code>
-        <button class="secondary" onclick="setExample('git@github.com:owner/repo.git')">Use Example</button>
-      </div>
-    </div>
-    <p class="note">Private repos need the SSH key from <code>ccc-onboarding</code> added to GitHub first. The commands generated here are Claude Code slash commands, not shell commands.</p>
-  </div>
-
-  <div class="connect-bar">
-    <h2>Connect Kit Repository</h2>
-    <div class="input-row">
-      <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" />
-      <button onclick="connect()">Connect</button>
-    </div>
-    <div class="status hidden" id="connectStatus"></div>
-  </div>
-
-  <div class="hidden" id="kitContent">
-
-    <div class="marketplace-cmd">
-      <h2>Step 1 — Add Marketplace to Claude Code</h2>
-      <div class="cmd-block" id="marketplaceCmd">
-        <button class="copy copy-btn" onclick="copyEl('marketplaceCmd', this)">Copy</button>
-      </div>
-      <p class="note">Paste this inside a running <code>claude</code> session.</p>
-    </div>
-
-    <div class="install-all">
-      <h2>Step 2 — Install Plugins in Claude Code</h2>
-      <div class="cmd-block" id="installAllCmd">
-        <button class="copy copy-btn" onclick="copyEl('installAllCmd', this)">Copy</button>
-      </div>
-      <p class="note">Paste all lines inside the same <code>claude</code> session after Step 1.</p>
-    </div>
-
-    <div class="section-header">
-      <h2>Plugins</h2>
-      <button class="secondary" onclick="loadTemplate()">View Project Template</button>
-    </div>
-    <div class="plugins-grid" id="pluginsGrid"></div>
-
-    <div class="template-section hidden" id="templateSection">
-      <h2>Project SETUP.md Template</h2>
-      <pre id="templateContent"></pre>
-    </div>
-
-  </div>
-</div>
-<script>
-function setExample(url) {
-  const input = document.getElementById('repoUrl');
-  input.value = url;
-  input.focus();
-}
-
-async function connect() {
-  const url = document.getElementById('repoUrl').value.trim();
-  const status = document.getElementById('connectStatus');
-  if (!url) return;
-  status.className = 'status'; status.textContent = 'Connecting...'; status.classList.remove('hidden');
-  try {
-    const r = await fetch('/api/connect', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ repoUrl: url }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'Failed');
-    status.className = 'status ok'; status.textContent = `Connected — ${d.manifest.name || 'kit'} (${(d.manifest.plugins||[]).length} plugins)`;
-    renderKit(url, d.manifest);
-  } catch(e) {
-    status.className = 'status err'; status.textContent = e.message;
-  }
-}
-
-function renderKit(repoUrl, manifest) {
-  const kitName = manifest.name || 'kit';
-  const plugins = manifest.plugins || [];
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const js = v => JSON.stringify(String(v ?? ''));
-
-  const marketplaceCmd = `/plugin marketplace add ${repoUrl}`;
-  document.getElementById('marketplaceCmd').innerHTML =
-    `${esc(marketplaceCmd)}` +
-    `<button class="copy copy-btn" onclick='copyText(${js(marketplaceCmd)}, this)'>Copy</button>`;
-
-  const allCmds = plugins.map(p => `/plugin install ${p.name}@${kitName}`).join('\n');
-  document.getElementById('installAllCmd').innerHTML =
-    esc(allCmds).replace(/\n/g, '<br>') +
-    `<button class="copy copy-btn" onclick='copyText(${js(allCmds)}, this)'>Copy</button>`;
-
-  const grid = document.getElementById('pluginsGrid');
-  grid.innerHTML = plugins.map(p => {
-    const cmd = `/plugin install ${p.name}@${kitName}`;
-    return `<div class="plugin-card">
-      <div class="card-top">
-        <span class="card-name">${esc(p.name)}</span>
-        <span class="card-version">v${esc(p.version||'?')}</span>
-      </div>
-      <div class="card-category">${esc(p.category||'')}</div>
-      <div class="card-desc">${esc(p.description||'')}</div>
-      ${(p.keywords||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}
-      <div class="card-cmd">
-        <span>${esc(cmd)}</span>
-        <button class="copy" onclick='copyText(${js(cmd)}, this)'>Copy</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('kitContent').classList.remove('hidden');
-  document.getElementById('templateSection').classList.add('hidden');
-  window._currentRepoUrl = repoUrl;
-}
-
-async function loadTemplate() {
-  const sec = document.getElementById('templateSection');
-  const pre = document.getElementById('templateContent');
-  if (!sec.classList.contains('hidden')) { sec.classList.add('hidden'); return; }
-  pre.textContent = 'Loading...';
-  sec.classList.remove('hidden');
-  try {
-    const r = await fetch('/api/template', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ repoUrl: window._currentRepoUrl }) });
-    const d = await r.json();
-    pre.textContent = d.content || '(empty)';
-  } catch(e) { pre.textContent = 'Error: ' + e.message; }
-}
-
-function copyText(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
-  });
-}
-function copyEl(id, btn) {
-  const el = document.getElementById(id);
-  const text = el.innerText.replace(/Copy$/,'').trim();
-  copyText(text, btn);
-}
-
-// Restore last URL on load
-fetch('/api/state').then(r=>r.json()).then(s => {
-  if (s.repoUrl) document.getElementById('repoUrl').value = s.repoUrl;
-});
-</script>
-</body>
-</html>
-KITHTML
-
-chown -R claude-code:claude-code /home/claude-code/.ccc
-
-# Systemd service
-cat > /etc/systemd/system/ccc-kit-manager.service << 'KITSVC'
-[Unit]
-Description=CCC Kit Manager
-After=network.target
-
-[Service]
-Type=simple
-User=claude-code
-WorkingDirectory=/home/claude-code/.ccc/kit-manager
-ExecStart=/usr/bin/node server.js
-Restart=on-failure
-RestartSec=5
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-KITSVC
-
-systemctl daemon-reload
-systemctl disable --now ccc-kit-manager 2>/dev/null || true
-
-# ── Cockpit CCC Command Center ───────────────────────────────────────────────
-mkdir -p /usr/local/lib/ccc
-cat > /usr/local/lib/ccc/kit-api.js << 'CCCKITAPI'
-#!/usr/bin/env node
-'use strict';
-const https = require('https');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFile } = require('child_process');
-
-function run(cmd, args, opts = {}) {
-  return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
-      if (err) {
-        err.stderr = stderr;
-        reject(err);
-      } else {
-        resolve(stdout);
-      }
-    });
-  });
-}
-
-function ghApi(repoUrl, filePath) {
-  const m = repoUrl.match(/github\.com[:/]([^/]+)\/([^/\s.]+?)(?:\.git)?(?:\/.*)?$/);
-  if (!m) throw new Error('Not a valid GitHub repository URL');
-  return `https://api.github.com/repos/${m[1]}/${m[2]}/contents/${filePath}`;
-}
-
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    const opts = { headers: { 'User-Agent': 'ccc-command-center/1.0', 'Accept': 'application/vnd.github.v3+json' } };
-    https.get(url, opts, res => {
-      let d = '';
-      res.on('data', c => d += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(d)); } catch (e) { reject(e); }
-      });
-    }).on('error', reject);
-  });
-}
-
-async function fetchFile(repoUrl, filePath) {
-  try {
-    const raw = await fetchJson(ghApi(repoUrl, filePath));
-    if (!raw.message && raw.content) return Buffer.from(raw.content, 'base64').toString('utf8');
-  } catch {}
-
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ccc-kit-'));
-  try {
-    const env = {
-      ...process.env,
-      GIT_TERMINAL_PROMPT: '0',
-      GIT_SSH_COMMAND: 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new'
-    };
-    await run('git', ['clone', '--depth', '1', repoUrl, tmp], { env });
-    const target = path.join(tmp, filePath);
-    if (!fs.existsSync(target)) return null;
-    return fs.readFileSync(target, 'utf8');
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
-async function main() {
-  const action = process.argv[2];
-  const repoUrl = (process.argv[3] || '').trim();
-  if (!repoUrl) throw new Error('Repository URL required');
-
-  if (action === 'connect') {
-    const content = await fetchFile(repoUrl, '.claude-plugin/marketplace.json');
-    if (!content) throw new Error('Missing .claude-plugin/marketplace.json');
-    const manifest = JSON.parse(content);
-    const kitName = manifest.name || 'kit';
-    const plugins = manifest.plugins || [];
-    process.stdout.write(JSON.stringify({
-      repoUrl,
-      manifest,
-      marketplaceCommand: `/plugin marketplace add ${repoUrl}`,
-      installAllCommand: plugins.map(p => `/plugin install ${p.name}@${kitName}`).join('\n')
-    }));
-    return;
-  }
-
-  if (action === 'template') {
-    const content = await fetchFile(repoUrl, 'templates/project-SETUP.md');
-    process.stdout.write(JSON.stringify({ content: content || '(no template found)' }));
-    return;
-  }
-
-  throw new Error(`Unknown action: ${action}`);
-}
-
-main().catch(err => {
-  process.stderr.write(err.message + '\n');
-  process.exit(1);
-});
-CCCKITAPI
-chmod +x /usr/local/lib/ccc/kit-api.js
-
-mkdir -p /usr/share/cockpit/ccc
-cat > /usr/share/cockpit/ccc/manifest.json << 'CCCMANIFEST'
-{
-  "version": 0,
-  "name": "ccc",
-  "menu": {
-    "index": {
-      "label": "CCC",
-      "order": 5,
-      "path": "index.html"
-    }
-  }
-}
-CCCMANIFEST
-
-cat > /usr/share/cockpit/ccc/index.html << 'CCCCOCKPITHTML'
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>CCC Command Center</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="../base1/cockpit.js"></script>
-</head>
-<body>
-  <main class="shell">
-    <header class="topline">
-      <div>
-        <div class="brand"><span class="mark">&gt;</span> CCC</div>
-        <div class="subbrand">Claude Code Commander</div>
-      </div>
-      <nav>
-        <button class="tab active" data-view="overview">Overview</button>
-        <button class="tab" data-view="kits">Kits</button>
-        <button class="tab" data-view="tools">Tools</button>
-        <button class="tab" data-view="updates">Updates</button>
-      </nav>
-    </header>
-
-    <section id="overview" class="view active">
-      <div class="section-label">Workstation</div>
-      <div class="metrics">
-        <article class="metric orange"><span>Status</span><strong id="doctorState">Checking</strong><small>ccc-doctor</small></article>
-        <article class="metric cyan"><span>Editor</span><strong>8080</strong><small>code-server</small></article>
-        <article class="metric green"><span>Command Center</span><strong>9090</strong><small>Cockpit</small></article>
-        <article class="metric cyan"><span>Kit Source</span><strong>GitHub</strong><small>public or SSH private</small></article>
-      </div>
-
-      <div class="panel wide">
-        <div class="panel-title">Health Output</div>
-        <pre id="doctorOutput">Loading...</pre>
-      </div>
-    </section>
-
-    <section id="kits" class="view">
-      <div class="section-label">GitHub Kits</div>
-      <div class="panel">
-        <div class="panel-title">Connect Repository</div>
-        <p class="hint">Repo must contain <code>.claude-plugin/marketplace.json</code>. Private repos use SSH after <code>ccc-onboarding</code>.</p>
-        <div class="input-row">
-          <input id="repoUrl" placeholder="https://github.com/owner/repo or git@github.com:owner/repo.git">
-          <button id="connectBtn">Connect</button>
-        </div>
-        <div class="examples">
-          <button data-example="https://github.com/owner/repo">Public example</button>
-          <button data-example="git@github.com:owner/repo.git">Private SSH example</button>
-        </div>
-        <div id="kitStatus" class="status"></div>
-      </div>
-
-      <div id="kitResults" class="hidden">
-        <div class="panel command">
-          <div class="panel-title">Step 1 - Add Marketplace Inside Claude</div>
-          <pre id="marketplaceCommand"></pre>
-          <button class="copy" data-copy="marketplaceCommand">Copy</button>
-        </div>
-        <div class="panel command">
-          <div class="panel-title">Step 2 - Install Plugins Inside Claude</div>
-          <pre id="installCommand"></pre>
-          <button class="copy" data-copy="installCommand">Copy</button>
-        </div>
-        <div class="plugin-grid" id="pluginGrid"></div>
-      </div>
-    </section>
-
-    <section id="tools" class="view">
-      <div class="section-label">Token-Saving Tools</div>
-      <div class="quick-grid">
-        <button class="quick" data-run="ccc-install-codex"><strong>Codex</strong><span>Install OpenAI Codex CLI</span></button>
-        <button class="quick" data-run="ccc-install-jcodemunch"><strong>jCodeMunch</strong><span>Install symbol-level MCP</span></button>
-        <button class="quick" data-run="ccc-install-playwright"><strong>Playwright</strong><span>Install browser test runtime</span></button>
-        <button class="quick" data-run="ccc-onboarding"><strong>Onboarding</strong><span>Git identity and GitHub SSH</span></button>
-      </div>
-      <div class="panel wide">
-        <div class="panel-title">Command Output</div>
-        <pre id="toolOutput">Select a tool to run.</pre>
-      </div>
-    </section>
-
-    <section id="updates" class="view">
-      <div class="section-label">Updates</div>
-      <div class="quick-grid">
-        <button class="quick" data-run="ccc-self-update"><strong>CCC Self-Update</strong><span>Pull latest CCC tools and Command Center from GitHub</span></button>
-        <button class="quick" data-run="ccc-update"><strong>System + Claude Update</strong><span>Update apt packages and Claude Code</span></button>
-        <button class="quick" data-run="ccc-verify-cockpit-updates"><strong>Verify GUI Updates</strong><span>Check Cockpit update path</span></button>
-        <button class="quick" data-run="ccc-fix-cockpit-updates"><strong>Repair GUI Updates</strong><span>Fix PackageKit/NM online state</span></button>
-        <a class="quick link" href="/system/updates"><strong>Cockpit Software Updates</strong><span>Open native apt/package updater</span></a>
-      </div>
-      <div class="panel wide">
-        <div class="panel-title">Update Output</div>
-        <pre id="updateOutput">Run a check or open Cockpit updates.</pre>
-      </div>
-    </section>
-  </main>
-  <script src="app.js"></script>
-</body>
-</html>
-CCCCOCKPITHTML
-
-cat > /usr/share/cockpit/ccc/style.css << 'CCCCOCKPITCSS'
-:root{--bg:transparent;--panel:var(--pf-v5-global--BackgroundColor--100,var(--pf-global--BackgroundColor--100,Canvas));--panel-alt:var(--pf-v5-global--BackgroundColor--200,var(--pf-global--BackgroundColor--200,Canvas));--line:var(--pf-v5-global--BorderColor--100,var(--pf-global--BorderColor--100,ButtonBorder));--muted:var(--pf-v5-global--Color--200,var(--pf-global--Color--200,GrayText));--text:var(--pf-v5-global--Color--100,var(--pf-global--Color--100,CanvasText));--link:var(--pf-v5-global--link--Color,var(--pf-global--link--Color,LinkText));--ok:var(--pf-v5-global--success-color--100,var(--pf-global--success-color--100,#3e8635));--warn:var(--pf-v5-global--warning-color--100,var(--pf-global--warning-color--100,#f0ab00));--danger:var(--pf-v5-global--danger-color--100,var(--pf-global--danger-color--100,#c9190b))}
-*{box-sizing:border-box}html,body{margin:0;background:transparent;color:var(--text);font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.shell{min-height:100vh;background:transparent}.topline{background:transparent;border-bottom:1px solid var(--line);padding:18px 24px 0}.brand{font-size:20px;font-weight:600}.mark{display:none}.subbrand{color:var(--muted);font-size:13px;margin-top:2px}nav{display:flex;gap:0;margin-top:18px}.tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--link);cursor:pointer;font:inherit;padding:10px 16px}.tab:hover{background:var(--panel-alt)}.tab.active{border-bottom-color:var(--link);color:var(--text);font-weight:600}.view{display:none;padding:24px}.view.active{display:block}.section-label{font-size:16px;font-weight:600;margin:0 0 16px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:16px;margin-bottom:24px;max-width:1100px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px}.metric span,.panel-title{display:block;color:var(--muted);font-size:12px;font-weight:600;margin-bottom:8px;text-transform:uppercase}.metric strong{display:block;font-size:24px;font-weight:400;line-height:1.2}.metric small{color:var(--muted)}.metric.green strong{color:var(--ok)}.metric.orange strong{color:var(--warn)}.metric.cyan strong{color:var(--link)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:18px;margin-bottom:16px;max-width:1100px}.hint{color:var(--muted);margin-top:0}.hint code,.note code{color:var(--text)}pre{background:var(--panel-alt);border:1px solid var(--line);border-radius:3px;color:var(--text);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:0;max-height:360px;overflow:auto;padding:12px;white-space:pre-wrap}.input-row{display:flex;gap:8px;margin:12px 0}input{background:var(--panel);border:1px solid var(--line);border-radius:3px;color:var(--text);flex:1;font:inherit;padding:8px 10px}button,.quick{background:var(--panel);border:1px solid var(--line);border-radius:3px;color:var(--text);cursor:pointer;font:inherit;padding:8px 14px;text-decoration:none}.quick{display:block;padding:14px}button:hover,.quick:hover{border-color:var(--link);color:var(--link)}button#connectBtn,.copy{background:var(--link);border-color:var(--link);color:var(--pf-v5-global--Color--light-100,var(--pf-global--Color--light-100,#fff))}.examples{display:flex;gap:8px;flex-wrap:wrap}.examples button{font-size:13px}.status{color:var(--muted);min-height:22px}.status.err{color:var(--danger)}.status.ok{color:var(--ok)}.hidden{display:none}.command{position:relative}.copy{position:absolute;right:14px;top:14px;font-size:13px;padding:5px 10px}.plugin-grid,.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;max-width:1100px}.plugin{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px}.plugin strong,.quick strong{display:block;font-size:15px;margin-bottom:4px}.plugin span,.quick span{color:var(--muted);font-size:13px}.link{display:block}
-@media(max-width:900px){.topline{padding:16px 16px 0}nav{flex-wrap:wrap}.metrics{grid-template-columns:1fr}.view{padding:16px}.input-row{flex-direction:column}}
-CCCCOCKPITCSS
-
-cat > /usr/share/cockpit/ccc/app.js << 'CCCCOCKPITJS'
-const $ = id => document.getElementById(id);
-const show = id => {
-  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
-};
-const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-
-function spawnText(cmd, target) {
-  const out = $(target);
-  out.textContent = `Running ${cmd}...`;
-  cockpit.spawn(['bash', '-lc', cmd], { superuser: 'try', err: 'out' })
-    .then(text => out.textContent = text || 'Done.')
-    .catch(ex => out.textContent = ex.message || String(ex));
-}
-
-document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => show(btn.dataset.view)));
-document.querySelectorAll('[data-example]').forEach(btn => btn.addEventListener('click', () => { $('repoUrl').value = btn.dataset.example; $('repoUrl').focus(); }));
-document.querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', () => navigator.clipboard.writeText($(btn.dataset.copy).textContent)));
-document.querySelectorAll('[data-run]').forEach(btn => btn.addEventListener('click', () => {
-  const view = btn.closest('.view').id;
-  spawnText(btn.dataset.run, view === 'updates' ? 'updateOutput' : 'toolOutput');
-}));
-
-$('connectBtn').addEventListener('click', () => {
-  const repo = $('repoUrl').value.trim();
-  if (!repo) return;
-  $('kitStatus').className = 'status';
-  $('kitStatus').textContent = 'Connecting...';
-  cockpit.spawn(['/usr/bin/node', '/usr/local/lib/ccc/kit-api.js', 'connect', repo], { superuser: 'try', err: 'message' })
-    .then(raw => {
-      const data = JSON.parse(raw);
-      const plugins = data.manifest.plugins || [];
-      $('marketplaceCommand').textContent = data.marketplaceCommand;
-      $('installCommand').textContent = data.installAllCommand || '(no plugins listed)';
-      $('pluginGrid').innerHTML = plugins.map(p => `<div class="plugin"><strong>${esc(p.name)}</strong><span>${esc(p.description || p.category || '')}</span></div>`).join('');
-      $('kitResults').classList.remove('hidden');
-      $('kitStatus').className = 'status ok';
-      $('kitStatus').textContent = `Connected: ${data.manifest.name || 'kit'} (${plugins.length} plugins)`;
-    })
-    .catch(ex => {
-      $('kitStatus').className = 'status err';
-      $('kitStatus').textContent = ex.message || String(ex);
-    });
-});
-
-cockpit.spawn(['ccc-doctor'], { superuser: 'try', err: 'out' })
-  .then(text => { $('doctorState').textContent = 'Ready'; $('doctorOutput').textContent = text; })
-  .catch(ex => { $('doctorState').textContent = 'Check'; $('doctorOutput').textContent = ex.message || String(ex); });
-CCCCOCKPITJS
-
-echo "    CCC Command Center: https://<ip>:9090 (Cockpit sidebar)"
-
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 29 "Cleanup"
+step 28 "Cleanup"
 # Disable noisy motd-news fetch (fails in LXC due to permissions)
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 systemctl disable motd-news 2>/dev/null || true
@@ -2460,7 +1785,6 @@ print_summary() {
   echo ""
   echo -e "  ${BOLD}Languages:${NC}    Node.js 22 LTS, Python 3, Go, Rust"
   echo -e "  ${BOLD}Statusline:${NC}   ~/.claude/bin/statusline-command.sh"
-  echo -e "  ${BOLD}Plugins:${NC}      https://<ip>:9090 — CCC Command Center in Cockpit"
   echo -e "  ${BOLD}Redis:${NC}        Server available — ${CYAN}sudo systemctl start redis-server${NC}"
   echo -e "  ${BOLD}yq:${NC}           mikefarah Go binary at /usr/local/bin/yq"
   echo -e "  ${BOLD}Permissions:${NC}  All tools pre-approved (no prompts)"

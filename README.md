@@ -16,7 +16,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Non-root `claude-code` user** with passwordless sudo
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
-- **CCC Command Center** inside Cockpit on port 9090 — workstation status, updates, tools, and GitHub kit management
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
 - **Update command** — `ccc-update` syncs packages and Claude Code
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
@@ -83,7 +82,7 @@ After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
-Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+Provisioning takes **10–15 minutes**. Each of the 28 steps prints `[N/28]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
@@ -99,67 +98,16 @@ ccc-onboarding
 # 3. Authenticate Claude Code
 claude
 
-# 4. Connect your plugin kit
-# Open https://<container-ip>:9090 and select CCC Command Center
-# The page includes public/private GitHub repo examples and Claude paste steps
-
-# 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
+# 4. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 6. Install Codex CLI or jCodeMunch MCP (optional)
+# 5. Install Codex CLI or jCodeMunch MCP (optional)
 ccc-install-codex
 ccc-install-jcodemunch
 
-# 7. Full help and command reference
+# 6. Full help and command reference
 ccc
 ```
-
----
-
-## CCC Command Center
-
-The CCC Command Center is a Cockpit page on port 9090. It is the workstation management surface for updates, health checks, Codex/Claude tooling, and GitHub kit/plugin setup.
-
-Open `https://<container-ip>:9090` in a browser after provisioning, then select **CCC Command Center**. The page includes public/private repo examples and shows where to paste the generated Claude Code commands.
-
-### What it does
-
-- Reads a `.claude-plugin/marketplace.json` from any GitHub repo
-- Lists all plugins with name, description, version, and category
-- Generates the exact `/plugin marketplace add` and `/plugin install` commands to paste inside a running `claude` session
-- Copy individual commands or the full install block
-- Fetches project `SETUP.md` templates from the kit repo
-- Remembers the last connected repo URL
-
-### Setting up your own kit repo
-
-1. Create a GitHub repo (e.g. `your-org/your-claude-kit`)
-2. Add a `.claude-plugin/marketplace.json`:
-
-```json
-{
-  "name": "your-kit",
-  "plugins": [
-    {
-      "name": "your-plugin",
-      "source": "./plugins/your-plugin",
-      "description": "What it does",
-      "version": "0.1.0",
-      "category": "engineering"
-    }
-  ]
-}
-```
-
-3. Add plugin folders under `plugins/` following Claude Code plugin structure
-4. **SSH access for private repos**: run `ccc-onboarding` first to generate an SSH key, then add the public key to GitHub (`~/.ssh/id_ed25519.pub` → GitHub → Settings → SSH Keys)
-5. Open Cockpit, select CCC Command Center, paste your repo URL, hit Connect.
-6. Copy Step 1 (`/plugin marketplace add ...`) and paste it inside a running `claude` session.
-7. Copy the plugin install commands and paste those inside the same `claude` session.
-
-Use an SSH URL such as `git@github.com:owner/repo.git` for private repos.
-
-> **Private repos** require SSH key access before CCC Command Center can reach them. Run `ccc-onboarding` → generate SSH key → add to GitHub first.
 
 ---
 
@@ -201,7 +149,6 @@ The `ccc` command prints the full reference. Quick shortcuts:
 # Maintenance
 ccc-onboarding          # first-login wizard: git identity, SSH key, GitHub
 ccc-setup               # same wizard, safe to re-run
-ccc-kit                 # show GitHub kit connection flow and URL examples
 ccc-self-update         # pull latest ccc-* tools from GitHub (no reprovision needed)
 ccc-update              # update packages + Claude Code
 ccc-fix-cockpit-updates # fix Cockpit "cannot refresh cache whilst offline"
@@ -263,8 +210,11 @@ System packages update automatically every Sunday at 3 AM ET. To update manually
 
 ```bash
 ccc-update        # system packages + Claude Code
+ccc-self-update   # refresh ccc-* tools from GitHub
 claude update     # Claude Code only
 ```
+
+`ccc-self-update` uses the GitHub raw URL first, then falls back to cloning `git@github.com:oculus-pllx/CCC.git`. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
 ---
 
@@ -337,21 +287,12 @@ pct exec <CT_ID> -- systemctl restart cockpit.socket
 ```
 Cockpit uses a self-signed cert — accept the browser security warning on first load. Login with `claude-code` user credentials.
 
-**CCC Command Center not showing in Cockpit**
-```bash
-pct exec <CT_ID> -- ls /usr/share/cockpit/ccc
-pct exec <CT_ID> -- systemctl restart cockpit.socket
-```
-
----
-
 ## Notes
 
 - Root login is disabled. Use `ssh claude-code@<ip>`.
 - The Ubuntu 26.04 LXC template is auto-resolved via `pveam` — run `pveam update` on your Proxmox host if it can't be found.
 - `yq` is the [mikefarah Go binary](https://github.com/mikefarah/yq), not the apt Python wrapper.
 - Redis server is installed but disabled at boot. Start it when tests need it.
-- Plugins and skills are managed in Cockpit under **CCC Command Center**.
 - Rust is installed twice (root + claude-code user). Root install is a known cleanup candidate.
 
 ---
