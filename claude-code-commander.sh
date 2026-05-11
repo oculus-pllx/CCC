@@ -1720,11 +1720,14 @@ elif [[ -f /etc/apt/sources.list ]]; then
   }' /etc/apt/sources.list
 fi
 apt-get update -qq
-# PackageKit is configured below to ignore NetworkManager online-state detection.
-# No dummy ccc-online interface is created.
+
+# NetworkManager is needed for Cockpit Networking graphs.
+# Do NOT create the fake ccc-online dummy interface.
+apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
+systemctl enable --now NetworkManager 2>/dev/null || true
 nmcli con delete ccc-online 2>/dev/null || true
+
 apt-get install -y cockpit > /dev/null 2>&1
-apt-get install -y cockpit-files > /dev/null 2>&1 || true
 apt-get install -y -qq packagekit cockpit-packagekit > /dev/null 2>&1 || true
 apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
 mkdir -p /etc/PackageKit
