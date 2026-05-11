@@ -14,7 +14,7 @@
 #    • Claude Code + all tools pre-approved, skills pre-cloned
 #    • SSH hardened — root login disabled
 #    • ccc help command + MOTD on every login
-#    • Weekly auto-updates
+#    • Weekly application self-updates from GitHub (no unattended OS upgrades)
 # ============================================================================
 set -euo pipefail
 
@@ -791,7 +791,8 @@ For multi-terminal work, use this editor (port 8080) instead.
 
 ```bash
 ccc-onboarding     # first-login wizard
-ccc-update         # update packages + Claude Code
+ccc-update         # update CCC app tools from GitHub + Claude Code
+ccc-os-update      # manually update OS packages with apt
 ccc-fix-cockpit-updates  # fix Cockpit offline update cache error
 ccc-doctor         # health check
 ccc                # full help
@@ -905,7 +906,8 @@ ccc() {
   echo -e "    ${C}ccc-setup${N}                 Same wizard, safe to re-run"
   echo -e "    ${C}ccc-update-status${N}         Show installed vs GitHub provisioner version"
   echo -e "    ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
-  echo -e "    ${C}ccc-update${N}                Update system packages + Claude Code"
+  echo -e "    ${C}ccc-update${N}                Update CCC app tools from GitHub + Claude Code"
+  echo -e "    ${C}ccc-os-update${N}             Manual OS package update (apt)"
   echo -e "    ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit 'cannot refresh cache whilst offline'"
   echo -e "    ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
@@ -1015,28 +1017,67 @@ rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
 #!/bin/bash
-set -e
-B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; N='\033[0m'
+set -euo pipefail
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+PATH="$CCC_HOME/.local/bin:$CCC_HOME/.claude/bin:$CCC_HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH
+
 echo ""
-echo -e "${B}CCC Update${N}"
+echo -e "${B}CCC Application Update${N}"
+echo -e "${Y}Updates CCC tooling from GitHub and app CLIs only. OS packages are not upgraded.${N}"
 echo ""
-echo -e "${C}[1/2]${N} System packages..."
-if command -v ccc-fix-cockpit-updates &>/dev/null; then
-  sudo ccc-fix-cockpit-updates --quiet || true
+
+echo -e "${C}[1/3]${N} CCC provisioner/tools from GitHub..."
+if command -v ccc-self-update &>/dev/null; then
+  ccc-self-update || true
+else
+  echo "  ccc-self-update not installed yet; skipping."
 fi
-sudo nmcli con up ccc-online 2>/dev/null || true
-sudo apt-get update -qq && sudo apt-get upgrade -y
+
 echo ""
-echo -e "${C}[2/2]${N} Claude Code..."
-sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$CCC_HOME/.local/bin:$CCC_HOME/.claude/bin:$CCC_HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin" claude update
+echo -e "${C}[2/3]${N} Claude Code CLI..."
+if command -v claude &>/dev/null; then
+  sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" claude update || true
+else
+  echo "  claude binary not found; skipping."
+fi
+
 echo ""
-echo -e "${G}${B}Update complete.${N}"
+echo -e "${C}[3/3]${N} Optional user-level app CLIs..."
+if [[ -x "$CCC_HOME/.local/bin/codex" ]]; then
+  sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" npm update -g --prefix "$CCC_HOME/.local" @openai/codex || true
+else
+  echo "  Codex CLI not installed; skipping."
+fi
+
+echo ""
+echo -e "${G}${B}Application update complete.${N}"
+echo -e "  Manual OS update, if desired: ${C}sudo ccc-os-update${N}"
 echo ""
 UPDATESCRIPT
 chmod +x /usr/local/bin/ccc-update
+
+# ── ccc-os-update (manual only) ───────────────────────────────────────────────
+cat > /usr/local/bin/ccc-os-update << 'OSUPDATESCRIPT'
+#!/bin/bash
+set -euo pipefail
+B='\033[1m'; C='\033[0;36m'; G='\033[0;32m'; N='\033[0m'
+echo ""
+echo -e "${B}CCC Manual OS Update${N}"
+echo -e "${C}[1/3]${N} apt update"
+apt-get update
+echo -e "${C}[2/3]${N} apt upgrade"
+apt-get upgrade -y
+echo -e "${C}[3/3]${N} cleanup"
+apt-get autoremove -y
+apt-get clean
+echo -e "${G}${B}OS update complete.${N}"
+echo ""
+OSUPDATESCRIPT
+chmod +x /usr/local/bin/ccc-os-update
 
 # ── ccc-setup (post-install wizard) ──────────────────────────────────────────
 cat > /usr/local/bin/ccc-setup << 'SETUPSCRIPT'
@@ -1120,32 +1161,9 @@ enable_universe
 sudo apt-get update -qq
 sudo apt-get install -y -qq packagekit cockpit-packagekit
 
-sudo mkdir -p /etc/NetworkManager/conf.d
-sudo rm -f /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf
-sudo tee /etc/NetworkManager/conf.d/99-ccc-managed.conf >/dev/null << 'NMGLOBAL'
-[ifupdown]
-managed=true
-
-[keyfile]
-unmanaged-devices=none
-NMGLOBAL
-
-sudo tee /etc/NetworkManager/conf.d/99-ccc-lxc.conf >/dev/null << 'NMLXC'
-[main]
-plugins=keyfile
-NMLXC
-
-if grep -q '^\[ifupdown\]' /etc/NetworkManager/NetworkManager.conf 2>/dev/null; then
-  sudo sed -i 's/^managed=false/managed=true/' /etc/NetworkManager/NetworkManager.conf
-fi
-sudo systemctl restart NetworkManager 2>/dev/null || true
 sudo nmcli con delete ccc-online 2>/dev/null || true
-sudo nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
-  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
-if ! sudo nmcli con up ccc-online; then
-  say "NetworkManager could not activate the dummy online marker."
-  say "Check: nmcli con up ccc-online"
-fi
+# PackageKit is configured below to ignore NetworkManager online-state detection.
+# No dummy interface is created.
 
 sudo mkdir -p /etc/PackageKit
 sudo touch /etc/PackageKit/PackageKit.conf
@@ -1196,39 +1214,19 @@ echo ""
 
 dpkg -s packagekit &>/dev/null && ok "packagekit installed" || fail "packagekit missing"
 dpkg -s cockpit-packagekit &>/dev/null && ok "cockpit-packagekit installed" || fail "cockpit-packagekit missing"
-systemctl is-active --quiet NetworkManager && ok "NetworkManager running" || fail "NetworkManager not running"
 systemctl is-active --quiet packagekit && ok "PackageKit running" || fail "PackageKit not running"
 
-if NetworkManager --print-config 2>/dev/null | grep -q 'managed=true'; then
-  ok "NetworkManager ifupdown managed=true"
-else
-  warn "NetworkManager config does not show ifupdown managed=true"
-fi
-
-if nmcli con show ccc-online &>/dev/null; then
-  ok "ccc-online connection exists"
-else
-  fail "ccc-online connection missing"
-fi
-
-NM_LOG=$(mktemp /tmp/ccc-nm-up.XXXXXX)
-if sudo -n nmcli con up ccc-online >"$NM_LOG" 2>&1; then
-  ok "ccc-online activates"
-else
-  fail "ccc-online failed: $(cat "$NM_LOG")"
-fi
-rm -f "$NM_LOG"
-
-STATE=$(nmcli -t -f STATE general status 2>/dev/null | head -1)
-case "$STATE" in
-  connected|connecting) ok "NetworkManager state: $STATE" ;;
-  *) fail "NetworkManager state: ${STATE:-unknown}" ;;
-esac
+ping -c1 -W2 1.1.1.1 &>/dev/null && ok "Internet reachable" || fail "Internet unreachable"
+curl -fsSL --max-time 5 https://api.github.com &>/dev/null && ok "HTTPS/GitHub reachable" || fail "HTTPS/GitHub unreachable"
 
 if [[ -f /etc/PackageKit/PackageKit.conf ]] && grep -q '^UseNetworkManager=false' /etc/PackageKit/PackageKit.conf; then
   ok "PackageKit UseNetworkManager=false"
 else
   warn "PackageKit UseNetworkManager=false not set"
+fi
+
+if command -v pkcon &>/dev/null; then
+  pkcon refresh force &>/dev/null && ok "PackageKit refresh works" || warn "PackageKit refresh failed; Cockpit updates may need manual repair"
 fi
 
 echo ""
@@ -1661,7 +1659,8 @@ echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, G
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
 echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
-echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
+echo -e "  ${C}ccc-update${N}                Update CCC app tools from GitHub + Claude Code"
+echo -e "  ${C}ccc-os-update${N}             Manual OS package update (apt)"
 echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"
 echo -e "  ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
@@ -1686,16 +1685,18 @@ sudo -u claude-code git config --global pull.rebase false
 sudo -u claude-code git config --global core.autocrlf false
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-step 26 "Auto-update cron"
-cat > /etc/cron.d/system-update << 'CRON'
+step 26 "Application auto-update cron"
+rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
+cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-0 3 * * 0 root systemctl restart NetworkManager 2>/dev/null; apt-get update -qq && apt-get upgrade -y -qq && apt-get autoremove -y -qq && apt-get clean -qq >> /var/log/system-update.log 2>&1
+# Weekly CCC application/tooling update from GitHub. Does not run apt upgrade.
+0 3 * * 0 root /usr/local/bin/ccc-update >> /var/log/ccc-app-update.log 2>&1
 CRON
-chmod 0644 /etc/cron.d/system-update
+chmod 0644 /etc/cron.d/ccc-app-update
 
-cat > /etc/logrotate.d/system-update << 'LOGROTATE'
-/var/log/system-update.log {
+cat > /etc/logrotate.d/ccc-app-update << 'LOGROTATE'
+/var/log/ccc-app-update.log {
     monthly
     rotate 3
     compress
@@ -1719,33 +1720,9 @@ elif [[ -f /etc/apt/sources.list ]]; then
   }' /etc/apt/sources.list
 fi
 apt-get update -qq
-# NM needed for PackageKit connectivity check — without it Cockpit reports "offline"
-apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
-mkdir -p /etc/NetworkManager/conf.d
-# Cockpit's PackageKit updater checks NetworkManager online state on Ubuntu.
-# Let NM manage the dummy online marker while leaving the LXC-provided eth0 alone.
-rm -f /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf
-cat > /etc/NetworkManager/conf.d/99-ccc-managed.conf << 'NMGLOBAL'
-[ifupdown]
-managed=true
-
-[keyfile]
-unmanaged-devices=none
-NMGLOBAL
-cat > /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf << 'NMCONF'
-[main]
-plugins=keyfile
-NMCONF
-systemctl enable NetworkManager 2>/dev/null || true
-if grep -q '^\[ifupdown\]' /etc/NetworkManager/NetworkManager.conf 2>/dev/null; then
-  sed -i 's/^managed=false/managed=true/' /etc/NetworkManager/NetworkManager.conf
-fi
-systemctl restart NetworkManager 2>/dev/null || systemctl start NetworkManager 2>/dev/null || true
-# Dummy connection — NM manages it, reports online so PackageKit/Cockpit can refresh.
+# PackageKit is configured below to ignore NetworkManager online-state detection.
+# No dummy ccc-online interface is created.
 nmcli con delete ccc-online 2>/dev/null || true
-nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
-  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
-nmcli con up ccc-online || true
 apt-get install -y cockpit > /dev/null 2>&1
 apt-get install -y cockpit-files > /dev/null 2>&1 || true
 apt-get install -y -qq packagekit cockpit-packagekit > /dev/null 2>&1 || true
