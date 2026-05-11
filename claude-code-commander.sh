@@ -2171,7 +2171,7 @@ cat > /usr/share/cockpit/ccc/manifest.json << 'CCCMANIFEST'
   "name": "ccc",
   "menu": {
     "index": {
-      "label": "CCC Command Center",
+      "label": "CCC",
       "order": 5,
       "path": "index.html"
     }
