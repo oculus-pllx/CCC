@@ -45,17 +45,17 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
 | ccc-self-update | ✅ Downloads latest script, re-runs tools/MOTD steps only (no reprovision), reads `/etc/ccc/config` |
 | ccc-onboarding / ccc-setup | ✅ First-login wizard: git identity, SSH keygen, GitHub known_hosts |
-| ccc-kit | ✅ Prints Kit Manager URL, public/private GitHub URL examples, and where to paste plugin commands |
-| ccc-update | ✅ apt + Claude update as provisioned user; plugin mgmt delegated to Kit Manager |
+| ccc-kit | ✅ Prints Cockpit Command Center URL, public/private GitHub URL examples, and where to paste plugin commands |
+| ccc-update | ✅ apt + Claude update as provisioned user; plugin mgmt delegated to CCC Command Center |
 | ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check, custom-user aware |
 | ccc-install-playwright | ✅ On-demand with live output |
 | ccc-install-codex | ✅ OpenAI Codex CLI on demand |
 | ccc-install-jcodemunch | ✅ jCodeMunch MCP — pip install + claude mcp add |
-| Kit Manager (port 8090) | ✅ Node.js web UI — connect GitHub kit repo, browse plugins, copy install commands; API + git clone fallback for SSH private repos |
+| CCC Command Center (Cockpit) | ✅ Cockpit page — connect GitHub kit repo, browse plugins, copy commands, run tools/updates; local Node helper supports SSH private repos |
 | code-server WELCOME.md | ✅ Opens in projects/ — first steps, multi-terminal tip |
-| MOTD | ✅ Shows live IPs for :8080/:9090/:8090, all ccc-* commands |
-| Hardcoded skill repos | ✅ Removed — Kit Manager owns plugin/skill install |
-| ccc-setup-plugins | ✅ Removed — Kit Manager replaces entirely |
+| MOTD | ✅ Shows live IPs for :8080/:9090, all ccc-* commands |
+| Hardcoded skill repos | ✅ Removed — CCC Command Center owns plugin/skill install |
+| ccc-setup-plugins | ✅ Removed — CCC Command Center replaces entirely |
 | Caveman in kit repo | ✅ Added as git submodule to oculus-pllx/oculus-claude-kit |
 
 ---
@@ -76,14 +76,14 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 ## TODOs / Future Work
 
 - [ ] Complete first clean end-to-end provision with latest script
-- [ ] Verify Kit Manager loads and connects to a GitHub repo on fresh provision
+- [ ] Verify CCC Command Center loads and connects to a GitHub repo on fresh provision
 - [ ] Verify Cockpit GUI updates work (NM dummy connection fix)
 - [ ] Remove redundant root Rust install (~2 min savings)
 - [ ] Add `--non-interactive` / config-file mode for automated provisioning
 - [ ] Consider `CHANGELOG.md` once version bumps start
 - [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
 - [ ] Test SSH key install with both RSA and ed25519
-- [x] Kit Manager: add support for private repos via SSH key (post-ccc-onboarding)
+- [x] CCC Command Center: add support for private repos via SSH key (post-ccc-onboarding)
 - [x] Playwright — moved to on-demand `ccc-install-playwright`
 - [x] Proxmox VE attribution in README
 - [x] statusLine wired into settings.json
@@ -92,7 +92,7 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 - [x] Health check (ccc-doctor)
 - [x] code-server welcome file
 - [x] Codex CLI install (ccc-install-codex)
-- [x] Strip hardcoded skill repos + ccc-setup-plugins — Kit Manager owns plugin install
+- [x] Strip hardcoded skill repos + ccc-setup-plugins — CCC Command Center owns plugin install
 - [x] Password special char truncation fix (chpasswd + code-server config.yaml)
 - [x] Caveman added to oculus-claude-kit as git submodule
 
@@ -156,5 +156,5 @@ HANDOFF.md                 This file — project status and context
 | 25 | Git defaults |
 | 26 | Auto-update cron (Sundays 3 AM ET) |
 | 27 | Cockpit + NM dummy connection + PackageKit offline fix + cockpit.conf |
-| 28 | Kit Manager (Node.js :8090 + systemd service) |
+| 28 | CCC Command Center Cockpit package + local kit API helper |
 | 29 | Cleanup |
