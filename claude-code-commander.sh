@@ -535,6 +535,15 @@ usermod -aG sudo claude-code
 echo "claude-code ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-code
 chmod 0440 /etc/sudoers.d/claude-code
 
+mkdir -p /etc/ccc
+cat > /etc/ccc/config << 'CCCONFIG'
+CCC_USER="claude-code"
+CCC_HOME="/home/claude-code"
+CCC_CODE_SERVER_SERVICE="code-server@claude-code"
+CCC_KIT_MANAGER_SERVICE="ccc-kit-manager"
+CCCONFIG
+chmod 0644 /etc/ccc/config
+
 # ── Rust for claude-code user ─────────────────────────────────────────────────
 step 13 "Rust (claude-code user)"
 sudo -u claude-code bash -c '
@@ -745,12 +754,32 @@ sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WE
 
 | Step | Command | Where |
 |------|---------|-------|
-| 1 | `ccc-setup` | SSH terminal — git identity, SSH key, GitHub |
+| 1 | `ccc-onboarding` | SSH terminal — git identity, SSH key, GitHub |
 | 2 | `claude` | SSH terminal — authenticate Claude Code |
-| 3 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
-| 4 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
-| 5 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
-| 6 | `ccc` | SSH terminal — full command reference |
+| 3 | `ccc-kit` | SSH terminal — how to connect a GitHub kit repo |
+| 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
+| 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
+| 6 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
+| 7 | `ccc` | SSH terminal — full command reference |
+
+## GitHub Kit Manager
+
+Open `http://<this-container-ip>:8090`.
+
+Public kit:
+
+```text
+https://github.com/owner/repo
+```
+
+Private kit:
+
+```text
+git@github.com:owner/repo.git
+```
+
+Private repos require `ccc-onboarding` first, then add `~/.ssh/id_ed25519.pub` to GitHub.
+After connecting, copy the generated `/plugin marketplace add` and `/plugin install` commands into a running `claude` session.
 
 ## This Interface (code-server)
 
@@ -779,8 +808,10 @@ For multi-terminal work, use this editor (port 8080) instead.
 ## Quick Commands
 
 ```bash
-ccc-setup          # post-install wizard
+ccc-onboarding     # first-login wizard
+ccc-kit            # GitHub kit repo instructions
 ccc-update         # update packages + Claude Code
+ccc-fix-cockpit-updates  # fix Cockpit offline update cache error
 ccc-doctor         # health check
 ccc                # full help
 ```
@@ -885,15 +916,18 @@ ccc() {
   echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
   echo -e "    ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
   echo ""
+  echo -e "  ${B}KITS & PLUGINS${N}"
+  echo -e "    ${C}ccc-kit${N}                   How to connect a GitHub kit repo"
+  echo -e "    ${C}http://$(hostname -I | awk '{print $1}'):8090${N}   Kit Manager web UI"
+  echo ""
   echo -e "  ${B}MAINTENANCE${N}"
-  echo -e "    ${C}ccc-setup${N}                 Post-install wizard (git identity, SSH key, GitHub)"
+  echo -e "    ${C}ccc-onboarding${N}            First-login wizard (git identity, SSH key, GitHub)"
+  echo -e "    ${C}ccc-setup${N}                 Same wizard, safe to re-run"
   echo -e "    ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
   echo -e "    ${C}ccc-update${N}                Update system packages + Claude Code"
+  echo -e "    ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit 'cannot refresh cache whilst offline'"
+  echo -e "    ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
-  echo ""
-  echo -e "  ${B}PLUGINS & SKILLS${N}"
-  echo -e "    Kit Manager at ${C}http://$(hostname -I | awk '{print $1}'):8090${N}"
-  echo ""
   echo ""
   echo -e "  ${B}SERVICES${N}"
   echo -e "    ${C}sudo systemctl status  code-server@claude-code${N}   Web VS Code status"
@@ -937,6 +971,20 @@ ccc() {
 
 # Start in projects dir on login
 [[ "$PWD" == "$HOME" ]] && cd ~/projects 2>/dev/null || true
+
+# First interactive login onboarding
+if [[ $- == *i* && ! -f "$HOME/.ccc-onboarded" && -z "${CCC_ONBOARDING_SHOWN:-}" ]]; then
+  export CCC_ONBOARDING_SHOWN=1
+  echo ""
+  echo "CCC first-login onboarding is ready."
+  read -rp "Run it now? [Y/n] " _ccc_run_onboarding
+  if [[ -z "$_ccc_run_onboarding" || "$_ccc_run_onboarding" =~ ^[Yy]$ ]]; then
+    ccc-onboarding
+  else
+    touch "$HOME/.ccc-onboarded"
+    echo "Skipped. Run ccc-onboarding later if needed."
+  fi
+fi
 BASHRC
 
 chown claude-code:claude-code /home/claude-code/.bashrc
@@ -975,16 +1023,23 @@ chown claude-code:claude-code /home/claude-code/.tmux.conf
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
 #!/bin/bash
+set -e
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 echo ""
 echo -e "${B}CCC Update${N}"
 echo ""
 echo -e "${C}[1/3]${N} System packages..."
+if command -v ccc-fix-cockpit-updates &>/dev/null; then
+  sudo ccc-fix-cockpit-updates --quiet || true
+fi
 sudo nmcli con up ccc-online 2>/dev/null || true
 sudo apt-get update -qq && sudo apt-get upgrade -y
 echo ""
 echo -e "${C}[2/3]${N} Claude Code..."
-claude update
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$CCC_HOME/.local/bin:$CCC_HOME/.claude/bin:$CCC_HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin" claude update
 echo ""
 echo -e "${C}[3/3]${N} Plugins — managed via Kit Manager at http://$(hostname -I | awk '{print $1}'):8090"
 echo ""
@@ -1016,9 +1071,13 @@ if [[ -f ~/.ssh/id_ed25519.pub ]]; then
   echo -e "  ${Y}Existing key found:${N}"
 else
   echo "  Generating ed25519 SSH key..."
+  mkdir -p ~/.ssh
+  chmod 700 ~/.ssh
   ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f ~/.ssh/id_ed25519 -N ""
   echo -e "  ${G}✓ Key generated${N}"
 fi
+ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+chmod 600 ~/.ssh/known_hosts 2>/dev/null || true
 echo ""
 echo -e "  ${B}Add this public key to GitHub:${N}"
 echo -e "  ${Y}https://github.com/settings/ssh/new${N}"
@@ -1033,15 +1092,197 @@ if [[ "$TEST_GH" =~ ^[Yy]$ ]]; then
   ssh -T git@github.com 2>&1 || true
 fi
 echo ""
+touch ~/.ccc-onboarded
 echo -e "${G}${B}Setup complete. Run 'ccc' for full help.${N}"
 echo ""
 SETUPSCRIPT
 chmod +x /usr/local/bin/ccc-setup
 
+cat > /usr/local/bin/ccc-kit << 'KITSCRIPT'
+#!/bin/bash
+B='\033[1m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
+IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+echo ""
+echo -e "${B}CCC Kit Manager${N}"
+echo ""
+echo -e "  Open: ${C}http://${IP:-<container-ip>}:8090${N}"
+echo ""
+echo -e "${Y}Public GitHub kit:${N}"
+echo -e "  1. Paste: ${C}https://github.com/owner/repo${N}"
+echo -e "  2. Click Connect"
+echo -e "  3. Copy the marketplace and plugin install commands"
+echo -e "  4. Paste those commands inside a running ${C}claude${N} session"
+echo ""
+echo -e "${Y}Private GitHub kit:${N}"
+echo -e "  1. Run: ${C}ccc-onboarding${N}"
+echo -e "  2. Add ${C}~/.ssh/id_ed25519.pub${N} to GitHub"
+echo -e "  3. Paste an SSH URL: ${C}git@github.com:owner/repo.git${N}"
+echo ""
+echo -e "Manifest path required in the repo: ${C}.claude-plugin/marketplace.json${N}"
+echo ""
+KITSCRIPT
+chmod +x /usr/local/bin/ccc-kit
+
+cat > /usr/local/bin/ccc-onboarding << 'ONBOARDINGSCRIPT'
+#!/bin/bash
+exec ccc-setup "$@"
+ONBOARDINGSCRIPT
+chmod +x /usr/local/bin/ccc-onboarding
+
+cat > /usr/local/bin/ccc-fix-cockpit-updates << 'COCKPITFIXSCRIPT'
+#!/bin/bash
+set -e
+QUIET=0
+[[ "${1:-}" == "--quiet" ]] && QUIET=1
+say() { [[ "$QUIET" -eq 1 ]] || echo "$*"; }
+
+enable_universe() {
+  if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+    sudo sed -i '/^Components:/ {
+      /universe/! s/$/ universe/
+      /multiverse/! s/$/ multiverse/
+    }' /etc/apt/sources.list.d/ubuntu.sources
+  elif [[ -f /etc/apt/sources.list ]]; then
+    sudo sed -i -E '/^deb / {
+      / universe/! s/( main)( |$)/\1 universe\2/
+      / multiverse/! s/( universe)( |$)/\1 multiverse\2/
+    }' /etc/apt/sources.list
+  fi
+}
+
+say "Fixing Cockpit/PackageKit offline update detection..."
+enable_universe
+sudo apt-get update -qq
+sudo apt-get install -y -qq packagekit cockpit-packagekit
+
+sudo mkdir -p /etc/NetworkManager/conf.d
+sudo rm -f /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf
+sudo tee /etc/NetworkManager/conf.d/99-ccc-managed.conf >/dev/null << 'NMGLOBAL'
+[ifupdown]
+managed=true
+
+[keyfile]
+unmanaged-devices=none
+NMGLOBAL
+
+sudo tee /etc/NetworkManager/conf.d/99-ccc-lxc.conf >/dev/null << 'NMLXC'
+[main]
+plugins=keyfile
+NMLXC
+
+if grep -q '^\[ifupdown\]' /etc/NetworkManager/NetworkManager.conf 2>/dev/null; then
+  sudo sed -i 's/^managed=false/managed=true/' /etc/NetworkManager/NetworkManager.conf
+fi
+sudo systemctl restart NetworkManager 2>/dev/null || true
+sudo nmcli con delete ccc-online 2>/dev/null || true
+sudo nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
+  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
+if ! sudo nmcli con up ccc-online; then
+  say "NetworkManager could not activate the dummy online marker."
+  say "Check: nmcli con up ccc-online"
+fi
+
+sudo mkdir -p /etc/PackageKit
+sudo touch /etc/PackageKit/PackageKit.conf
+sudo awk '
+  BEGIN { in_daemon=0; daemon_seen=0; wrote=0 }
+  /^\[Daemon\]/ {
+    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
+    in_daemon=1; daemon_seen=1; print; next
+  }
+  /^\[/ {
+    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
+    in_daemon=0; print; next
+  }
+  in_daemon && /^UseNetworkManager=/ {
+    if (!wrote) { print "UseNetworkManager=false"; wrote=1 }
+    next
+  }
+  { print }
+  END {
+    if (!daemon_seen) { print "[Daemon]"; print "UseNetworkManager=false" }
+    else if (in_daemon && !wrote) { print "UseNetworkManager=false" }
+  }
+' /etc/PackageKit/PackageKit.conf | sudo tee /etc/PackageKit/PackageKit.conf.tmp >/dev/null
+sudo mv /etc/PackageKit/PackageKit.conf.tmp /etc/PackageKit/PackageKit.conf
+
+sudo systemctl stop packagekit 2>/dev/null || true
+sudo rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
+sudo systemctl start packagekit 2>/dev/null || true
+sudo systemctl restart cockpit.socket 2>/dev/null || true
+if command -v pkcon &>/dev/null; then
+  pkcon refresh force || true
+fi
+say "Done. Reload Cockpit and retry Software Updates."
+COCKPITFIXSCRIPT
+chmod +x /usr/local/bin/ccc-fix-cockpit-updates
+
+cat > /usr/local/bin/ccc-verify-cockpit-updates << 'COCKPITVERIFYSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; R='\033[0;31m'; Y='\033[1;33m'; C='\033[0;36m'; N='\033[0m'
+ok() { echo -e "  ${G}✓${N} $*"; }
+fail() { echo -e "  ${R}✗${N} $*"; FAILED=1; }
+warn() { echo -e "  ${Y}!${N} $*"; }
+FAILED=0
+
+echo ""
+echo -e "${B}Cockpit Software Updates Check${N}"
+echo ""
+
+dpkg -s packagekit &>/dev/null && ok "packagekit installed" || fail "packagekit missing"
+dpkg -s cockpit-packagekit &>/dev/null && ok "cockpit-packagekit installed" || fail "cockpit-packagekit missing"
+systemctl is-active --quiet NetworkManager && ok "NetworkManager running" || fail "NetworkManager not running"
+systemctl is-active --quiet packagekit && ok "PackageKit running" || fail "PackageKit not running"
+
+if NetworkManager --print-config 2>/dev/null | grep -q 'managed=true'; then
+  ok "NetworkManager ifupdown managed=true"
+else
+  warn "NetworkManager config does not show ifupdown managed=true"
+fi
+
+if nmcli con show ccc-online &>/dev/null; then
+  ok "ccc-online connection exists"
+else
+  fail "ccc-online connection missing"
+fi
+
+if nmcli con up ccc-online &>/tmp/ccc-nm-up.log; then
+  ok "ccc-online activates"
+else
+  fail "ccc-online failed: $(cat /tmp/ccc-nm-up.log)"
+fi
+
+STATE=$(nmcli -t -f STATE general status 2>/dev/null | head -1)
+case "$STATE" in
+  connected|connecting) ok "NetworkManager state: $STATE" ;;
+  *) fail "NetworkManager state: ${STATE:-unknown}" ;;
+esac
+
+if [[ -f /etc/PackageKit/PackageKit.conf ]] && grep -q '^UseNetworkManager=false' /etc/PackageKit/PackageKit.conf; then
+  ok "PackageKit UseNetworkManager=false"
+else
+  warn "PackageKit UseNetworkManager=false not set"
+fi
+
+echo ""
+if [[ "$FAILED" -eq 0 ]]; then
+  echo -e "${G}${B}Cockpit update path looks ready.${N}"
+else
+  echo -e "${R}${B}Cockpit update path needs repair.${N}"
+  echo -e "  Run: ${C}sudo ccc-fix-cockpit-updates${N}"
+fi
+exit "$FAILED"
+COCKPITVERIFYSCRIPT
+chmod +x /usr/local/bin/ccc-verify-cockpit-updates
+
 # ── ccc-doctor ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-doctor << 'DOCTORSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; R='\033[0;31m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+CCC_CODE_SERVER_SERVICE="${CCC_CODE_SERVER_SERVICE:-code-server@$CCC_USER}"
 ok()   { echo -e "  ${G}✓${N} $*"; }
 fail() { echo -e "  ${R}✗${N} $*"; }
 warn() { echo -e "  ${Y}!${N} $*"; }
@@ -1064,13 +1305,20 @@ echo ""
 
 echo -e "${C}── Claude Code ───────────────────────────────${N}"
 command -v claude &>/dev/null && ok "claude binary: $(which claude)" || fail "claude not in PATH"
-[[ -f ~/.claude/settings.json ]] && ok "settings.json present" || fail "settings.json missing"
-[[ -f ~/.claude/bin/statusline-command.sh ]] && ok "statusline script present" || warn "statusline script missing"
+[[ -f "$CCC_HOME/.claude/settings.json" ]] && ok "settings.json present for $CCC_USER" || fail "settings.json missing for $CCC_USER"
+[[ -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]] && ok "statusline script present" || warn "statusline script missing"
 echo ""
 
 echo -e "${C}── Services ──────────────────────────────────${N}"
-systemctl is-active --quiet "code-server@claude-code" && ok "code-server running" || fail "code-server not running — sudo systemctl start code-server@claude-code"
+systemctl is-active --quiet "$CCC_CODE_SERVER_SERVICE" && ok "code-server running" || fail "code-server not running — sudo systemctl start $CCC_CODE_SERVER_SERVICE"
 systemctl is-active --quiet cockpit.socket            && ok "cockpit running"     || fail "cockpit not running — sudo systemctl start cockpit.socket"
+systemctl is-active --quiet ccc-kit-manager           && ok "Kit Manager running" || fail "Kit Manager not running — sudo systemctl start ccc-kit-manager"
+ccc-verify-cockpit-updates &>/dev/null && ok "Cockpit software updates ready" || warn "Cockpit software updates need repair — sudo ccc-fix-cockpit-updates"
+if [[ -f /etc/PackageKit/PackageKit.conf ]] && grep -q '^UseNetworkManager=false' /etc/PackageKit/PackageKit.conf; then
+  ok "PackageKit ignores NetworkManager offline state"
+else
+  warn "PackageKit may report offline in Cockpit — run: sudo ccc-fix-cockpit-updates"
+fi
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
@@ -1092,14 +1340,17 @@ step 23 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 echo ""
 echo -e "${B}Installing Playwright + headless Chromium${N}"
 echo -e "${Y}This downloads ~300MB and takes 5–15 minutes. Do not interrupt.${N}"
 echo ""
 
-export HOME=/home/claude-code
+export HOME="$CCC_HOME"
 export DEBIAN_FRONTEND=noninteractive
-export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 echo -e "${C}[1/3]${N} Installing Playwright npm package..."
 npx --yes playwright install --with-deps chromium
@@ -1125,12 +1376,19 @@ chmod +x /usr/local/bin/ccc-install-playwright
 cat > /usr/local/bin/ccc-install-codex << 'CODEXSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+export HOME="$CCC_HOME"
+export PATH="$CCC_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 echo ""
 echo -e "${B}Installing OpenAI Codex CLI${N}"
 echo ""
 
 echo -e "${C}[1/2]${N} Installing @openai/codex..."
-npm install -g @openai/codex
+mkdir -p "$CCC_HOME/.local"
+chown -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.local"
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" npm install -g --prefix "$CCC_HOME/.local" @openai/codex
 STATUS=$?
 
 if [[ $STATUS -ne 0 ]]; then
@@ -1144,6 +1402,7 @@ echo ""
 echo -e "${C}[2/2]${N} Setup"
 echo ""
 echo -e "${G}${B}Codex installed.${N}"
+echo -e "  Binary: ${C}$CCC_HOME/.local/bin/codex${N}"
 echo ""
 echo -e "${Y}To use Codex you need an OpenAI API key:${N}"
 echo -e "  1. Get a key at ${C}https://platform.openai.com/api-keys${N}"
@@ -1158,27 +1417,32 @@ chmod +x /usr/local/bin/ccc-install-codex
 cat > /usr/local/bin/ccc-install-jcodemunch << 'JCODEMUNCHSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+export HOME="$CCC_HOME"
+export PATH="$CCC_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 echo ""
 echo -e "${B}Installing jCodeMunch MCP${N}"
 echo -e "  Symbol-level code retrieval — cuts token usage ~95%"
 echo ""
 
 echo -e "${C}[1/3]${N} Installing pip package..."
-pip install --quiet --break-system-packages jcodemunch-mcp
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" pip install --quiet --break-system-packages --user jcodemunch-mcp
 if [[ $? -ne 0 ]]; then
   echo -e "${R}pip install failed.${N}"
   exit 1
 fi
 
 echo -e "${C}[2/3]${N} Registering MCP server with Claude Code..."
-claude mcp add -s user jcodemunch jcodemunch-mcp
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" claude mcp add -s user jcodemunch jcodemunch-mcp
 if [[ $? -ne 0 ]]; then
   echo -e "${Y}Auto-register failed — run manually inside Claude Code:${N}"
   echo -e "  ${C}claude mcp add -s user jcodemunch jcodemunch-mcp${N}"
 fi
 
 echo -e "${C}[3/3]${N} Initialising index in current directory..."
-jcodemunch-mcp init 2>/dev/null || true
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" jcodemunch-mcp init 2>/dev/null || true
 
 echo ""
 echo -e "${G}${B}jCodeMunch installed.${N}"
@@ -1198,7 +1462,7 @@ TMP="/tmp/ccc-provisioner-$$.sh"
 
 echo ""
 echo -e "${B}CCC Self-Update${N}"
-echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and skill sync.${N}"
+echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools and MOTD.${N}"
 echo -e "${Y}Does NOT re-run apt installs, Node/Go/Rust, or user creation.${N}"
 echo ""
 
@@ -1228,7 +1492,7 @@ STATUS=$?
 echo ""
 if [[ $STATUS -eq 0 ]]; then
   echo -e "${G}${B}Self-update complete.${N}"
-  echo -e "  ccc-* commands, MOTD, and skill sync updated to latest."
+  echo -e "  ccc-* commands and MOTD updated to latest."
 else
   echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
 fi
@@ -1249,9 +1513,13 @@ echo -e "  ${C}ccc${N}                       Full help + command reference"
 echo -e "  ${C}tmux${N}                      Terminal multiplexer (tabs/splits in SSH)"
 echo ""
 echo -e "  ${Y}Setup & Maintenance${N}"
-echo -e "  ${C}ccc-setup${N}                 Post-install wizard (git, SSH key, GitHub)"
+echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, GitHub)"
+echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
+echo -e "  ${C}ccc-kit${N}                   How to connect a GitHub kit repo"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
+echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"
+echo -e "  ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
 echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
 echo -e "  ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
@@ -1297,27 +1565,81 @@ LOGROTATE
 
 # ── Cockpit (web admin UI) ────────────────────────────────────────────────────
 step 27 "Cockpit (web admin UI)"
+# Ubuntu LXC templates can ship with only main enabled; Cockpit update add-ons are in universe.
+if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+  sed -i '/^Components:/ {
+    /universe/! s/$/ universe/
+    /multiverse/! s/$/ multiverse/
+  }' /etc/apt/sources.list.d/ubuntu.sources
+elif [[ -f /etc/apt/sources.list ]]; then
+  sed -i -E '/^deb / {
+    / universe/! s/( main)( |$)/\1 universe\2/
+    / multiverse/! s/( universe)( |$)/\1 multiverse\2/
+  }' /etc/apt/sources.list
+fi
+apt-get update -qq
 # NM needed for PackageKit connectivity check — without it Cockpit reports "offline"
 apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
 mkdir -p /etc/NetworkManager/conf.d
-# Keep NM off real LXC interfaces — systemd-networkd owns them
+# Cockpit's PackageKit updater checks NetworkManager online state on Ubuntu.
+# Let NM manage the dummy online marker while leaving the LXC-provided eth0 alone.
+rm -f /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf
+cat > /etc/NetworkManager/conf.d/99-ccc-managed.conf << 'NMGLOBAL'
+[ifupdown]
+managed=true
+
+[keyfile]
+unmanaged-devices=none
+NMGLOBAL
 cat > /etc/NetworkManager/conf.d/99-unmanaged-lxc.conf << 'NMCONF'
 [main]
 plugins=keyfile
-
-[keyfile]
-unmanaged-devices=interface-name:eth*;interface-name:en*
 NMCONF
 systemctl enable NetworkManager 2>/dev/null || true
-systemctl start  NetworkManager 2>/dev/null || true
-# Dummy connection — NM manages it, reports CONNECTED_GLOBAL so PackageKit sees online
-nmcli con add type dummy ifname dummy0 con-name ccc-online \
-  ipv4.method manual ipv4.addresses 10.255.255.1/32 \
-  ipv6.method disabled autoconnect yes 2>/dev/null || true
-nmcli con up ccc-online 2>/dev/null || true
+if grep -q '^\[ifupdown\]' /etc/NetworkManager/NetworkManager.conf 2>/dev/null; then
+  sed -i 's/^managed=false/managed=true/' /etc/NetworkManager/NetworkManager.conf
+fi
+systemctl restart NetworkManager 2>/dev/null || systemctl start NetworkManager 2>/dev/null || true
+# Dummy connection — NM manages it, reports online so PackageKit/Cockpit can refresh.
+nmcli con delete ccc-online 2>/dev/null || true
+nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
+  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
+nmcli con up ccc-online || true
 apt-get install -y cockpit > /dev/null 2>&1
 apt-get install -y cockpit-files > /dev/null 2>&1 || true
+apt-get install -y -qq packagekit cockpit-packagekit > /dev/null 2>&1 || true
 apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
+mkdir -p /etc/PackageKit
+touch /etc/PackageKit/PackageKit.conf
+awk '
+  BEGIN { in_daemon=0; daemon_seen=0; wrote=0 }
+  /^\[Daemon\]/ {
+    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
+    in_daemon=1; daemon_seen=1; print; next
+  }
+  /^\[/ {
+    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
+    in_daemon=0; print; next
+  }
+  in_daemon && /^UseNetworkManager=/ {
+    if (!wrote) { print "UseNetworkManager=false"; wrote=1 }
+    next
+  }
+  { print }
+  END {
+    if (!daemon_seen) { print "[Daemon]"; print "UseNetworkManager=false" }
+    else if (in_daemon && !wrote) { print "UseNetworkManager=false" }
+  }
+' /etc/PackageKit/PackageKit.conf > /etc/PackageKit/PackageKit.conf.tmp
+mv /etc/PackageKit/PackageKit.conf.tmp /etc/PackageKit/PackageKit.conf
+systemctl stop packagekit 2>/dev/null || true
+rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
+systemctl start packagekit 2>/dev/null || true
+if ! /usr/local/bin/ccc-verify-cockpit-updates; then
+  echo "[ERROR] Cockpit software update path is not ready."
+  echo "        Inspect with: ccc-verify-cockpit-updates"
+  exit 1
+fi
 mkdir -p /etc/cockpit
 cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
 [WebService]
@@ -1342,6 +1664,8 @@ const http  = require('http');
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
+const os    = require('os');
+const { execFile } = require('child_process');
 
 const PORT   = 8090;
 const PUBLIC = path.join(__dirname, 'public');
@@ -1358,6 +1682,19 @@ function ghRaw(repoUrl, filePath) {
   return `https://api.github.com/repos/${m[1]}/${m[2]}/contents/${filePath}`;
 }
 
+function run(cmd, args, opts = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { timeout: 30000, maxBuffer: 1024 * 1024, ...opts }, (err, stdout, stderr) => {
+      if (err) {
+        err.message = `${err.message}${stderr ? `\n${stderr}` : ''}`;
+        reject(err);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
+}
+
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     const opts = { headers: { 'User-Agent': 'ccc-kit-manager/1.0', 'Accept': 'application/vnd.github.v3+json' } };
@@ -1370,17 +1707,32 @@ function fetchJson(url) {
 }
 
 async function fetchManifest(repoUrl) {
-  const apiUrl = ghRaw(repoUrl, '.claude-plugin/marketplace.json');
-  const raw = await fetchJson(apiUrl);
-  if (raw.message) throw new Error(raw.message);
-  return JSON.parse(Buffer.from(raw.content, 'base64').toString('utf8'));
+  const content = await fetchFile(repoUrl, '.claude-plugin/marketplace.json');
+  if (!content) throw new Error('Missing .claude-plugin/marketplace.json');
+  return JSON.parse(content);
 }
 
 async function fetchFile(repoUrl, filePath) {
-  const apiUrl = ghRaw(repoUrl, filePath);
-  const raw = await fetchJson(apiUrl);
-  if (raw.message) return null;
-  return Buffer.from(raw.content, 'base64').toString('utf8');
+  try {
+    const apiUrl = ghRaw(repoUrl, filePath);
+    const raw = await fetchJson(apiUrl);
+    if (!raw.message && raw.content) return Buffer.from(raw.content, 'base64').toString('utf8');
+  } catch {}
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ccc-kit-'));
+  try {
+    const env = {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_SSH_COMMAND: 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new'
+    };
+    await run('git', ['clone', '--depth', '1', repoUrl, tmp], { env });
+    const target = path.join(tmp, filePath);
+    if (!fs.existsSync(target)) return null;
+    return fs.readFileSync(target, 'utf8');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 function readBody(req) {
@@ -1458,6 +1810,19 @@ cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
   header h1{font-size:18px;font-weight:600;color:#f0f6fc}
   header span{font-size:12px;color:#8b949e;background:#21262d;padding:2px 8px;border-radius:12px}
   .container{max-width:960px;margin:0 auto;padding:24px}
+  .guide{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px 20px;margin-bottom:16px}
+  .guide h2{font-size:14px;font-weight:600;color:#f0f6fc;margin-bottom:12px}
+  .guide-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+  .guide-step{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:12px;min-height:92px}
+  .guide-step b{display:block;color:#79c0ff;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .guide-step p{font-size:13px;color:#8b949e;line-height:1.45}
+  .examples{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .example{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px}
+  .example-label{display:block;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  .example code{display:block;color:#79c0ff;font-size:13px;word-break:break-all;margin-bottom:8px}
+  .example button{font-size:12px;padding:5px 10px}
+  .note{font-size:13px;color:#8b949e;line-height:1.5;margin-top:12px}
+  .note code{color:#79c0ff}
   .connect-bar{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px}
   .connect-bar h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
   .input-row{display:flex;gap:8px}
@@ -1495,6 +1860,7 @@ cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
   .hidden{display:none}
   .tag{display:inline-block;background:#21262d;color:#8b949e;border-radius:4px;padding:1px 6px;font-size:11px;margin-right:4px}
   .copied{color:#3fb950!important}
+  @media(max-width:760px){.guide-grid,.examples{grid-template-columns:1fr}.input-row{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -1504,6 +1870,37 @@ cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
   <span>port 8090</span>
 </header>
 <div class="container">
+
+  <div class="guide">
+    <h2>Install Plugins From a GitHub Kit</h2>
+    <div class="guide-grid">
+      <div class="guide-step">
+        <b>1. Connect</b>
+        <p>Paste a GitHub repo URL that contains <code>.claude-plugin/marketplace.json</code>.</p>
+      </div>
+      <div class="guide-step">
+        <b>2. Copy</b>
+        <p>Use the generated marketplace and plugin install commands below.</p>
+      </div>
+      <div class="guide-step">
+        <b>3. Paste</b>
+        <p>Paste those commands inside an active <code>claude</code> session in your terminal.</p>
+      </div>
+    </div>
+    <div class="examples">
+      <div class="example">
+        <span class="example-label">Public repo</span>
+        <code>https://github.com/owner/repo</code>
+        <button class="secondary" onclick="setExample('https://github.com/owner/repo')">Use Example</button>
+      </div>
+      <div class="example">
+        <span class="example-label">Private repo after ccc-onboarding</span>
+        <code>git@github.com:owner/repo.git</code>
+        <button class="secondary" onclick="setExample('git@github.com:owner/repo.git')">Use Example</button>
+      </div>
+    </div>
+    <p class="note">Private repos need the SSH key from <code>ccc-onboarding</code> added to GitHub first. The commands generated here are Claude Code slash commands, not shell commands.</p>
+  </div>
 
   <div class="connect-bar">
     <h2>Connect Kit Repository</h2>
@@ -1517,17 +1914,19 @@ cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
   <div class="hidden" id="kitContent">
 
     <div class="marketplace-cmd">
-      <h2>Step 1 — Add Marketplace (paste inside Claude Code session)</h2>
+      <h2>Step 1 — Add Marketplace to Claude Code</h2>
       <div class="cmd-block" id="marketplaceCmd">
         <button class="copy copy-btn" onclick="copyEl('marketplaceCmd', this)">Copy</button>
       </div>
+      <p class="note">Paste this inside a running <code>claude</code> session.</p>
     </div>
 
     <div class="install-all">
-      <h2>Step 2 — Install All Plugins (paste inside Claude Code session)</h2>
+      <h2>Step 2 — Install Plugins in Claude Code</h2>
       <div class="cmd-block" id="installAllCmd">
         <button class="copy copy-btn" onclick="copyEl('installAllCmd', this)">Copy</button>
       </div>
+      <p class="note">Paste all lines inside the same <code>claude</code> session after Step 1.</p>
     </div>
 
     <div class="section-header">
@@ -1544,6 +1943,12 @@ cat > /home/claude-code/.ccc/kit-manager/public/index.html << 'KITHTML'
   </div>
 </div>
 <script>
+function setExample(url) {
+  const input = document.getElementById('repoUrl');
+  input.value = url;
+  input.focus();
+}
+
 async function connect() {
   const url = document.getElementById('repoUrl').value.trim();
   const status = document.getElementById('connectStatus');
@@ -1563,30 +1968,33 @@ async function connect() {
 function renderKit(repoUrl, manifest) {
   const kitName = manifest.name || 'kit';
   const plugins = manifest.plugins || [];
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const js = v => JSON.stringify(String(v ?? ''));
 
+  const marketplaceCmd = `/plugin marketplace add ${repoUrl}`;
   document.getElementById('marketplaceCmd').innerHTML =
-    `/plugin marketplace add ${repoUrl}` +
-    `<button class="copy copy-btn" onclick="copyText('/plugin marketplace add ${repoUrl}', this)">Copy</button>`;
+    `${esc(marketplaceCmd)}` +
+    `<button class="copy copy-btn" onclick='copyText(${js(marketplaceCmd)}, this)'>Copy</button>`;
 
   const allCmds = plugins.map(p => `/plugin install ${p.name}@${kitName}`).join('\n');
   document.getElementById('installAllCmd').innerHTML =
-    allCmds.replace(/\n/g, '<br>') +
-    `<button class="copy copy-btn" onclick="copyText(\`${allCmds}\`, this)">Copy</button>`;
+    esc(allCmds).replace(/\n/g, '<br>') +
+    `<button class="copy copy-btn" onclick='copyText(${js(allCmds)}, this)'>Copy</button>`;
 
   const grid = document.getElementById('pluginsGrid');
   grid.innerHTML = plugins.map(p => {
     const cmd = `/plugin install ${p.name}@${kitName}`;
     return `<div class="plugin-card">
       <div class="card-top">
-        <span class="card-name">${p.name}</span>
-        <span class="card-version">v${p.version||'?'}</span>
+        <span class="card-name">${esc(p.name)}</span>
+        <span class="card-version">v${esc(p.version||'?')}</span>
       </div>
-      <div class="card-category">${p.category||''}</div>
-      <div class="card-desc">${p.description||''}</div>
-      ${(p.keywords||[]).map(k=>`<span class="tag">${k}</span>`).join('')}
+      <div class="card-category">${esc(p.category||'')}</div>
+      <div class="card-desc">${esc(p.description||'')}</div>
+      ${(p.keywords||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}
       <div class="card-cmd">
-        <span>${cmd}</span>
-        <button class="copy" onclick="copyText('${cmd}', this)">Copy</button>
+        <span>${esc(cmd)}</span>
+        <button class="copy" onclick='copyText(${js(cmd)}, this)'>Copy</button>
       </div>
     </div>`;
   }).join('');
@@ -1688,8 +2096,11 @@ PROVISION_EOF
   printf '%s:%s\n' "${CC_USER}" "${CC_PASSWORD}" | pct exec "$CT_ID" -- chpasswd
 
   pct exec "$CT_ID" -- bash -c "mkdir -p /home/${CC_USER}/.config/code-server"
-  printf 'bind-addr: 0.0.0.0:8080\nauth: password\npassword: %s\ncert: false\nuser-data-dir: /home/%s/.local/share/code-server\nextensions-dir: /home/%s/.local/share/code-server/extensions\n' \
-    "${CS_PASSWORD}" "${CC_USER}" "${CC_USER}" \
+  local _cs_password_yaml
+  _cs_password_yaml=${CS_PASSWORD//\\/\\\\}
+  _cs_password_yaml=${_cs_password_yaml//\"/\\\"}
+  printf 'bind-addr: 0.0.0.0:8080\nauth: password\npassword: "%s"\ncert: false\nuser-data-dir: /home/%s/.local/share/code-server\nextensions-dir: /home/%s/.local/share/code-server/extensions\n' \
+    "${_cs_password_yaml}" "${CC_USER}" "${CC_USER}" \
     | pct exec "$CT_ID" -- tee /home/${CC_USER}/.config/code-server/config.yaml > /dev/null
   pct exec "$CT_ID" -- chown -R "${CC_USER}:${CC_USER}" "/home/${CC_USER}/.config/code-server"
 

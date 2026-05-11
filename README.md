@@ -17,7 +17,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
 - **Kit Manager** on port 8090 — connect your GitHub plugin kit repo, browse plugins, copy Claude Code install commands
-- **Post-install wizard** — `ccc-setup` for git identity, SSH keygen, GitHub
+- **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
 - **Update command** — `ccc-update` syncs packages and Claude Code
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server** (web VS Code) on port 8080 — multi-terminal tabs, file editor, welcome guide
@@ -93,19 +93,21 @@ Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` pro
 # 1. SSH in as the working user
 ssh claude-code@<container-ip>
 
-# 2. Run post-install wizard (git identity, SSH key, GitHub)
-ccc-setup
+# 2. Run first-login onboarding (auto-prompts on first interactive login)
+ccc-onboarding
 
 # 3. Authenticate Claude Code
 claude
 
 # 4. Connect your plugin kit
 # Open http://<container-ip>:8090 in a browser
+# The page includes public/private GitHub repo examples and Claude paste steps
 
 # 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 6. Install jCodeMunch MCP — 95% token reduction via symbol-level retrieval (optional)
+# 6. Install Codex CLI or jCodeMunch MCP (optional)
+ccc-install-codex
 ccc-install-jcodemunch
 
 # 7. Full help and command reference
@@ -118,13 +120,13 @@ ccc
 
 The Kit Manager (port 8090) is the sole plugin and skill entry point. Connect your GitHub kit repo and get all install commands in one place.
 
-Open `http://<container-ip>:8090` in a browser after provisioning.
+Open `http://<container-ip>:8090` in a browser after provisioning. The page includes public/private repo examples and shows where to paste the generated Claude Code commands.
 
 ### What it does
 
 - Reads a `.claude-plugin/marketplace.json` from any GitHub repo
 - Lists all plugins with name, description, version, and category
-- Generates the exact `/plugin marketplace add` and `/plugin install` commands
+- Generates the exact `/plugin marketplace add` and `/plugin install` commands to paste inside a running `claude` session
 - Copy individual commands or the full install block
 - Fetches project `SETUP.md` templates from the kit repo
 - Remembers the last connected repo URL
@@ -150,10 +152,14 @@ Open `http://<container-ip>:8090` in a browser after provisioning.
 ```
 
 3. Add plugin folders under `plugins/` following Claude Code plugin structure
-4. **SSH access for private repos**: run `ccc-setup` first to generate an SSH key, then add the public key to GitHub (`~/.ssh/id_ed25519.pub` → GitHub → Settings → SSH Keys)
-5. Open Kit Manager, paste your repo URL, hit Connect
+4. **SSH access for private repos**: run `ccc-onboarding` first to generate an SSH key, then add the public key to GitHub (`~/.ssh/id_ed25519.pub` → GitHub → Settings → SSH Keys)
+5. Open Kit Manager, paste your repo URL, hit Connect.
+6. Copy Step 1 (`/plugin marketplace add ...`) and paste it inside a running `claude` session.
+7. Copy the plugin install commands and paste those inside the same `claude` session.
 
-> **Private repos** require SSH key access before the Kit Manager can reach them. Run `ccc-setup` → generate SSH key → add to GitHub first.
+Use an SSH URL such as `git@github.com:owner/repo.git` for private repos.
+
+> **Private repos** require SSH key access before the Kit Manager can reach them. Run `ccc-onboarding` → generate SSH key → add to GitHub first.
 
 ---
 
@@ -193,9 +199,13 @@ The `ccc` command prints the full reference. Quick shortcuts:
 
 ```bash
 # Maintenance
-ccc-setup               # post-install wizard: git identity, SSH key, GitHub
+ccc-onboarding          # first-login wizard: git identity, SSH key, GitHub
+ccc-setup               # same wizard, safe to re-run
+ccc-kit                 # show GitHub kit connection flow and URL examples
 ccc-self-update         # pull latest ccc-* tools from GitHub (no reprovision needed)
 ccc-update              # update packages + Claude Code
+ccc-fix-cockpit-updates # fix Cockpit "cannot refresh cache whilst offline"
+ccc-verify-cockpit-updates # verify Cockpit GUI updater readiness
 ccc-doctor              # health check: network, runtimes, services, disk
 ccc-install-playwright  # install Playwright + headless Chromium (optional)
 ccc-install-codex       # install OpenAI Codex CLI (optional)

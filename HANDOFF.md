@@ -38,19 +38,20 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | statusLine in settings.json | ✅ Wired to `~/.claude/bin/statusline-command.sh` |
 | Cockpit title | ✅ "Claude Code Commander" via `cockpit.conf` |
 | udisks2 noise | ✅ Purged after Cockpit install |
-| Cockpit "offline" update error | ✅ `network-manager` installed, unmanaged-devices config keeps it off LXC interfaces |
+| Cockpit "offline" update error | ✅ NetworkManager managed dummy connection + PackageKit `UseNetworkManager=false`; repair command `ccc-fix-cockpit-updates`; verifier `ccc-verify-cockpit-updates` |
 | code-server start failure | ✅ Removed invalid `socket-timeout` option from config.yaml |
 | code-server password special chars | ✅ `printf` + `tee` — no heredoc expansion, handles any char |
 | chpasswd special chars | ✅ `printf '%s:%s'` piped via stdin — no shell expansion truncation |
 | Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
-| ccc-self-update | ✅ Downloads latest script, re-runs tools/MOTD steps only (no reprovision) |
-| ccc-setup | ✅ Post-install wizard: git identity, SSH keygen, GitHub |
-| ccc-update | ✅ apt + claude update; plugin mgmt delegated to Kit Manager |
-| ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check |
+| ccc-self-update | ✅ Downloads latest script, re-runs tools/MOTD steps only (no reprovision), reads `/etc/ccc/config` |
+| ccc-onboarding / ccc-setup | ✅ First-login wizard: git identity, SSH keygen, GitHub known_hosts |
+| ccc-kit | ✅ Prints Kit Manager URL, public/private GitHub URL examples, and where to paste plugin commands |
+| ccc-update | ✅ apt + Claude update as provisioned user; plugin mgmt delegated to Kit Manager |
+| ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check, custom-user aware |
 | ccc-install-playwright | ✅ On-demand with live output |
 | ccc-install-codex | ✅ OpenAI Codex CLI on demand |
 | ccc-install-jcodemunch | ✅ jCodeMunch MCP — pip install + claude mcp add |
-| Kit Manager (port 8090) | ✅ Node.js web UI — connect GitHub kit repo, browse plugins, copy install commands |
+| Kit Manager (port 8090) | ✅ Node.js web UI — connect GitHub kit repo, browse plugins, copy install commands; API + git clone fallback for SSH private repos |
 | code-server WELCOME.md | ✅ Opens in projects/ — first steps, multi-terminal tip |
 | MOTD | ✅ Shows live IPs for :8080/:9090/:8090, all ccc-* commands |
 | Hardcoded skill repos | ✅ Removed — Kit Manager owns plugin/skill install |
@@ -82,7 +83,7 @@ Root install (unused) + claude-code user install. Root install wastes ~2 min. Fu
 - [ ] Consider `CHANGELOG.md` once version bumps start
 - [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
 - [ ] Test SSH key install with both RSA and ed25519
-- [ ] Kit Manager: add support for private repos via SSH key (post-ccc-setup)
+- [x] Kit Manager: add support for private repos via SSH key (post-ccc-onboarding)
 - [x] Playwright — moved to on-demand `ccc-install-playwright`
 - [x] Proxmox VE attribution in README
 - [x] statusLine wired into settings.json
@@ -154,6 +155,6 @@ HANDOFF.md                 This file — project status and context
 | 24 | MOTD (live IPs, all ccc-* commands) |
 | 25 | Git defaults |
 | 26 | Auto-update cron (Sundays 3 AM ET) |
-| 27 | Cockpit + NM dummy connection + cockpit.conf |
+| 27 | Cockpit + NM dummy connection + PackageKit offline fix + cockpit.conf |
 | 28 | Kit Manager (Node.js :8090 + systemd service) |
 | 29 | Cleanup |
