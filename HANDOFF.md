@@ -44,6 +44,7 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | chpasswd special chars | ✅ `printf '%s:%s'` piped via stdin — no shell expansion truncation |
 | Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
 | ccc-self-update | ✅ Downloads latest script, falls back to GitHub clone, re-runs tools/MOTD steps only (no reprovision), reads `/etc/ccc/config` |
+| ccc-update-status | ✅ Shows installed commit, latest GitHub commit, behind count, and recent commit subjects |
 | ccc-onboarding / ccc-setup | ✅ First-login wizard: git identity, SSH keygen, GitHub known_hosts |
 | ccc-update | ✅ apt + Claude update as provisioned user |
 | ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check, custom-user aware |

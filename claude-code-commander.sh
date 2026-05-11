@@ -903,6 +903,7 @@ ccc() {
   echo -e "  ${B}MAINTENANCE${N}"
   echo -e "    ${C}ccc-onboarding${N}            First-login wizard (git identity, SSH key, GitHub)"
   echo -e "    ${C}ccc-setup${N}                 Same wizard, safe to re-run"
+  echo -e "    ${C}ccc-update-status${N}         Show installed vs GitHub provisioner version"
   echo -e "    ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
   echo -e "    ${C}ccc-update${N}                Update system packages + Claude Code"
   echo -e "    ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit 'cannot refresh cache whilst offline'"
@@ -1418,6 +1419,105 @@ echo ""
 JCODEMUNCHSCRIPT
 chmod +x /usr/local/bin/ccc-install-jcodemunch
 
+# ── ccc-update-status ─────────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-update-status << 'UPDATESTATUSSCRIPT'
+#!/bin/bash
+set -euo pipefail
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; D='\033[2m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
+CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
+CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-claude-code-commander.sh}"
+VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
+SHOW_ACTIONS=1
+[[ "${1:-}" == "--no-actions" ]] && SHOW_ACTIONS=0
+TMP_REPO=""
+
+cleanup() {
+  [[ -n "${TMP_REPO:-}" ]] && rm -rf "$TMP_REPO"
+}
+trap cleanup EXIT
+
+run_as_user() {
+  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
+    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  else
+    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  fi
+}
+
+clone_repo() {
+  TMP_REPO=$(mktemp -d /tmp/ccc-update-status.XXXXXX)
+  if run_as_user git clone --quiet --depth 50 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$TMP_REPO"; then
+    return 0
+  fi
+  rm -rf "$TMP_REPO"
+  TMP_REPO=$(mktemp -d /tmp/ccc-update-status.XXXXXX)
+  local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
+  https_repo="${https_repo%.git}.git"
+  run_as_user git clone --quiet --depth 50 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$TMP_REPO"
+}
+
+installed_commit=""
+installed_date=""
+if [[ -r "$VERSION_FILE" ]]; then
+  installed_commit=$(awk -F= '$1=="CCC_INSTALLED_COMMIT"{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
+  installed_date=$(awk -F= '$1=="CCC_INSTALLED_DATE"{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
+fi
+
+echo ""
+echo -e "${B}CCC Update Status${N}"
+echo -e "  Repo:   ${C}${CCC_SELF_UPDATE_REPO}${N}"
+echo -e "  Ref:    ${C}${CCC_SELF_UPDATE_REF}${N}"
+echo -e "  Script: ${C}${CCC_SELF_UPDATE_SCRIPT}${N}"
+echo ""
+
+if ! clone_repo; then
+  echo -e "${R}Could not reach GitHub repo.${N}"
+  echo -e "  Check internet, repo access, and SSH keys. Try: ${C}ccc-doctor${N}"
+  exit 1
+fi
+
+latest_commit=$(git -C "$TMP_REPO" rev-parse HEAD)
+latest_short=$(git -C "$TMP_REPO" rev-parse --short HEAD)
+latest_date=$(git -C "$TMP_REPO" log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
+latest_subject=$(git -C "$TMP_REPO" log -1 --format='%s')
+
+if [[ -n "$installed_commit" ]]; then
+  installed_short=${installed_commit:0:7}
+  echo -e "  Installed: ${C}${installed_short}${N}${installed_date:+ — $installed_date}"
+else
+  echo -e "  Installed: ${Y}unknown${N} ${D}(run ccc-self-update once to record it)${N}"
+fi
+echo -e "  GitHub:    ${C}${latest_short}${N} — ${latest_date}"
+echo -e "             ${latest_subject}"
+echo ""
+
+if [[ -n "$installed_commit" ]] && git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
+  behind=$(git -C "$TMP_REPO" rev-list --count "${installed_commit}..HEAD")
+  if [[ "$behind" -eq 0 ]]; then
+    echo -e "  ${G}Up to date with origin/${CCC_SELF_UPDATE_REF}.${N}"
+  else
+    echo -e "  ${Y}${behind} commit(s) behind origin/${CCC_SELF_UPDATE_REF}${N}"
+    git -C "$TMP_REPO" log --oneline --max-count=5 "${installed_commit}..HEAD" | sed 's/^/  • /'
+  fi
+else
+  echo -e "  ${Y}Behind count unknown.${N}"
+  echo -e "  ${D}Recent GitHub commits:${N}"
+  git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
+fi
+
+if [[ "$SHOW_ACTIONS" -eq 1 ]]; then
+  echo ""
+  echo -e "  Check:  ${C}ccc-update-status${N}"
+  echo -e "  Update: ${C}sudo ccc-self-update${N}"
+fi
+echo ""
+UPDATESTATUSSCRIPT
+chmod +x /usr/local/bin/ccc-update-status
+
 # ── ccc-self-update ───────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-self-update << 'SELFUPDATESCRIPT'
 #!/bin/bash
@@ -1430,8 +1530,10 @@ CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git
 CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
 CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-claude-code-commander.sh}"
 CCC_SELF_UPDATE_RAW_URL="${CCC_SELF_UPDATE_RAW_URL:-https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/${CCC_SELF_UPDATE_SCRIPT}}"
+VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 TMP="/tmp/ccc-provisioner-$$.sh"
 CLONE_DIR=""
+LATEST_COMMIT=""
 
 cleanup() {
   rm -f "$TMP"
@@ -1477,11 +1579,25 @@ download_latest() {
   cp "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" "$TMP"
 }
 
+resolve_latest_commit() {
+  if [[ -n "${CLONE_DIR:-}" && -d "$CLONE_DIR/.git" ]]; then
+    git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true
+    return 0
+  fi
+  git ls-remote "$CCC_SELF_UPDATE_REPO" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 && return 0
+  local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
+  https_repo="${https_repo%.git}.git"
+  git ls-remote "$https_repo" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 || true
+}
+
 echo ""
 echo -e "${B}CCC Self-Update${N}"
 echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and Cockpit fixes.${N}"
 echo -e "${Y}Does NOT re-run Node/Go/Rust, Claude install, or user creation.${N}"
 echo ""
+if command -v ccc-update-status &>/dev/null; then
+  ccc-update-status --no-actions || true
+fi
 
 echo -e "${C}[1/3]${N} Downloading latest provisioner..."
 echo -e "  Repo:    ${C}${CCC_SELF_UPDATE_REPO}${N}"
@@ -1491,6 +1607,7 @@ if ! download_latest; then
   echo -e "${R}Download failed. Check internet, GitHub access, and SSH keys: ccc-doctor${N}"
   exit 1
 fi
+LATEST_COMMIT=$(resolve_latest_commit)
 echo -e "  Downloaded $(wc -l < "$TMP") lines"
 
 echo ""
@@ -1510,6 +1627,14 @@ STATUS=$?
 
 echo ""
 if [[ $STATUS -eq 0 ]]; then
+  if [[ -n "$LATEST_COMMIT" ]]; then
+    sudo mkdir -p /etc/ccc
+    {
+      echo "CCC_INSTALLED_COMMIT=\"$LATEST_COMMIT\""
+      echo "CCC_INSTALLED_REF=\"$CCC_SELF_UPDATE_REF\""
+      echo "CCC_INSTALLED_DATE=\"$(date '+%Y-%m-%d %H:%M:%S %z')\""
+    } | sudo tee "$VERSION_FILE" >/dev/null
+  fi
   echo -e "${G}${B}Self-update complete.${N}"
   echo -e "  ccc-* commands, MOTD, and Cockpit fixes updated to latest."
 else
@@ -1534,6 +1659,7 @@ echo ""
 echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, GitHub)"
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
+echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"

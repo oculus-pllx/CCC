@@ -149,6 +149,7 @@ The `ccc` command prints the full reference. Quick shortcuts:
 # Maintenance
 ccc-onboarding          # first-login wizard: git identity, SSH key, GitHub
 ccc-setup               # same wizard, safe to re-run
+ccc-update-status       # show installed vs GitHub provisioner version
 ccc-self-update         # pull latest ccc-* tools from GitHub (no reprovision needed)
 ccc-update              # update packages + Claude Code
 ccc-fix-cockpit-updates # fix Cockpit "cannot refresh cache whilst offline"
@@ -210,11 +211,12 @@ System packages update automatically every Sunday at 3 AM ET. To update manually
 
 ```bash
 ccc-update        # system packages + Claude Code
+ccc-update-status # show installed vs GitHub provisioner version
 ccc-self-update   # refresh ccc-* tools from GitHub
 claude update     # Claude Code only
 ```
 
-`ccc-self-update` uses the GitHub raw URL first, then falls back to cloning `git@github.com:oculus-pllx/CCC.git`. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning `git@github.com:oculus-pllx/CCC.git`. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
 ---
 
