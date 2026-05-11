@@ -1247,11 +1247,13 @@ else
   fail "ccc-online connection missing"
 fi
 
-if nmcli con up ccc-online &>/tmp/ccc-nm-up.log; then
+NM_LOG=$(mktemp /tmp/ccc-nm-up.XXXXXX)
+if nmcli con up ccc-online >"$NM_LOG" 2>&1; then
   ok "ccc-online activates"
 else
-  fail "ccc-online failed: $(cat /tmp/ccc-nm-up.log)"
+  fail "ccc-online failed: $(cat "$NM_LOG")"
 fi
+rm -f "$NM_LOG"
 
 STATE=$(nmcli -t -f STATE general status 2>/dev/null | head -1)
 case "$STATE" in
