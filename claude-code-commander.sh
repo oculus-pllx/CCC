@@ -1727,7 +1727,7 @@ apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 
 systemctl enable --now NetworkManager 2>/dev/null || true
 nmcli con delete ccc-online 2>/dev/null || true
 
-apt-get install -y cockpit > /dev/null 2>&1 || true
+apt-get install -y cockpit > /dev/null 2>&1
 apt-get install -y cockpit-files > /dev/null 2>&1 || true
 apt-get install -y -qq packagekit cockpit-packagekit > /dev/null 2>&1 || true
 apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
