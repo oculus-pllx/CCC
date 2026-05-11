@@ -2266,10 +2266,11 @@ cat > /usr/share/cockpit/ccc/index.html << 'CCCCOCKPITHTML'
     <section id="updates" class="view">
       <div class="section-label">Updates</div>
       <div class="quick-grid">
+        <button class="quick" data-run="ccc-self-update"><strong>CCC Self-Update</strong><span>Pull latest CCC tools and Command Center from GitHub</span></button>
+        <button class="quick" data-run="ccc-update"><strong>System + Claude Update</strong><span>Update apt packages and Claude Code</span></button>
         <button class="quick" data-run="ccc-verify-cockpit-updates"><strong>Verify GUI Updates</strong><span>Check Cockpit update path</span></button>
         <button class="quick" data-run="ccc-fix-cockpit-updates"><strong>Repair GUI Updates</strong><span>Fix PackageKit/NM online state</span></button>
-        <button class="quick" data-run="ccc-update"><strong>CCC Update</strong><span>Update packages and Claude</span></button>
-        <a class="quick link" href="/system/updates"><strong>Cockpit Updates</strong><span>Open native updater</span></a>
+        <a class="quick link" href="/system/updates"><strong>Cockpit Software Updates</strong><span>Open native apt/package updater</span></a>
       </div>
       <div class="panel wide">
         <div class="panel-title">Update Output</div>
