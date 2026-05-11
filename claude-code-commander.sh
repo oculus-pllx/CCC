@@ -1721,10 +1721,26 @@ elif [[ -f /etc/apt/sources.list ]]; then
 fi
 apt-get update -qq
 
-# NetworkManager is kept for Cockpit's Networking tab/graphs.
-# Do not create the fake ccc-online dummy interface.
-apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1 || true
-systemctl enable --now NetworkManager 2>/dev/null || true
+# NetworkManager is required for Cockpit Networking graphs in LXC.
+apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1
+
+cat > /etc/NetworkManager/NetworkManager.conf <<'EOF'
+[main]
+plugins=ifupdown,keyfile
+
+[ifupdown]
+managed=true
+
+[device]
+wifi.scan-rand-mac-address=no
+
+[keyfile]
+unmanaged-devices=none
+EOF
+
+systemctl enable --now NetworkManager
+systemctl restart NetworkManager
+
 nmcli con delete ccc-online 2>/dev/null || true
 
 apt-get install -y cockpit > /dev/null 2>&1
