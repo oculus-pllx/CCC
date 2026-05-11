@@ -1463,8 +1463,8 @@ TMP="/tmp/ccc-provisioner-$$.sh"
 
 echo ""
 echo -e "${B}CCC Self-Update${N}"
-echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools and MOTD.${N}"
-echo -e "${Y}Does NOT re-run apt installs, Node/Go/Rust, or user creation.${N}"
+echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, Cockpit fixes, and CCC Command Center.${N}"
+echo -e "${Y}Does NOT re-run Node/Go/Rust, Claude install, or user creation.${N}"
 echo ""
 
 echo -e "${C}[1/3]${N} Downloading latest provisioner..."
@@ -1493,7 +1493,7 @@ STATUS=$?
 echo ""
 if [[ $STATUS -eq 0 ]]; then
   echo -e "${G}${B}Self-update complete.${N}"
-  echo -e "  ccc-* commands and MOTD updated to latest."
+  echo -e "  ccc-* commands, MOTD, Cockpit fixes, and CCC Command Center updated to latest."
 else
   echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
 fi
@@ -1535,8 +1535,6 @@ echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New T
 echo ""
 MOTD
 chmod +x /etc/update-motd.d/00-ccc
-
-# CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
 step 25 "Git defaults"
@@ -2340,6 +2338,8 @@ cockpit.spawn(['ccc-doctor'], { superuser: 'try', err: 'out' })
 CCCCOCKPITJS
 
 echo "    CCC Command Center: https://<ip>:9090 (Cockpit sidebar)"
+
+# CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 step 29 "Cleanup"
