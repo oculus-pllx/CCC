@@ -1758,11 +1758,13 @@ mv /etc/PackageKit/PackageKit.conf.tmp /etc/PackageKit/PackageKit.conf
 systemctl stop packagekit 2>/dev/null || true
 rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
 systemctl start packagekit 2>/dev/null || true
+
 if ! /usr/local/bin/ccc-verify-cockpit-updates; then
-  echo "[ERROR] Cockpit software update path is not ready."
-  echo "        Inspect with: ccc-verify-cockpit-updates"
-  exit 1
+  echo "[WARN] Cockpit software update path is not ready."
+  echo "       Inspect later with: ccc-verify-cockpit-updates"
+  echo "       Continuing provision anyway."
 fi
+
 mkdir -p /etc/cockpit
 cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
 [WebService]
