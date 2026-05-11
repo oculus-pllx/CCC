@@ -1248,7 +1248,7 @@ else
 fi
 
 NM_LOG=$(mktemp /tmp/ccc-nm-up.XXXXXX)
-if nmcli con up ccc-online >"$NM_LOG" 2>&1; then
+if sudo -n nmcli con up ccc-online >"$NM_LOG" 2>&1; then
   ok "ccc-online activates"
 else
   fail "ccc-online failed: $(cat "$NM_LOG")"
