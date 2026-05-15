@@ -1631,7 +1631,7 @@ echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, G
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
 echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
-echo -e "  ${C}ccc-update${N}                Update CCC app tools from GitHub + Claude Code"
+echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-os-update${N}             Manual OS package update (apt)"
 echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"
 echo -e "  ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
@@ -1643,7 +1643,7 @@ echo ""
 echo -e "  ${Y}Web Interfaces${N}"
 IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
 echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
-echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — system monitoring, file manager"
+echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — config, projects, MCP, updates"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
 MOTD
