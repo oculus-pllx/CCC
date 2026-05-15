@@ -638,14 +638,14 @@ else
 fi
 # Codex skills
 sudo -u claude-code mkdir -p /home/claude-code/.codex
-sudo -u claude-code cp /opt/oculus-configs/codex/skills/AGENTS.md \
+sudo -u claude-code cp /opt/oculus-configs/codex/AGENTS.md \
   /home/claude-code/.codex/AGENTS.md 2>/dev/null \
-  || warn "oculus-configs: codex/skills/AGENTS.md not found, skipping"
+  || warn "oculus-configs: codex/AGENTS.md not found, skipping"
 # Gemini skills
 sudo -u claude-code mkdir -p /home/claude-code/.gemini
-sudo -u claude-code cp /opt/oculus-configs/gemini/skills/GEMINI.md \
+sudo -u claude-code cp /opt/oculus-configs/gemini/GEMINI.md \
   /home/claude-code/.gemini/GEMINI.md 2>/dev/null \
-  || warn "oculus-configs: gemini/skills/GEMINI.md not found, skipping"
+  || warn "oculus-configs: gemini/GEMINI.md not found, skipping"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
 
 # ── Statusline ────────────────────────────────────────────────────────────────
@@ -2419,8 +2419,8 @@ async function applyOculusUpdate() {
     'cp /opt/oculus-configs/claude/CLAUDE.md /home/claude-code/.claude/CLAUDE.md',
     'cp -r /opt/oculus-configs/claude/rules/. /home/claude-code/.claude/rules/',
     'cp -r /opt/oculus-configs/templates/. /home/claude-code/Templates/',
-    'mkdir -p /home/claude-code/.codex && cp /opt/oculus-configs/codex/skills/AGENTS.md /home/claude-code/.codex/AGENTS.md 2>/dev/null || true',
-    'mkdir -p /home/claude-code/.gemini && cp /opt/oculus-configs/gemini/skills/GEMINI.md /home/claude-code/.gemini/GEMINI.md 2>/dev/null || true',
+    'mkdir -p /home/claude-code/.codex && cp /opt/oculus-configs/codex/AGENTS.md /home/claude-code/.codex/AGENTS.md 2>/dev/null || true',
+    'mkdir -p /home/claude-code/.gemini && cp /opt/oculus-configs/gemini/GEMINI.md /home/claude-code/.gemini/GEMINI.md 2>/dev/null || true',
   ].join(' && ');
   try {
     const out = await cockpit.spawn(['bash', '-c', script], {err: 'message'});
