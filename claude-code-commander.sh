@@ -615,65 +615,37 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
 }
 SETTINGS
 
-# ── CLAUDE.md ─────────────────────────────────────────────────────────────────
-step 18 "CLAUDE.md"
+# ── oculus-configs ────────────────────────────────────────────────────────────
+step 18 "oculus-configs"
 sudo -u claude-code mkdir -p /home/claude-code/projects
-sudo -u claude-code tee /home/claude-code/.claude/CLAUDE.md > /dev/null << 'CLAUDEMD'
-# Claude Code Workspace
-
-## Environment
-- **OS**: Ubuntu 26.04 LXC on Proxmox (no Docker)
-- **User**: claude-code (non-root, passwordless sudo)
-- **Home**: /home/claude-code
-- **Projects**: ~/projects/
-- **Timezone**: America/New_York
-- **Web editor**: code-server at http://<ip>:8080
-
-## Languages & Runtimes
-- Node.js 22 LTS — npm, typescript, ts-node, tsx
-- Python 3 — pip (--break-system-packages), venv
-- Go (latest) — go install
-- Rust (latest) — cargo
-
-## Testing
-- **Python**: pytest, pytest-asyncio, pytest-cov, pytest-mock, pytest-xdist
-- **JS/TS**: jest, vitest, nodemon (watch), concurrently
-- **Browser**: Playwright + headless Chromium — `npx playwright test`
-- **HTTP**: httpie (`http` command), httpx (Python async), curl
-- **Redis**: `sudo systemctl start redis-server` for local test instance
-- **Postgres**: psql client — connect to external or provision local server
-
-## Tools
-- **Search**: ripgrep (rg), fd (fdfind), fzf, bat (batcat)
-- **DB**: psql, redis-cli, sqlite3, redis-server (local test)
-- **Process**: pm2 (Node.js), concurrently, nodemon
-- **File watch**: entr (run cmd on file change)
-- **Env**: direnv (per-directory .envrc — run `direnv allow`)
-- **Formatting**: prettier, eslint, black, ruff, mypy
-- **Build**: gcc, clang, make, cmake, pkg-config, autoconf
-- **Terminal**: tmux, screen, nano, vim, htop
-
-## Permissions
-All tools pre-approved — no permission prompts ever.
-
-## Agent Teams
-Enabled (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1).
-Use tmux for split-pane team visualization.
-
-## Remote Control
-Controllable from claude.ai/code or Claude mobile app.
-Use /remote-control or press spacebar to show QR code.
-
-## Conventions
-- Create files over printing long code blocks
-- git for version control under ~/projects/
-- Python packages: pip install --break-system-packages <pkg>
-- Extended thinking always on
-
-## Plugins & Skills
-Install Claude Code plugins from inside a running `claude` session with `/plugin`.
-CLAUDEMD
-
+git clone --depth 1 https://github.com/oculus-pllx/oculus-configs /opt/oculus-configs 2>&1 | sed 's/^/  /'
+chown -R claude-code:claude-code /opt/oculus-configs
+# CLAUDE.md
+cp /opt/oculus-configs/claude/CLAUDE.md /home/claude-code/.claude/CLAUDE.md \
+  || warn "oculus-configs: CLAUDE.md not found, skipping"
+# rules/
+if [[ -d /opt/oculus-configs/claude/rules ]]; then
+  sudo -u claude-code cp -r /opt/oculus-configs/claude/rules/. /home/claude-code/.claude/rules/
+else
+  warn "oculus-configs: rules/ not found, skipping"
+fi
+# templates/
+sudo -u claude-code mkdir -p /home/claude-code/Templates
+if [[ -d /opt/oculus-configs/templates ]]; then
+  sudo -u claude-code cp -r /opt/oculus-configs/templates/. /home/claude-code/Templates/
+else
+  warn "oculus-configs: templates/ not found, skipping"
+fi
+# Codex skills
+sudo -u claude-code mkdir -p /home/claude-code/.codex
+sudo -u claude-code cp /opt/oculus-configs/codex/skills/AGENTS.md \
+  /home/claude-code/.codex/AGENTS.md 2>/dev/null \
+  || warn "oculus-configs: codex/skills/AGENTS.md not found, skipping"
+# Gemini skills
+sudo -u claude-code mkdir -p /home/claude-code/.gemini
+sudo -u claude-code cp /opt/oculus-configs/gemini/skills/GEMINI.md \
+  /home/claude-code/.gemini/GEMINI.md 2>/dev/null \
+  || warn "oculus-configs: gemini/skills/GEMINI.md not found, skipping"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
 
 # ── Statusline ────────────────────────────────────────────────────────────────
