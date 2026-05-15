@@ -49,8 +49,10 @@ Actions (run as root inside provisioner):
 3. `sudo -u claude-code cp -r /opt/oculus-configs/claude/rules/. /home/claude-code/.claude/rules/`
 4. `sudo -u claude-code mkdir -p /home/claude-code/Templates`
 5. `sudo -u claude-code cp -r /opt/oculus-configs/templates/. /home/claude-code/Templates/`
+6. `sudo -u claude-code mkdir -p /home/claude-code/.codex && sudo -u claude-code cp /opt/oculus-configs/codex/skills/AGENTS.md /home/claude-code/.codex/AGENTS.md`
+7. `sudo -u claude-code mkdir -p /home/claude-code/.gemini && sudo -u claude-code cp /opt/oculus-configs/gemini/skills/GEMINI.md /home/claude-code/.gemini/GEMINI.md`
 
-Error handling: fatal on clone failure (network required). File copies are non-fatal if source paths don't exist (warn and continue) — guards against future oculus-configs restructuring.
+Error handling: fatal on clone failure (network required). File copies (steps 2–7) are non-fatal if source paths don't exist (warn and continue) — guards against future oculus-configs restructuring. Codex/Gemini skill files are copied unconditionally; they sit inert until the respective CLI is installed via `ccc-install-codex` or manually.
 
 ### Remove old step 18 — inline CLAUDE.md heredoc
 
@@ -256,4 +258,4 @@ Remove the separate `ccc-fix-cockpit-updates` and `ccc-verify-cockpit-updates` l
 - configure.py Python service — not installed, not referenced
 - Port 4827 — not opened, not mentioned anywhere in the provisioner
 - oculus-configs `install.sh` — not executed
-- Codex/Gemini skill setup from oculus-configs — not wired (out of scope for CCC)
+- Codex/Gemini CLI installation — still on-demand via `ccc-install-codex`; skill files are pre-copied, CLIs are not pre-installed
