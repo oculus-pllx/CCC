@@ -1407,12 +1407,12 @@ run_as_user() {
 }
 
 clone_repo() {
-  TMP_REPO=$(mktemp -d /tmp/ccc-update-status.XXXXXX)
+  TMP_REPO=$(mktemp -u /tmp/ccc-update-status.XXXXXX)
   if run_as_user git clone --quiet --depth 50 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$TMP_REPO"; then
     return 0
   fi
   rm -rf "$TMP_REPO"
-  TMP_REPO=$(mktemp -d /tmp/ccc-update-status.XXXXXX)
+  TMP_REPO=$(mktemp -u /tmp/ccc-update-status.XXXXXX)
   local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
   https_repo="${https_repo%.git}.git"
   run_as_user git clone --quiet --depth 50 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$TMP_REPO"
@@ -1514,7 +1514,8 @@ download_latest() {
   fi
 
   echo -e "  ${Y}Raw download failed; trying Git clone fallback.${N}"
-  CLONE_DIR=$(mktemp -d /tmp/ccc-self-update.XXXXXX)
+  # mktemp -u: reserve a unique name without creating the dir so git clone can create it
+  CLONE_DIR=$(mktemp -u /tmp/ccc-self-update.XXXXXX)
   if run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$CLONE_DIR"; then
     if [[ -f "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" ]]; then
       cp "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" "$TMP"
@@ -1528,7 +1529,7 @@ download_latest() {
   https_repo="${https_repo%.git}.git"
   echo -e "  ${Y}SSH clone failed; trying HTTPS clone: ${https_repo}${N}"
   rm -rf "$CLONE_DIR"
-  CLONE_DIR=$(mktemp -d /tmp/ccc-self-update.XXXXXX)
+  CLONE_DIR=$(mktemp -u /tmp/ccc-self-update.XXXXXX)
   run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$CLONE_DIR"
   [[ -f "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" ]] || {
     echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
