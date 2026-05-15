@@ -20,12 +20,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Update command** — `ccc-update` syncs packages and Claude Code
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server** (web VS Code) on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Cockpit** on port 9090 — system monitoring, file manager with upload/download, browser terminal
+- **Cockpit** on port 9090 — full CCC management UI (CLAUDE.md editor, MCP servers, plugins, projects, updates) plus system monitoring and browser terminal
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
 - **IPv6 disabled** — avoids apt/curl failures in containers without IPv6 routing
 - **Optional Proxmox HA** — register with `ha-manager` at provision time (cluster only)
+- **oculus-configs** — CLAUDE.md, rules, templates, and Codex/Gemini skills pre-loaded from [oculus-configs](https://github.com/oculus-pllx/oculus-configs)
 - **Zero Docker** — pure native toolchain, minimal overhead
 - **Weekly auto-updates** — Sundays 3 AM ET
 

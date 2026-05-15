@@ -1,8 +1,8 @@
 # CCC Handoff / Status
 
 **Repo:** https://github.com/oculus-pllx/CCC  
-**Date:** 2026-05-09  
-**Status:** Active development — iterative live provisions, most bugs fixed. Pending clean end-to-end pass with latest script.
+**Date:** 2026-05-15  
+**Status:** Active development — pending first clean end-to-end provision with latest script.
 
 ---
 
@@ -10,7 +10,7 @@
 
 Single-file Proxmox LXC provisioner. Run on a Proxmox host as root. Interactively collects config, creates an Ubuntu 26.04 (or Debian 13) container, and provisions it end-to-end in ~10–15 minutes. No Docker. No Ansible. No external state.
 
-Target audience: homelab operators running Proxmox (especially TrueNAS-backed) who want a clean Claude Code environment without manual setup.
+Target audience: homelab operators running Proxmox who want a clean Claude Code environment without manual setup.
 
 ---
 
@@ -21,7 +21,7 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | Script structure | Complete |
 | README | ✅ Synced |
 | Repo | ✅ `main` at `oculus-pllx/CCC` |
-| Live provision test | ⚠️ Multiple runs — bugs fixed iteratively. Pending first clean end-to-end pass. |
+| Live provision test | ⚠️ Pending first clean end-to-end pass with latest script |
 | Static IP / gateway / DNS validation | ✅ Re-prompt on bad format |
 | Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
 | Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) |
@@ -38,24 +38,16 @@ Target audience: homelab operators running Proxmox (especially TrueNAS-backed) w
 | statusLine in settings.json | ✅ Wired to `~/.claude/bin/statusline-command.sh` |
 | Cockpit title | ✅ "Claude Code Commander" via `cockpit.conf` |
 | udisks2 noise | ✅ Purged after Cockpit install |
-| Cockpit "offline" update error | ✅ NetworkManager managed dummy connection + PackageKit `UseNetworkManager=false`; repair command `ccc-fix-cockpit-updates`; verifier `ccc-verify-cockpit-updates` |
+| Cockpit "offline" update error | ✅ NM managed dummy connection + PackageKit `UseNetworkManager=false` |
 | code-server start failure | ✅ Removed invalid `socket-timeout` option from config.yaml |
-| code-server password special chars | ✅ `printf` + `tee` — no heredoc expansion, handles any char |
-| chpasswd special chars | ✅ `printf '%s:%s'` piped via stdin — no shell expansion truncation |
-| Debian 13 step 3 failure | ✅ Removed `software-properties-common` (unused, Ubuntu-specific); `bat` alias handles both binary names |
-| ccc-self-update | ✅ Downloads latest script, falls back to GitHub clone, re-runs tools/MOTD steps only (no reprovision), reads `/etc/ccc/config` |
-| ccc-update-status | ✅ Shows installed commit, latest GitHub commit, behind count, and recent commit subjects |
+| code-server password special chars | ✅ `printf` + `tee` — no heredoc expansion |
+| chpasswd special chars | ✅ `printf '%s:%s'` piped via stdin |
+| ccc-self-update | ✅ Downloads latest script, re-runs tools/MOTD/plugin steps only |
+| ccc-update-status | ✅ Shows installed commit, latest GitHub commit, behind count |
 | ccc-onboarding / ccc-setup | ✅ First-login wizard: git identity, SSH keygen, GitHub known_hosts |
-| ccc-update | ✅ apt + Claude update as provisioned user |
-| ccc-doctor | ✅ Network, runtimes, services, disk/RAM health check, custom-user aware |
-| ccc-install-playwright | ✅ On-demand with live output |
-| ccc-install-codex | ✅ OpenAI Codex CLI on demand |
-| ccc-install-jcodemunch | ✅ jCodeMunch MCP — pip install + claude mcp add |
-| code-server WELCOME.md | ✅ Opens in projects/ — first steps, multi-terminal tip |
-| MOTD | ✅ Shows live IPs for :8080/:9090, all ccc-* commands |
-| Hardcoded skill repos | ✅ Removed |
-| ccc-setup-plugins | ✅ Removed |
-| Caveman in kit repo | ✅ Added as git submodule to oculus-pllx/oculus-claude-kit |
+| oculus-configs (step 18) | ✅ Clones repo, copies CLAUDE.md, rules/, templates/, AGENTS.md, GEMINI.md |
+| Cockpit CCC plugin (step 27) | ✅ Prism-dark 6-tab plugin: Overview, Projects, CLAUDE.md, MCP, Plugins, Updates |
+| MOTD | ✅ Shows :8080/:9090, all ccc-* commands |
 
 ---
 
@@ -70,38 +62,46 @@ Queries `pvesm status --content rootdir`. Defaults to `local-lvm`. Falls back to
 ### Rust installed twice
 Root install (unused) + claude-code user install. Root install wastes ~2 min. Future cleanup candidate.
 
+### oculus-configs clone (step 18)
+Cloned to `/opt/oculus-configs`. Expects the following paths in that repo:
+- `claude/CLAUDE.md`
+- `claude/rules/` (directory)
+- `templates/` (directory)
+- `codex/skills/AGENTS.md`
+- `gemini/skills/GEMINI.md`
+
+Missing paths emit `warn` (yellow) and continue — not fatal.
+
+### Cockpit plugin (step 27)
+Written to `/usr/share/cockpit/ccc/`. Inside `CCC_UPDATEABLE_START/END` so `ccc-self-update` can push new plugin versions without reprovisioning. Dev scaffold in `docs/cockpit-plugin/` (uses `mock-cockpit.js` for local browser testing; production build uses `/cockpit/base1/cockpit.js`).
+
 ---
 
 ## TODOs / Future Work
 
 - [ ] Complete first clean end-to-end provision with latest script
-- [ ] Verify Cockpit GUI updates work (NM dummy connection fix)
+- [ ] Test oculus-configs paths in live container
+- [ ] Test Cockpit plugin in live Cockpit session (all 6 tabs)
 - [ ] Remove redundant root Rust install (~2 min savings)
 - [ ] Add `--non-interactive` / config-file mode for automated provisioning
-- [ ] Consider `CHANGELOG.md` once version bumps start
 - [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
 - [ ] Test SSH key install with both RSA and ed25519
-- [x] Playwright — moved to on-demand `ccc-install-playwright`
-- [x] Proxmox VE attribution in README
-- [x] statusLine wired into settings.json
-- [x] Post-install wizard (ccc-setup)
-- [x] Update command (ccc-update)
-- [x] Health check (ccc-doctor)
-- [x] code-server welcome file
-- [x] Codex CLI install (ccc-install-codex)
-- [x] Strip hardcoded skill repos + ccc-setup-plugins
-- [x] Password special char truncation fix (chpasswd + code-server config.yaml)
-- [x] Caveman added to oculus-claude-kit as git submodule
 
 ---
 
 ## File Map
 
 ```
-claude-code-commander.sh   Main provisioner (~900 lines, bash)
-README.md                  User-facing docs
-HANDOFF.md                 This file — project status and context
-.gitignore                 Excludes Windows Zone.Identifier files
+claude-code-commander.sh     Main provisioner (~2400 lines, bash)
+README.md                    User-facing docs
+HANDOFF.md                   This file — project status and context
+docs/cockpit-plugin/
+  manifest.json              Cockpit plugin manifest
+  mock-cockpit.js            Mock cockpit API for local browser dev
+  index.html                 Full Prism-dark CCC plugin (production: /cockpit/base1/cockpit.js)
+docs/superpowers/
+  specs/                     Design specs
+  plans/                     Implementation plans
 ```
 
 ---
@@ -143,14 +143,14 @@ HANDOFF.md                 This file — project status and context
 | 15 | Claude Code install + symlink (fatal on miss) |
 | 16 | Playwright (skipped — ccc-install-playwright) |
 | 17 | settings.json (all perms, statusLine, agent teams, 64k) |
-| 18 | CLAUDE.md |
+| 18 | oculus-configs clone → CLAUDE.md, rules/, templates/, AGENTS.md, GEMINI.md |
 | 19 | Statusline script |
 | 20 | code-server + WELCOME.md + .vscode workspace |
 | 21 | SSH hardening |
 | 22 | Shell environment + aliases + ccc function |
-| 23 | ccc-install-playwright |
+| 23 | ccc-install-playwright / ccc-install-codex / ccc-install-jcodemunch |
 | 24 | MOTD (live IPs, all ccc-* commands) |
 | 25 | Git defaults |
 | 26 | Auto-update cron (Sundays 3 AM ET) |
-| 27 | Cockpit + NM dummy connection + PackageKit offline fix + cockpit.conf |
+| 27 | Cockpit + NM dummy connection + PackageKit offline fix + cockpit.conf + CCC plugin |
 | 28 | Cleanup |
