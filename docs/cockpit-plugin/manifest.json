@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "name": "ccc",
+  "priority": 1,
+  "menu": {
+    "index": {
+      "label": "Claude Code Commander",
+      "order": 0
+    }
+  }
+}
