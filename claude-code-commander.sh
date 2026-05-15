@@ -1640,10 +1640,10 @@ chmod +x /etc/update-motd.d/00-ccc
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
 step 25 "Git defaults"
-sudo -u claude-code git config --global init.defaultBranch main
-sudo -u claude-code git config --global core.editor nano
-sudo -u claude-code git config --global pull.rebase false
-sudo -u claude-code git config --global core.autocrlf false
+sudo -u "$CCC_USER" git config --global init.defaultBranch main
+sudo -u "$CCC_USER" git config --global core.editor nano
+sudo -u "$CCC_USER" git config --global pull.rebase false
+sudo -u "$CCC_USER" git config --global core.autocrlf false
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
 step 26 "Application auto-update cron"
@@ -2204,6 +2204,7 @@ function showTab(name) {
 
 // ── Overview ────────────────────────────────────────────────────────────────
 let _ip = '';
+let _home = '/home/claude-code'; // updated at init from cockpit.user()
 async function getIP() {
   if (_ip) return _ip;
   try { _ip = (await cockpit.spawn(['hostname', '-I'])).trim().split(' ')[0]; }
@@ -2213,22 +2214,22 @@ async function getIP() {
 
 async function loadOverview() {
   try {
-    await cockpit.spawn(['test', '-f', '/home/claude-code/.claude/CLAUDE.md'], {err: 'ignore'});
+    await cockpit.spawn(['test', '-f', `${_home}/.claude/CLAUDE.md`], {err: 'ignore'});
     document.getElementById('s-claude').textContent = '✓ Present';
   } catch {
     document.getElementById('s-claude').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
   }
   try {
-    const n = await cockpit.spawn(['bash', '-c', 'ls /home/claude-code/.claude/rules/ 2>/dev/null | wc -l']);
+    const n = await cockpit.spawn(['bash', '-c', `ls ${_home}/.claude/rules/ 2>/dev/null | wc -l`]);
     document.getElementById('s-rules').textContent = n.trim() + ' files';
   } catch { document.getElementById('s-rules').textContent = '0 files'; }
   try {
-    const raw = await cockpit.file('/home/claude-code/.claude/mcp.json').read();
+    const raw = await cockpit.file(`${_home}/.claude/mcp.json`).read();
     document.getElementById('s-mcp').textContent =
       Object.keys(JSON.parse(raw || '{"mcpServers":{}}').mcpServers || {}).length + ' servers';
   } catch { document.getElementById('s-mcp').textContent = '0 servers'; }
   try {
-    const raw = await cockpit.file('/home/claude-code/.claude/settings.json').read();
+    const raw = await cockpit.file(`${_home}/.claude/settings.json`).read();
     const s = JSON.parse(raw || '{}');
     document.getElementById('s-plugins').textContent =
       (Array.isArray(s.plugins?.enabled) ? s.plugins.enabled.length : '?') + ' enabled';
@@ -2248,7 +2249,7 @@ tabLoaders.overview = loadOverview;
 async function loadProjects() {
   const list = document.getElementById('project-list');
   try {
-    const out = await cockpit.spawn(['bash', '-c', 'ls -1 /home/claude-code/projects/ 2>/dev/null']);
+    const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/projects/ 2>/dev/null`]);
     const projects = out.trim().split('
 ').filter(p => p);
     const ip = await getIP();
@@ -2258,7 +2259,7 @@ async function loadProjects() {
           <li class="data-item">
             <span class="data-name">${p}</span>
             <a class="btn btn-secondary btn-sm"
-               href="http://${ip}:8080/?folder=/home/claude-code/projects/${encodeURIComponent(p)}"
+               href="http://${ip}:8080/?folder=${_home}/projects/${encodeURIComponent(p)}"
                target="_blank">Open in VS Code ↗</a>
           </li>`).join('') + '</ul>';
   } catch {
@@ -2286,11 +2287,11 @@ async function renderWizardStep() {
       <input id="w-name" class="form-control" placeholder="my-project" value="${_wiz.name}"></div>`;
   } else if (s === 2) {
     html += `<div class="form-group"><label class="form-label">Location</label>
-      <input id="w-loc" class="form-control" value="${_wiz.location || '/home/claude-code/projects/' + _wiz.name}"></div>`;
+      <input id="w-loc" class="form-control" value="${_wiz.location || _home + '/projects/' + _wiz.name}"></div>`;
   } else if (s === 3) {
     let opts = '<option value="">— None (blank project) —</option>';
     try {
-      const out = await cockpit.spawn(['bash', '-c', 'ls -1 /home/claude-code/Templates/ 2>/dev/null']);
+      const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/Templates/ 2>/dev/null`]);
       out.trim().split('
 ').filter(t => t).forEach(t => {
         opts += `<option value="${t}" ${_wiz.template === t ? 'selected' : ''}>${t}</option>`;
@@ -2333,7 +2334,7 @@ async function createProject() {
     await cockpit.spawn(['mkdir', '-p', location]);
     await cockpit.spawn(['git', '-C', location, 'init']);
     if (template) await cockpit.spawn(['bash', '-c', 'cp -r "$1"/. "$2"/', '_',
-      '/home/claude-code/Templates/' + template, location]);
+      `${_home}/Templates/` + template, location]);
     if (remote) await cockpit.spawn(['bash', '-c',
       'cd "$1" && gh repo create "$2" --private --source=. --push', '_', location, remote]);
     showToast('Project created: ' + name, 'success');
@@ -2347,14 +2348,14 @@ async function createProject() {
 async function loadClaude() {
   try {
     document.getElementById('claude-textarea').value =
-      await cockpit.file('/home/claude-code/.claude/CLAUDE.md').read() || '';
+      await cockpit.file(`${_home}/.claude/CLAUDE.md`).read() || '';
   } catch (err) { showToast('Error reading CLAUDE.md: ' + err.message, 'error'); }
 }
 tabLoaders.claude = loadClaude;
 
 async function saveClaude() {
   try {
-    await cockpit.file('/home/claude-code/.claude/CLAUDE.md')
+    await cockpit.file(`${_home}/.claude/CLAUDE.md`)
       .replace(document.getElementById('claude-textarea').value);
     showToast('CLAUDE.md saved', 'success');
   } catch (err) { showToast('Error saving: ' + err.message, 'error'); }
@@ -2365,7 +2366,7 @@ async function reloadFromOculus() {
     'Overwrite your current CLAUDE.md with the version from oculus-configs? Your edits will be lost.',
     'Overwrite')) return;
   try {
-    await cockpit.spawn(['cp', '/opt/oculus-configs/claude/CLAUDE.md', '/home/claude-code/.claude/CLAUDE.md']);
+    await cockpit.spawn(['cp', '/opt/oculus-configs/claude/CLAUDE.md', `${_home}/.claude/CLAUDE.md`]);
     await loadClaude(); showToast('Reloaded from oculus-configs', 'success');
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
@@ -2374,7 +2375,7 @@ async function reloadFromOculus() {
 let _mcpData = { mcpServers: {} };
 
 async function loadMCP() {
-  try { _mcpData = JSON.parse(await cockpit.file('/home/claude-code/.claude/mcp.json').read() || '{"mcpServers":{}}'); }
+  try { _mcpData = JSON.parse(await cockpit.file(`${_home}/.claude/mcp.json`).read() || '{"mcpServers":{}}'); }
   catch { _mcpData = { mcpServers: {} }; }
   renderMCPTable(); loadGHToken();
 }
@@ -2412,14 +2413,14 @@ async function removeMCPServer(name) {
 
 async function persistMCP() {
   try {
-    await cockpit.file('/home/claude-code/.claude/mcp.json').replace(JSON.stringify(_mcpData, null, 2));
+    await cockpit.file(`${_home}/.claude/mcp.json`).replace(JSON.stringify(_mcpData, null, 2));
     renderMCPTable(); showToast('MCP config saved', 'success');
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
 
 async function loadGHToken() {
   try {
-    const m = (await cockpit.file('/home/claude-code/.bashrc').read() || '')
+    const m = (await cockpit.file(`${_home}/.bashrc`).read() || '')
       .match(/export GITHUB_TOKEN="?([^"
 ]+)"?/);
     if (m) document.getElementById('gh-token').value = m[1];
@@ -2430,8 +2431,8 @@ async function saveGHToken() {
   const token = document.getElementById('gh-token').value.trim();
   if (!token) { showToast('Token required', 'error'); return; }
   try {
-    const bashrc = await cockpit.file('/home/claude-code/.bashrc').read() || '';
-    await cockpit.file('/home/claude-code/.bashrc').replace(
+    const bashrc = await cockpit.file(`${_home}/.bashrc`).read() || '';
+    await cockpit.file(`${_home}/.bashrc`).replace(
       bashrc.includes('GITHUB_TOKEN')
         ? bashrc.replace(/export GITHUB_TOKEN="?[^"
 ]+"?/, `export GITHUB_TOKEN="${token}"`)
@@ -2452,7 +2453,7 @@ const KNOWN_PLUGINS = [
 
 async function loadPlugins() {
   let settings = {};
-  try { settings = JSON.parse(await cockpit.file('/home/claude-code/.claude/settings.json').read() || '{}'); }
+  try { settings = JSON.parse(await cockpit.file(`${_home}/.claude/settings.json`).read() || '{}'); }
   catch {}
   const enabled = new Set(settings.plugins?.enabled || []);
   document.getElementById('plugin-list').innerHTML = KNOWN_PLUGINS.map(p => `
@@ -2473,7 +2474,7 @@ tabLoaders.plugins = loadPlugins;
 
 async function togglePlugin(id, input) {
   let settings = {};
-  try { settings = JSON.parse(await cockpit.file('/home/claude-code/.claude/settings.json').read() || '{}'); }
+  try { settings = JSON.parse(await cockpit.file(`${_home}/.claude/settings.json`).read() || '{}'); }
   catch {}
   if (!settings.plugins) settings.plugins = {};
   if (!Array.isArray(settings.plugins.enabled)) settings.plugins.enabled = [];
@@ -2481,7 +2482,7 @@ async function togglePlugin(id, input) {
   input.checked ? enabled.add(id) : enabled.delete(id);
   settings.plugins.enabled = [...enabled];
   try {
-    await cockpit.file('/home/claude-code/.claude/settings.json').replace(JSON.stringify(settings, null, 2));
+    await cockpit.file(`${_home}/.claude/settings.json`).replace(JSON.stringify(settings, null, 2));
     showToast('Plugin state updated', 'success');
   } catch (err) { input.checked = !input.checked; showToast('Error: ' + err.message, 'error'); }
 }
@@ -2538,11 +2539,11 @@ async function applyOculusUpdate() {
   box.textContent = 'Applying update...';
   const script = [
     'git -C /opt/oculus-configs pull',
-    'cp /opt/oculus-configs/claude/CLAUDE.md /home/claude-code/.claude/CLAUDE.md',
-    'cp -r /opt/oculus-configs/claude/rules/. /home/claude-code/.claude/rules/',
-    'cp -r /opt/oculus-configs/templates/. /home/claude-code/Templates/',
-    'mkdir -p /home/claude-code/.codex && cp /opt/oculus-configs/codex/AGENTS.md /home/claude-code/.codex/AGENTS.md 2>/dev/null || true',
-    'mkdir -p /home/claude-code/.gemini && cp /opt/oculus-configs/gemini/GEMINI.md /home/claude-code/.gemini/GEMINI.md 2>/dev/null || true',
+    `cp /opt/oculus-configs/claude/CLAUDE.md ${_home}/.claude/CLAUDE.md`,
+    `cp -r /opt/oculus-configs/claude/rules/. ${_home}/.claude/rules/`,
+    `cp -r /opt/oculus-configs/templates/. ${_home}/Templates/`,
+    `mkdir -p ${_home}/.codex && cp /opt/oculus-configs/codex/AGENTS.md ${_home}/.codex/AGENTS.md 2>/dev/null || true`,
+    `mkdir -p ${_home}/.gemini && cp /opt/oculus-configs/gemini/GEMINI.md ${_home}/.gemini/GEMINI.md 2>/dev/null || true`,
   ].join(' && ');
   try {
     const out = await cockpit.spawn(['bash', '-c', script], {err: 'message'});
@@ -2554,16 +2555,20 @@ async function applyOculusUpdate() {
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-cockpit.user().then(u => {
-  document.getElementById('nav-user').textContent = u.name + '@' + location.hostname;
-}).catch(() => {});
-loadOverview();
+(async () => {
+  try {
+    const u = await cockpit.user();
+    _home = u.home || ('/home/' + u.name);
+    document.getElementById('nav-user').textContent = u.name + '@' + location.hostname;
+  } catch {}
+  loadOverview();
+})();
 </script>
 </body>
 </html>
 
 COCKPITUI
-echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
+echo "    Cockpit: https://<ip>:9090 (login as $CCC_USER)"
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 

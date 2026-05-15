@@ -27,5 +27,5 @@ const cockpit = {
     replace: (content) => { _files[path] = content; return Promise.resolve(); },
   }),
   spawn: (args) => _spawn(args),
-  user: () => Promise.resolve({ name: 'claude-code', home: '/home/claude-code' }),
+  user: () => Promise.resolve({ name: 'claude-code', home: '/home/claude-code', groups: [] }),
 };
