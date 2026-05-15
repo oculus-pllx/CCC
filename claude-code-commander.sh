@@ -1133,33 +1133,21 @@ enable_universe
 sudo apt-get update -qq
 sudo apt-get install -y -qq packagekit cockpit-packagekit
 
-sudo nmcli con delete ccc-online 2>/dev/null || true
-# PackageKit is configured below to ignore NetworkManager online-state detection.
-# No dummy interface is created.
-
+# PackageKit: disable NM network check
 sudo mkdir -p /etc/PackageKit
-sudo touch /etc/PackageKit/PackageKit.conf
-sudo awk '
-  BEGIN { in_daemon=0; daemon_seen=0; wrote=0 }
-  /^\[Daemon\]/ {
-    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
-    in_daemon=1; daemon_seen=1; print; next
-  }
-  /^\[/ {
-    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
-    in_daemon=0; print; next
-  }
-  in_daemon && /^UseNetworkManager=/ {
-    if (!wrote) { print "UseNetworkManager=false"; wrote=1 }
-    next
-  }
-  { print }
-  END {
-    if (!daemon_seen) { print "[Daemon]"; print "UseNetworkManager=false" }
-    else if (in_daemon && !wrote) { print "UseNetworkManager=false" }
-  }
-' /etc/PackageKit/PackageKit.conf | sudo tee /etc/PackageKit/PackageKit.conf.tmp >/dev/null
-sudo mv /etc/PackageKit/PackageKit.conf.tmp /etc/PackageKit/PackageKit.conf
+printf '[Daemon]\nUseNetworkManager=false\n' | sudo tee /etc/PackageKit/PackageKit.conf >/dev/null
+
+# GLib network monitor: force base backend (always online) via systemd drop-in
+sudo mkdir -p /etc/systemd/system/packagekit.service.d
+printf '[Service]\nEnvironment=GIO_USE_NETWORK_MONITOR=base\n' \
+  | sudo tee /etc/systemd/system/packagekit.service.d/ccc-always-online.conf >/dev/null
+sudo systemctl daemon-reload
+
+# Ensure NM dummy connection is up
+sudo nmcli con delete ccc-online 2>/dev/null || true
+sudo nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
+  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
+sudo nmcli con up ccc-online 2>/dev/null || true
 
 sudo systemctl stop packagekit 2>/dev/null || true
 sudo rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
@@ -1720,29 +1708,44 @@ apt-get install -y cockpit-files > /dev/null 2>&1 || true
 apt-get install -y -qq packagekit cockpit-packagekit > /dev/null 2>&1 || true
 apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
 
+# Tell PackageKit not to use NetworkManager for online detection
 mkdir -p /etc/PackageKit
-touch /etc/PackageKit/PackageKit.conf
-awk '
-  BEGIN { in_daemon=0; daemon_seen=0; wrote=0 }
-  /^\[Daemon\]/ {
-    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
-    in_daemon=1; daemon_seen=1; print; next
-  }
-  /^\[/ {
-    if (in_daemon && !wrote) { print "UseNetworkManager=false"; wrote=1 }
-    in_daemon=0; print; next
-  }
-  in_daemon && /^UseNetworkManager=/ {
-    if (!wrote) { print "UseNetworkManager=false"; wrote=1 }
-    next
-  }
-  { print }
-  END {
-    if (!daemon_seen) { print "[Daemon]"; print "UseNetworkManager=false" }
-    else if (in_daemon && !wrote) { print "UseNetworkManager=false" }
-  }
-' /etc/PackageKit/PackageKit.conf > /etc/PackageKit/PackageKit.conf.tmp
-mv /etc/PackageKit/PackageKit.conf.tmp /etc/PackageKit/PackageKit.conf
+cat > /etc/PackageKit/PackageKit.conf << 'PKCONF'
+[Daemon]
+UseNetworkManager=false
+PKCONF
+# Disable NM's periodic connectivity portal check — prevents NM marking itself
+# "limited" in LXC where no captive-portal response is available
+cat >> /etc/NetworkManager/conf.d/99-ccc-managed.conf << 'NMCONN'
+
+[connectivity]
+interval=0
+NMCONN
+# Force GLib's network monitor (used by PackageKit) to always report online.
+# GIO_USE_NETWORK_MONITOR=base bypasses NM/netlink checks entirely.
+mkdir -p /etc/systemd/system/packagekit.service.d
+cat > /etc/systemd/system/packagekit.service.d/ccc-always-online.conf << 'PKDROP'
+[Service]
+Environment=GIO_USE_NETWORK_MONITOR=base
+PKDROP
+# Boot service: bring up the NM dummy connection after every reboot so NM
+# reports a managed interface, which some Cockpit versions also check.
+cat > /etc/systemd/system/ccc-online.service << 'SVCU'
+[Unit]
+Description=CCC dummy online interface
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nmcli con up ccc-online
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+SVCU
+systemctl daemon-reload
+systemctl enable ccc-online.service
 systemctl stop packagekit 2>/dev/null || true
 rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
 systemctl start packagekit 2>/dev/null || true
@@ -1783,257 +1786,248 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Code Commander</title>
+  <link href="/cockpit/base1/cockpit.css" rel="stylesheet">
   <style>
-    :root {
-      --bg:#0b0f1a; --nav-bg:#0d1220; --card-bg:#0f1624; --surface2:#141c2e;
-      --border:#1a2233; --border2:#222d42; --text:#cdd6f4; --muted:#4a6080;
-      --muted2:#2a3a52; --cyan:#00e5ff; --green:#00ff88; --yellow:#f5c518;
-      --purple:#a78bfa; --orange:#fb923c; --red:#f38ba8; --mono:'Courier New',monospace;
+    .ccc-hidden { display: none !important; }
+    .ccc-code {
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      background: #1b1d21;
+      color: #c5c8c6;
+      padding: 12px;
+      border-radius: 3px;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-bottom: 16px;
     }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-    nav{background:var(--nav-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;height:44px;flex-shrink:0;gap:2px}
-    .logo{display:flex;align-items:center;gap:8px;margin-right:20px}
-    .logo-tri{width:16px;height:16px;background:linear-gradient(135deg,var(--cyan),#7c3aed);clip-path:polygon(50% 0%,100% 100%,0% 100%)}
-    .logo-text{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:2px;color:var(--cyan)}
-    .tab-btn{height:44px;padding:0 13px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color .15s}
-    .tab-btn:hover{color:var(--text)}
-    .tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
-    .nav-right{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted2)}
-    main{flex:1;overflow-y:auto;padding:24px}
-    .tab-panel{display:none}
-    .tab-panel.active{display:block}
-    .section-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px}
-    .card-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:24px}
-    .stat-card{background:var(--card-bg);border:1px solid var(--border);border-left:3px solid;border-radius:3px;padding:12px 14px}
-    .stat-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-    .stat-value{font-family:var(--mono);font-size:16px;font-weight:700}
-    .pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px}
-    .pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:2px;font-family:var(--mono);font-size:10px;color:var(--muted)}
-    .dot{width:6px;height:6px;border-radius:50%;background:var(--muted2)}
-    .dot.on{background:var(--green);box-shadow:0 0 4px var(--green)}
-    .dot.off{background:var(--red)}
-    .link-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:24px}
-    .quick-link{background:var(--card-bg);border:1px solid var(--border);border-radius:3px;padding:10px 12px;cursor:pointer;text-decoration:none;display:block}
-    .quick-link:hover{border-color:var(--border2)}
-    .quick-link-title{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-bottom:3px}
-    .quick-link-sub{font-family:var(--mono);font-size:9px;color:var(--muted2)}
-    .btn{padding:7px 14px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:1px solid;transition:opacity .15s}
-    .btn:hover{opacity:.85}
-    .btn-primary{background:var(--cyan);color:#000;border-color:var(--cyan)}
-    .btn-secondary{background:transparent;color:var(--text);border-color:var(--border2)}
-    .btn-danger{background:transparent;color:var(--orange);border-color:var(--orange)}
-    .btn-sm{padding:4px 10px;font-size:10px}
-    #toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:3px;font-family:var(--mono);font-size:12px;background:var(--card-bg);border:1px solid var(--border);color:var(--text);transform:translateY(60px);opacity:0;transition:all .2s;z-index:1000}
-    #toast.show{transform:translateY(0);opacity:1}
-    #toast.error{border-color:var(--orange);color:var(--orange)}
-    #toast.success{border-color:var(--green);color:var(--green)}
-    input,textarea,select{background:var(--card-bg);border:1px solid var(--border);border-radius:2px;color:var(--text);padding:8px 10px;font-family:var(--mono);font-size:12px;width:100%}
-    input:focus,textarea:focus,select:focus{outline:none;border-color:var(--cyan)}
-    label{font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:4px}
-    .form-group{margin-bottom:14px}
-    table{width:100%;border-collapse:collapse;margin-bottom:16px}
-    th{text-align:left;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
-    td{padding:8px 12px;border:1px solid var(--border);font-family:var(--mono);font-size:12px}
-    .project-list{list-style:none;margin-bottom:16px}
-    .project-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:3px;margin-bottom:6px;background:var(--card-bg)}
-    .project-name{font-family:var(--mono);font-size:12px}
-    .wizard-steps{display:flex;gap:4px;margin-bottom:20px}
-    .wizard-step{flex:1;height:3px;background:var(--border2);border-radius:2px;transition:background .2s}
-    .wizard-step.done{background:var(--cyan)}
-    .wizard-step.active{background:var(--cyan);opacity:.5}
-    .toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:3px;margin-bottom:6px;background:var(--card-bg)}
-    .toggle-switch{width:36px;height:20px;background:var(--border2);border-radius:10px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
-    .toggle-switch.on{background:var(--cyan)}
-    .toggle-thumb{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:left .2s,background .2s}
-    .toggle-switch.on .toggle-thumb{left:19px;background:#000}
-    .output-box{background:#060a12;border:1px solid var(--border);border-radius:3px;padding:12px;font-family:var(--mono);font-size:11px;color:#8ab4d4;white-space:pre-wrap;margin-bottom:16px;max-height:200px;overflow-y:auto}
-    #claude-textarea{height:calc(100vh - 160px);resize:none;font-size:13px;line-height:1.6}
-    .modal-overlay{display:none;position:fixed;inset:0;background:#00000088;z-index:500;align-items:center;justify-content:center}
-    .modal-overlay.show{display:flex}
-    .modal{background:var(--card-bg);border:1px solid var(--border2);border-radius:4px;padding:24px;max-width:400px;width:90%}
-    .modal h3{font-size:14px;font-weight:700;margin-bottom:10px}
-    .modal p{font-size:13px;color:var(--muted);margin-bottom:20px}
-    .modal-buttons{display:flex;gap:8px;justify-content:flex-end}
-    .cyan{color:var(--cyan)} .green{color:var(--green)} .yellow{color:var(--yellow)}
-    .purple{color:var(--purple)} .orange{color:var(--orange)}
+    #tab-claude:not(.ccc-hidden) { display: flex; flex-direction: column; }
   </style>
 </head>
 <body>
+<div class="pf-v5-c-page">
 
-<nav>
-  <div class="logo">
-    <div class="logo-tri"></div>
-    <div class="logo-text">CCC</div>
+  <header class="pf-v5-c-page__header">
+    <div class="pf-v5-c-page__header-brand" style="padding:0 24px">
+      <span class="pf-v5-c-title pf-m-xl">Claude Code Commander</span>
+    </div>
+    <div class="pf-v5-c-page__header-tools" style="padding:0 24px">
+      <span id="nav-user" style="font-size:13px"></span>
+    </div>
+  </header>
+
+  <div class="pf-v5-c-page__main">
+
+    <nav class="pf-v5-c-nav pf-m-horizontal" style="padding:0 16px;border-bottom:1px solid var(--pf-v5-global--BorderColor--100,#d2d2d2)">
+      <ul class="pf-v5-c-nav__list">
+        <li class="pf-v5-c-nav__item"><button class="pf-v5-c-nav__link pf-m-current" data-tab="overview"  onclick="showTab('overview')">Overview</button></li>
+        <li class="pf-v5-c-nav__item"><button class="pf-v5-c-nav__link" data-tab="projects"  onclick="showTab('projects')">Projects</button></li>
+        <li class="pf-v5-c-nav__item"><button class="pf-v5-c-nav__link" data-tab="claude"    onclick="showTab('claude')">CLAUDE.md</button></li>
+        <li class="pf-v5-c-nav__item"><button class="pf-v5-c-nav__link" data-tab="mcp"       onclick="showTab('mcp')">MCP</button></li>
+        <li class="pf-v5-c-nav__item"><button class="pf-v5-c-nav__link" data-tab="plugins"   onclick="showTab('plugins')">Plugins</button></li>
+        <li class="pf-v5-c-nav__item"><button class="pf-v5-c-nav__link" data-tab="updates"   onclick="showTab('updates')">Updates</button></li>
+      </ul>
+    </nav>
+
+    <!-- ── Overview ────────────────────────────────────────────────────── -->
+    <section id="tab-overview" class="pf-v5-c-page__main-section">
+
+      <div class="pf-v5-l-grid pf-m-gutter" style="--pf-v5-l-grid--GridTemplateColumns:repeat(4,1fr);margin-bottom:24px">
+        <div class="pf-v5-c-card">
+          <div class="pf-v5-c-card__header"><div class="pf-v5-c-card__title"><h2 class="pf-v5-c-title pf-m-md">CLAUDE.md</h2></div></div>
+          <div class="pf-v5-c-card__body" id="s-claude">—</div>
+        </div>
+        <div class="pf-v5-c-card">
+          <div class="pf-v5-c-card__header"><div class="pf-v5-c-card__title"><h2 class="pf-v5-c-title pf-m-md">Rules</h2></div></div>
+          <div class="pf-v5-c-card__body" id="s-rules">—</div>
+        </div>
+        <div class="pf-v5-c-card">
+          <div class="pf-v5-c-card__header"><div class="pf-v5-c-card__title"><h2 class="pf-v5-c-title pf-m-md">MCP Servers</h2></div></div>
+          <div class="pf-v5-c-card__body" id="s-mcp">—</div>
+        </div>
+        <div class="pf-v5-c-card">
+          <div class="pf-v5-c-card__header"><div class="pf-v5-c-card__title"><h2 class="pf-v5-c-title pf-m-md">Plugins</h2></div></div>
+          <div class="pf-v5-c-card__body" id="s-plugins">—</div>
+        </div>
+      </div>
+
+      <h2 class="pf-v5-c-title pf-m-lg" style="margin-bottom:10px">Services</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
+        <span class="pf-v5-c-label" id="svc-code-server"><span class="pf-v5-c-label__content">● code-server :8080</span></span>
+        <span class="pf-v5-c-label pf-m-green"><span class="pf-v5-c-label__content">● cockpit :9090</span></span>
+        <span class="pf-v5-c-label" id="svc-claude"><span class="pf-v5-c-label__content">● claude</span></span>
+      </div>
+
+      <h2 class="pf-v5-c-title pf-m-lg" style="margin-bottom:10px">Quick Links</h2>
+      <div class="pf-v5-l-grid pf-m-gutter" style="--pf-v5-l-grid--GridTemplateColumns:repeat(2,1fr)">
+        <div class="pf-v5-c-card">
+          <div class="pf-v5-c-card__body">
+            <a id="vscode-link" href="#" target="_blank" class="pf-v5-c-button pf-m-link pf-m-inline">Web VS Code ↗</a>
+            <div style="margin-top:4px;font-size:13px;color:var(--pf-v5-global--Color--200,#6a6e73)">code editor + multi-terminal</div>
+          </div>
+        </div>
+        <div class="pf-v5-c-card">
+          <div class="pf-v5-c-card__body">
+            <button class="pf-v5-c-button pf-m-link pf-m-inline" onclick="showTab('projects')">New Project →</button>
+            <div style="margin-top:4px;font-size:13px;color:var(--pf-v5-global--Color--200,#6a6e73)">wizard → git → github</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Projects ─────────────────────────────────────────────────────── -->
+    <section id="tab-projects" class="pf-v5-c-page__main-section ccc-hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 class="pf-v5-c-title pf-m-xl">Projects</h2>
+        <button class="pf-v5-c-button pf-m-primary" onclick="showWizard()">+ New Project</button>
+      </div>
+      <div id="project-list"></div>
+
+      <div id="wizard" class="pf-v5-c-card ccc-hidden" style="margin-top:16px">
+        <div class="pf-v5-c-card__body">
+          <div style="height:6px;background:var(--pf-v5-global--BackgroundColor--200,#f0f0f0);border-radius:3px;margin-bottom:16px">
+            <div id="wizard-progress" style="height:100%;width:25%;background:var(--pf-v5-global--primary-color--100,#0066cc);border-radius:3px;transition:width .2s"></div>
+          </div>
+          <div id="wizard-content"></div>
+          <div class="pf-v5-c-action-list" style="margin-top:16px">
+            <div class="pf-v5-c-action-list__item">
+              <button class="pf-v5-c-button pf-m-primary" id="wizard-next-btn" onclick="wizardNext()">Next →</button>
+            </div>
+            <div class="pf-v5-c-action-list__item">
+              <button class="pf-v5-c-button pf-m-link" onclick="hideWizard()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CLAUDE.md ─────────────────────────────────────────────────────── -->
+    <section id="tab-claude" class="pf-v5-c-page__main-section ccc-hidden" style="height:calc(100vh - 120px)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 class="pf-v5-c-title pf-m-xl">CLAUDE.md</h2>
+        <div class="pf-v5-c-action-list">
+          <div class="pf-v5-c-action-list__item">
+            <button class="pf-v5-c-button pf-m-secondary" onclick="reloadFromOculus()">↺ Reload from oculus-configs</button>
+          </div>
+          <div class="pf-v5-c-action-list__item">
+            <button class="pf-v5-c-button pf-m-primary" onclick="saveClaude()">Save</button>
+          </div>
+        </div>
+      </div>
+      <div class="pf-v5-c-form-control" style="flex:1;min-height:0">
+        <textarea id="claude-textarea" style="width:100%;height:100%;font-family:monospace;font-size:13px;resize:none" placeholder="Loading..."></textarea>
+      </div>
+    </section>
+
+    <!-- ── MCP ───────────────────────────────────────────────────────────── -->
+    <section id="tab-mcp" class="pf-v5-c-page__main-section ccc-hidden">
+      <h2 class="pf-v5-c-title pf-m-xl" style="margin-bottom:16px">MCP Servers</h2>
+      <table class="pf-v5-c-table pf-m-compact" style="margin-bottom:24px">
+        <thead><tr role="row"><th>Name</th><th>Command</th><th></th></tr></thead>
+        <tbody id="mcp-table-body"><tr><td colspan="3">Loading...</td></tr></tbody>
+      </table>
+
+      <div class="pf-v5-c-card" style="margin-bottom:24px">
+        <div class="pf-v5-c-card__header"><div class="pf-v5-c-card__title"><h2 class="pf-v5-c-title pf-m-md">Add Server</h2></div></div>
+        <div class="pf-v5-c-card__body">
+          <div class="pf-v5-c-form">
+            <div class="pf-v5-c-form__group">
+              <div class="pf-v5-c-form__group-label"><label class="pf-v5-c-form__label">Name</label></div>
+              <div class="pf-v5-c-form__group-control"><div class="pf-v5-c-form-control"><input id="mcp-new-name" type="text" placeholder="e.g. github"></div></div>
+            </div>
+            <div class="pf-v5-c-form__group">
+              <div class="pf-v5-c-form__group-label"><label class="pf-v5-c-form__label">Command</label></div>
+              <div class="pf-v5-c-form__group-control"><div class="pf-v5-c-form-control"><input id="mcp-new-cmd" type="text" placeholder="e.g. npx -y @modelcontextprotocol/server-github"></div></div>
+            </div>
+            <div class="pf-v5-c-form__group">
+              <div class="pf-v5-c-form__group-label"></div>
+              <div class="pf-v5-c-form__group-control"><button class="pf-v5-c-button pf-m-primary" onclick="addMCPServer()">Add Server</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="pf-v5-c-title pf-m-lg" style="margin-bottom:8px">GitHub Token</h2>
+      <div style="display:flex;gap:8px;max-width:600px">
+        <div class="pf-v5-c-form-control" style="flex:1"><input id="gh-token" type="password" placeholder="ghp_..."></div>
+        <button class="pf-v5-c-button pf-m-secondary" onclick="saveGHToken()">Save Token</button>
+      </div>
+    </section>
+
+    <!-- ── Plugins ───────────────────────────────────────────────────────── -->
+    <section id="tab-plugins" class="pf-v5-c-page__main-section ccc-hidden">
+      <h2 class="pf-v5-c-title pf-m-xl" style="margin-bottom:16px">Plugin State</h2>
+      <div id="plugin-list">Loading...</div>
+      <p style="margin-top:16px;font-size:13px;color:var(--pf-v5-global--Color--200,#6a6e73)">
+        Changes take effect on next <code>claude</code> session.
+      </p>
+    </section>
+
+    <!-- ── Updates ───────────────────────────────────────────────────────── -->
+    <section id="tab-updates" class="pf-v5-c-page__main-section ccc-hidden">
+      <h2 class="pf-v5-c-title pf-m-xl" style="margin-bottom:8px">CCC Provisioner</h2>
+      <div class="ccc-code" id="ccc-update-output">Click refresh to check...</div>
+      <div class="pf-v5-c-action-list" style="margin-bottom:28px">
+        <div class="pf-v5-c-action-list__item">
+          <button class="pf-v5-c-button pf-m-secondary" onclick="loadCCCStatus()">↺ Refresh</button>
+        </div>
+        <div class="pf-v5-c-action-list__item">
+          <button class="pf-v5-c-button pf-m-primary" onclick="runCCCSelfUpdate()">Run ccc-self-update</button>
+        </div>
+      </div>
+
+      <h2 class="pf-v5-c-title pf-m-xl" style="margin-bottom:8px">oculus-configs</h2>
+      <div class="ccc-code" id="oculus-update-output">Click "Check for Updates" to fetch status...</div>
+      <div class="pf-v5-c-action-list">
+        <div class="pf-v5-c-action-list__item">
+          <button class="pf-v5-c-button pf-m-secondary" onclick="checkOculusUpdate()">Check for Updates</button>
+        </div>
+        <div class="pf-v5-c-action-list__item ccc-hidden" id="apply-update-btn-wrapper">
+          <button class="pf-v5-c-button pf-m-primary" onclick="applyOculusUpdate()">Apply Update</button>
+        </div>
+      </div>
+    </section>
+
   </div>
-  <button class="tab-btn active" data-tab="overview" onclick="showTab('overview')">Overview</button>
-  <button class="tab-btn" data-tab="projects" onclick="showTab('projects')">Projects</button>
-  <button class="tab-btn" data-tab="claude" onclick="showTab('claude')">Claude.md</button>
-  <button class="tab-btn" data-tab="mcp" onclick="showTab('mcp')">MCP</button>
-  <button class="tab-btn" data-tab="plugins" onclick="showTab('plugins')">Plugins</button>
-  <button class="tab-btn" data-tab="updates" onclick="showTab('updates')">Updates</button>
-  <div class="nav-right" id="nav-user">claude-code@ccc</div>
-</nav>
+</div>
 
-<main>
-
-  <!-- ── Overview ── -->
-  <div id="tab-overview" class="tab-panel active">
-    <div class="section-label">Config Status</div>
-    <div class="card-grid">
-      <div class="stat-card" style="border-left-color:var(--cyan)">
-        <div class="stat-label">CLAUDE.md</div>
-        <div class="stat-value cyan" id="s-claude">—</div>
-      </div>
-      <div class="stat-card" style="border-left-color:var(--green)">
-        <div class="stat-label">Rules</div>
-        <div class="stat-value green" id="s-rules">—</div>
-      </div>
-      <div class="stat-card" style="border-left-color:var(--yellow)">
-        <div class="stat-label">MCP Servers</div>
-        <div class="stat-value yellow" id="s-mcp">—</div>
-      </div>
-      <div class="stat-card" style="border-left-color:var(--purple)">
-        <div class="stat-label">Plugins</div>
-        <div class="stat-value purple" id="s-plugins">—</div>
-      </div>
-    </div>
-    <div class="section-label">Services</div>
-    <div class="pills">
-      <div class="pill"><span class="dot" id="dot-code-server"></span>code-server :8080</div>
-      <div class="pill"><span class="dot on"></span>cockpit :9090</div>
-      <div class="pill"><span class="dot" id="dot-claude"></span>claude</div>
-    </div>
-    <div class="section-label">Quick Links</div>
-    <div class="link-grid">
-      <a class="quick-link" id="vscode-link" href="#" target="_blank">
-        <div class="quick-link-title">Web VS Code ↗</div>
-        <div class="quick-link-sub">code editor + terminal</div>
-      </a>
-      <a class="quick-link" href="#" onclick="showTab('projects');return false">
-        <div class="quick-link-title">New Project →</div>
-        <div class="quick-link-sub">wizard → git → github</div>
-      </a>
-    </div>
+<!-- Toast -->
+<div id="toast" class="ccc-hidden" style="position:fixed;bottom:20px;right:20px;z-index:9999">
+  <div class="pf-v5-c-alert pf-m-inline" id="toast-inner" role="alert">
+    <p class="pf-v5-c-alert__title" id="toast-text"></p>
   </div>
+</div>
 
-  <!-- ── Projects ── -->
-  <div id="tab-projects" class="tab-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div class="section-label" style="margin:0">Projects</div>
-      <button class="btn btn-primary btn-sm" onclick="showWizard()">+ New Project</button>
-    </div>
-    <ul class="project-list" id="project-list">
-      <li style="padding:12px;color:var(--muted);font-family:var(--mono);font-size:11px">Loading...</li>
-    </ul>
-    <div id="wizard" style="display:none;background:var(--card-bg);border:1px solid var(--border);border-radius:4px;padding:20px">
-      <div class="wizard-steps">
-        <div class="wizard-step active" id="ws-1"></div>
-        <div class="wizard-step" id="ws-2"></div>
-        <div class="wizard-step" id="ws-3"></div>
-        <div class="wizard-step" id="ws-4"></div>
-      </div>
-      <div id="wizard-content"></div>
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn btn-secondary btn-sm" onclick="hideWizard()">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="wizard-next-btn" onclick="wizardNext()">Next →</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── CLAUDE.md ── -->
-  <div id="tab-claude" class="tab-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="section-label" style="margin:0">CLAUDE.md</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" onclick="reloadFromOculus()">↺ Reload from oculus-configs</button>
-        <button class="btn btn-primary btn-sm" onclick="saveClaude()">Save</button>
-      </div>
-    </div>
-    <textarea id="claude-textarea" placeholder="Loading..."></textarea>
-  </div>
-
-  <!-- ── MCP ── -->
-  <div id="tab-mcp" class="tab-panel">
-    <div class="section-label">MCP Servers</div>
-    <table>
-      <thead><tr><th>Name</th><th>Command</th><th style="width:80px"></th></tr></thead>
-      <tbody id="mcp-table-body">
-        <tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr>
-      </tbody>
-    </table>
-    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:3px;padding:16px;margin-bottom:20px">
-      <div class="section-label">Add Server</div>
-      <div class="form-group">
-        <label>Name</label>
-        <input id="mcp-new-name" placeholder="e.g. github">
-      </div>
-      <div class="form-group">
-        <label>Command</label>
-        <input id="mcp-new-cmd" placeholder="e.g. npx -y @modelcontextprotocol/server-github">
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="addMCPServer()">Add Server</button>
-    </div>
-    <div class="section-label">GitHub Token</div>
-    <div style="display:flex;gap:8px">
-      <input id="gh-token" type="password" placeholder="ghp_...">
-      <button class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="saveGHToken()">Save Token</button>
-    </div>
-  </div>
-
-  <!-- ── Plugins ── -->
-  <div id="tab-plugins" class="tab-panel">
-    <div class="section-label">Plugin State</div>
-    <div id="plugin-list">
-      <div style="padding:12px;color:var(--muted);font-family:var(--mono);font-size:11px">Loading...</div>
-    </div>
-    <div style="margin-top:12px;font-family:var(--mono);font-size:10px;color:var(--muted2)">
-      Changes take effect on next <code style="background:none;border:none;color:var(--muted)">claude</code> session.
-    </div>
-  </div>
-
-  <!-- ── Updates ── -->
-  <div id="tab-updates" class="tab-panel">
-    <div class="section-label">CCC Provisioner</div>
-    <div class="output-box" id="ccc-update-output">Click refresh to check...</div>
-    <div style="display:flex;gap:8px;margin-bottom:28px">
-      <button class="btn btn-secondary btn-sm" onclick="loadCCCStatus()">↺ Refresh</button>
-      <button class="btn btn-primary btn-sm" onclick="runCCCSelfUpdate()">Run ccc-self-update</button>
-    </div>
-    <div class="section-label">oculus-configs</div>
-    <div class="output-box" id="oculus-update-output">Click "Check for Updates" to fetch status...</div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary btn-sm" onclick="checkOculusUpdate()">Check for Updates</button>
-      <button class="btn btn-primary btn-sm" id="apply-update-btn" style="display:none" onclick="applyOculusUpdate()">Apply Update</button>
-    </div>
-  </div>
-
-</main>
-
-<div id="toast"></div>
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <h3 id="modal-title">Confirm</h3>
-    <p id="modal-body"></p>
-    <div class="modal-buttons">
-      <button class="btn btn-secondary btn-sm" onclick="modalResolve(false)">Cancel</button>
-      <button class="btn btn-danger btn-sm" onclick="modalResolve(true)" id="modal-ok">Confirm</button>
+<!-- Confirm modal -->
+<div class="pf-v5-c-backdrop ccc-hidden" id="modal">
+  <div class="pf-v5-l-bullseye">
+    <div class="pf-v5-c-modal-box pf-m-sm" role="dialog" aria-modal="true">
+      <header class="pf-v5-c-modal-box__header">
+        <h1 class="pf-v5-c-modal-box__title" id="modal-title">Confirm</h1>
+      </header>
+      <div class="pf-v5-c-modal-box__body"><p id="modal-body"></p></div>
+      <footer class="pf-v5-c-modal-box__footer">
+        <button class="pf-v5-c-button pf-m-danger" onclick="modalResolve(true)" id="modal-ok">Confirm</button>
+        <button class="pf-v5-c-button pf-m-link" onclick="modalResolve(false)">Cancel</button>
+      </footer>
     </div>
   </div>
 </div>
 
 <script src="/cockpit/base1/cockpit.js"></script>
 <script>
-// ── Shared utilities ───────────────────────────────────────────────────────
+// ── Utilities ───────────────────────────────────────────────────────────────
 let _toastTimer;
 function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'show ' + type;
+  const el = document.getElementById('toast');
+  const inner = document.getElementById('toast-inner');
+  document.getElementById('toast-text').textContent = msg;
+  inner.className = 'pf-v5-c-alert pf-m-inline' +
+    (type === 'error' ? ' pf-m-danger' : type === 'success' ? ' pf-m-success' : ' pf-m-info');
+  el.classList.remove('ccc-hidden');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+  _toastTimer = setTimeout(() => el.classList.add('ccc-hidden'), 3500);
 }
 
 let _modalResolve;
@@ -2042,9 +2036,9 @@ function confirm(title, body, okLabel = 'Confirm') {
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-body').textContent = body;
     document.getElementById('modal-ok').textContent = okLabel;
-    document.getElementById('modal').classList.add('show');
+    document.getElementById('modal').classList.remove('ccc-hidden');
     _modalResolve = result => {
-      document.getElementById('modal').classList.remove('show');
+      document.getElementById('modal').classList.add('ccc-hidden');
       resolve(result);
     };
   });
@@ -2053,14 +2047,14 @@ function modalResolve(result) { _modalResolve?.(result); }
 
 const tabLoaders = {};
 function showTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  document.querySelector(`.tab-btn[data-tab="${name}"]`)?.classList.add('active');
+  document.querySelectorAll('.pf-v5-c-page__main-section').forEach(s => s.classList.add('ccc-hidden'));
+  document.querySelectorAll('.pf-v5-c-nav__link').forEach(b => b.classList.remove('pf-m-current'));
+  document.getElementById('tab-' + name).classList.remove('ccc-hidden');
+  document.querySelector(`.pf-v5-c-nav__link[data-tab="${name}"]`)?.classList.add('pf-m-current');
   tabLoaders[name]?.();
 }
 
-// ── Overview ───────────────────────────────────────────────────────────────
+// ── Overview ────────────────────────────────────────────────────────────────
 let _ip = '';
 async function getIP() {
   if (_ip) return _ip;
@@ -2072,10 +2066,10 @@ async function getIP() {
 async function loadOverview() {
   try {
     await cockpit.spawn(['test', '-f', '/home/claude-code/.claude/CLAUDE.md'], {err: 'ignore'});
-    document.getElementById('s-claude').textContent = '✓ OK';
+    document.getElementById('s-claude').textContent = '✓ Present';
   } catch {
-    document.getElementById('s-claude').textContent = '✗ missing';
-    document.getElementById('s-claude').className = 'stat-value orange';
+    document.getElementById('s-claude').innerHTML =
+      '<span style="color:var(--pf-v5-global--danger-color--100,#c9190b)">✗ Missing</span>';
   }
   try {
     const n = await cockpit.spawn(['bash', '-c', 'ls /home/claude-code/.claude/rules/ 2>/dev/null | wc -l']);
@@ -2092,36 +2086,52 @@ async function loadOverview() {
     const count = Array.isArray(s.plugins?.enabled) ? s.plugins.enabled.length : '?';
     document.getElementById('s-plugins').textContent = count + ' enabled';
   } catch { document.getElementById('s-plugins').textContent = '? enabled'; }
+
   cockpit.spawn(['systemctl', 'is-active', 'code-server'], {err: 'ignore'})
-    .then(s => document.getElementById('dot-code-server').className = 'dot ' + (s.trim() === 'active' ? 'on' : 'off'))
-    .catch(() => { document.getElementById('dot-code-server').className = 'dot off'; });
+    .then(s => {
+      document.getElementById('svc-code-server').className =
+        'pf-v5-c-label' + (s.trim() === 'active' ? ' pf-m-green' : ' pf-m-red');
+    })
+    .catch(() => { document.getElementById('svc-code-server').className = 'pf-v5-c-label pf-m-red'; });
+
   cockpit.spawn(['bash', '-c', 'which claude 2>/dev/null'], {err: 'ignore'})
-    .then(p => document.getElementById('dot-claude').className = 'dot ' + (p.trim() ? 'on' : 'off'))
-    .catch(() => { document.getElementById('dot-claude').className = 'dot off'; });
+    .then(p => {
+      document.getElementById('svc-claude').className =
+        'pf-v5-c-label' + (p.trim() ? ' pf-m-green' : ' pf-m-red');
+    })
+    .catch(() => { document.getElementById('svc-claude').className = 'pf-v5-c-label pf-m-red'; });
+
   getIP().then(ip => { document.getElementById('vscode-link').href = 'http://' + ip + ':8080'; });
 }
 tabLoaders.overview = loadOverview;
 
-// ── Projects ───────────────────────────────────────────────────────────────
+// ── Projects ────────────────────────────────────────────────────────────────
 async function loadProjects() {
   const list = document.getElementById('project-list');
   try {
     const out = await cockpit.spawn(['bash', '-c', 'ls -1 /home/claude-code/projects/ 2>/dev/null']);
-    const projects = out.trim().split('\n').filter(p => p);
+    const projects = out.trim().split('
+').filter(p => p);
     const ip = await getIP();
     if (!projects.length) {
-      list.innerHTML = '<li style="padding:12px;color:var(--muted);font-family:var(--mono);font-size:11px">No projects yet.</li>';
+      list.innerHTML = '<p style="color:var(--pf-v5-global--Color--200,#6a6e73)">No projects yet.</p>';
       return;
     }
-    list.innerHTML = projects.map(p => `
-      <li class="project-item">
-        <span class="project-name">${p}</span>
-        <a class="btn btn-secondary btn-sm"
-           href="http://${ip}:8080/?folder=/home/claude-code/projects/${encodeURIComponent(p)}"
-           target="_blank">Open in VS Code ↗</a>
-      </li>`).join('');
+    list.innerHTML = '<ul class="pf-v5-c-data-list">' + projects.map(p => `
+      <li class="pf-v5-c-data-list__item">
+        <div class="pf-v5-c-data-list__item-row">
+          <div class="pf-v5-c-data-list__item-content">
+            <div class="pf-v5-c-data-list__cell">${p}</div>
+            <div class="pf-v5-c-data-list__cell pf-m-align-right">
+              <a class="pf-v5-c-button pf-m-secondary pf-m-sm"
+                 href="http://${ip}:8080/?folder=/home/claude-code/projects/${encodeURIComponent(p)}"
+                 target="_blank">Open in VS Code ↗</a>
+            </div>
+          </div>
+        </div>
+      </li>`).join('') + '</ul>';
   } catch {
-    list.innerHTML = '<li style="padding:12px;color:var(--orange);font-family:var(--mono);font-size:11px">Error loading projects.</li>';
+    list.innerHTML = '<p style="color:var(--pf-v5-global--danger-color--100,#c9190b)">Error loading projects.</p>';
   }
 }
 tabLoaders.projects = loadProjects;
@@ -2129,38 +2139,53 @@ tabLoaders.projects = loadProjects;
 const _wiz = { step: 1, name: '', location: '', template: '', remote: '' };
 function showWizard() {
   Object.assign(_wiz, { step: 1, name: '', location: '', template: '', remote: '' });
-  document.getElementById('wizard').style.display = 'block';
+  document.getElementById('wizard').classList.remove('ccc-hidden');
   renderWizardStep();
 }
-function hideWizard() { document.getElementById('wizard').style.display = 'none'; }
+function hideWizard() { document.getElementById('wizard').classList.add('ccc-hidden'); }
 
 async function renderWizardStep() {
   const s = _wiz.step;
-  ['ws-1','ws-2','ws-3','ws-4'].forEach((id, i) => {
-    document.getElementById(id).className =
-      'wizard-step' + (i + 1 < s ? ' done' : i + 1 === s ? ' active' : '');
-  });
+  document.getElementById('wizard-progress').style.width = (s * 25) + '%';
   document.getElementById('wizard-next-btn').textContent = s === 4 ? 'Create Project' : 'Next →';
-  const labels = ['Name','Location','Template','GitHub Remote'];
-  let html = `<div class="section-label" style="margin-bottom:10px">Step ${s} of 4 — ${labels[s-1]}</div>`;
+  const labels = ['Project Name', 'Location', 'Template', 'GitHub Remote'];
+  let html = `<h3 class="pf-v5-c-title pf-m-md" style="margin-bottom:12px">Step ${s} of 4 — ${labels[s-1]}</h3>
+    <div class="pf-v5-c-form">`;
   if (s === 1) {
-    html += `<div class="form-group"><label>Project Name</label><input id="w-name" placeholder="my-project" value="${_wiz.name}"></div>`;
+    html += `<div class="pf-v5-c-form__group">
+      <div class="pf-v5-c-form__group-label"><label class="pf-v5-c-form__label">Project Name</label></div>
+      <div class="pf-v5-c-form__group-control"><div class="pf-v5-c-form-control">
+        <input id="w-name" type="text" placeholder="my-project" value="${_wiz.name}">
+      </div></div></div>`;
   } else if (s === 2) {
-    html += `<div class="form-group"><label>Location</label><input id="w-loc" value="${_wiz.location || '/home/claude-code/projects/' + _wiz.name}"></div>`;
+    html += `<div class="pf-v5-c-form__group">
+      <div class="pf-v5-c-form__group-label"><label class="pf-v5-c-form__label">Location</label></div>
+      <div class="pf-v5-c-form__group-control"><div class="pf-v5-c-form-control">
+        <input id="w-loc" type="text" value="${_wiz.location || '/home/claude-code/projects/' + _wiz.name}">
+      </div></div></div>`;
   } else if (s === 3) {
     let opts = '<option value="">— None (blank project) —</option>';
     try {
       const out = await cockpit.spawn(['bash', '-c', 'ls -1 /home/claude-code/Templates/ 2>/dev/null']);
-      out.trim().split('\n').filter(t => t).forEach(t => {
+      out.trim().split('
+').filter(t => t).forEach(t => {
         opts += `<option value="${t}" ${_wiz.template === t ? 'selected' : ''}>${t}</option>`;
       });
     } catch {}
-    html += `<div class="form-group"><label>Starter Template (optional)</label><select id="w-tpl">${opts}</select></div>`;
+    html += `<div class="pf-v5-c-form__group">
+      <div class="pf-v5-c-form__group-label"><label class="pf-v5-c-form__label">Starter Template</label></div>
+      <div class="pf-v5-c-form__group-control"><div class="pf-v5-c-form-control">
+        <select id="w-tpl">${opts}</select>
+      </div></div></div>`;
   } else {
-    html += `<div class="form-group"><label>GitHub Remote (optional — leave blank to skip)</label>
-      <input id="w-remote" placeholder="username/repo-name" value="${_wiz.remote}"></div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--muted2)">Runs: gh repo create &lt;name&gt; --private --source=. --push</div>`;
+    html += `<div class="pf-v5-c-form__group">
+      <div class="pf-v5-c-form__group-label"><label class="pf-v5-c-form__label">GitHub Remote</label></div>
+      <div class="pf-v5-c-form__group-control">
+        <div class="pf-v5-c-form-control"><input id="w-remote" type="text" placeholder="username/repo-name" value="${_wiz.remote}"></div>
+        <p class="pf-v5-c-form__helper-text">Optional — leave blank to skip. Runs: gh repo create &lt;name&gt; --private --source=. --push</p>
+      </div></div>`;
   }
+  html += `</div>`;
   document.getElementById('wizard-content').innerHTML = html;
 }
 
@@ -2209,14 +2234,12 @@ async function createProject() {
   }
 }
 
-// ── CLAUDE.md ──────────────────────────────────────────────────────────────
+// ── CLAUDE.md ───────────────────────────────────────────────────────────────
 async function loadClaude() {
   try {
     const content = await cockpit.file('/home/claude-code/.claude/CLAUDE.md').read();
     document.getElementById('claude-textarea').value = content || '';
-  } catch (err) {
-    showToast('Error reading CLAUDE.md: ' + err.message, 'error');
-  }
+  } catch (err) { showToast('Error reading CLAUDE.md: ' + err.message, 'error'); }
 }
 tabLoaders.claude = loadClaude;
 
@@ -2229,11 +2252,9 @@ async function saveClaude() {
 }
 
 async function reloadFromOculus() {
-  const ok = await confirm(
-    'Reload CLAUDE.md',
+  const ok = await confirm('Reload CLAUDE.md',
     'Overwrite your current CLAUDE.md with the version from oculus-configs? Your edits will be lost.',
-    'Overwrite'
-  );
+    'Overwrite');
   if (!ok) return;
   try {
     await cockpit.spawn(['cp', '/opt/oculus-configs/claude/CLAUDE.md', '/home/claude-code/.claude/CLAUDE.md']);
@@ -2242,7 +2263,7 @@ async function reloadFromOculus() {
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
 
-// ── MCP ────────────────────────────────────────────────────────────────────
+// ── MCP ─────────────────────────────────────────────────────────────────────
 let _mcpData = { mcpServers: {} };
 
 async function loadMCP() {
@@ -2261,12 +2282,12 @@ function renderMCPTable() {
     ? entries.map(([name, cfg]) => {
         const cmd = [cfg.command, ...(cfg.args || [])].filter(Boolean).join(' ');
         return `<tr>
-          <td class="cyan">${name}</td>
-          <td style="color:var(--muted);font-size:11px">${cmd}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="removeMCPServer('${name}')">Remove</button></td>
+          <td><b>${name}</b></td>
+          <td><code style="font-size:12px">${cmd}</code></td>
+          <td><button class="pf-v5-c-button pf-m-danger pf-m-sm" onclick="removeMCPServer('${name}')">Remove</button></td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="3" style="color:var(--muted)">No servers configured</td></tr>';
+    : '<tr><td colspan="3" style="color:var(--pf-v5-global--Color--200,#6a6e73)">No servers configured</td></tr>';
 }
 
 async function addMCPServer() {
@@ -2298,7 +2319,8 @@ async function persistMCP() {
 async function loadGHToken() {
   try {
     const bashrc = await cockpit.file('/home/claude-code/.bashrc').read();
-    const m = (bashrc || '').match(/export GITHUB_TOKEN="?([^"\n]+)"?/);
+    const m = (bashrc || '').match(/export GITHUB_TOKEN="?([^"
+]+)"?/);
     if (m) document.getElementById('gh-token').value = m[1];
   } catch {}
 }
@@ -2309,14 +2331,17 @@ async function saveGHToken() {
   try {
     const bashrc = await cockpit.file('/home/claude-code/.bashrc').read() || '';
     const updated = bashrc.includes('GITHUB_TOKEN')
-      ? bashrc.replace(/export GITHUB_TOKEN="?[^"\n]+"?/, `export GITHUB_TOKEN="${token}"`)
-      : bashrc + `\nexport GITHUB_TOKEN="${token}"\n`;
+      ? bashrc.replace(/export GITHUB_TOKEN="?[^"
+]+"?/, `export GITHUB_TOKEN="${token}"`)
+      : bashrc + `
+export GITHUB_TOKEN="${token}"
+`;
     await cockpit.file('/home/claude-code/.bashrc').replace(updated);
     showToast('GitHub token saved to ~/.bashrc');
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
 
-// ── Plugins ────────────────────────────────────────────────────────────────
+// ── Plugins ──────────────────────────────────────────────────────────────────
 const KNOWN_PLUGINS = [
   { id: 'superpowers@claude-plugins-official',     label: 'Superpowers',     desc: 'Core workflow skills (brainstorming, TDD, review)' },
   { id: 'frontend-design@claude-plugins-official', label: 'Frontend Design', desc: 'UI/UX component and visual layout skills' },
@@ -2331,20 +2356,26 @@ async function loadPlugins() {
   } catch {}
   const enabled = new Set(settings.plugins?.enabled || []);
   document.getElementById('plugin-list').innerHTML = KNOWN_PLUGINS.map(p => `
-    <div class="toggle">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:12px 16px;border:1px solid var(--pf-v5-global--BorderColor--100,#d2d2d2);
+                border-radius:4px;margin-bottom:8px">
       <div>
-        <div style="font-family:var(--mono);font-size:12px">${p.label}</div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:1px">${p.id}</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px">${p.desc}</div>
+        <div style="font-weight:600">${p.label}</div>
+        <div style="font-size:12px;font-family:monospace;color:var(--pf-v5-global--Color--200,#6a6e73)">${p.id}</div>
+        <div style="font-size:13px;color:var(--pf-v5-global--Color--200,#6a6e73);margin-top:2px">${p.desc}</div>
       </div>
-      <div class="toggle-switch ${enabled.has(p.id) ? 'on' : ''}" onclick="togglePlugin('${p.id}', this)">
-        <div class="toggle-thumb"></div>
-      </div>
+      <label class="pf-v5-c-switch">
+        <input class="pf-v5-c-switch__input" type="checkbox" ${enabled.has(p.id) ? 'checked' : ''}
+               onchange="togglePlugin('${p.id}', this)" aria-label="${p.label}">
+        <span class="pf-v5-c-switch__toggle"><span class="pf-v5-c-switch__toggle-icon"></span></span>
+        <span class="pf-v5-c-switch__label pf-m-on">On</span>
+        <span class="pf-v5-c-switch__label pf-m-off">Off</span>
+      </label>
     </div>`).join('');
 }
 tabLoaders.plugins = loadPlugins;
 
-async function togglePlugin(id, el) {
+async function togglePlugin(id, input) {
   let settings = {};
   try {
     const raw = await cockpit.file('/home/claude-code/.claude/settings.json').read();
@@ -2353,16 +2384,18 @@ async function togglePlugin(id, el) {
   if (!settings.plugins) settings.plugins = {};
   if (!Array.isArray(settings.plugins.enabled)) settings.plugins.enabled = [];
   const enabled = new Set(settings.plugins.enabled);
-  if (enabled.has(id)) { enabled.delete(id); el.classList.remove('on'); }
-  else                  { enabled.add(id);    el.classList.add('on'); }
+  if (input.checked) enabled.add(id); else enabled.delete(id);
   settings.plugins.enabled = [...enabled];
   try {
     await cockpit.file('/home/claude-code/.claude/settings.json').replace(JSON.stringify(settings, null, 2));
     showToast('Plugin state updated');
-  } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  } catch (err) {
+    input.checked = !input.checked;
+    showToast('Error: ' + err.message, 'error');
+  }
 }
 
-// ── Updates ────────────────────────────────────────────────────────────────
+// ── Updates ──────────────────────────────────────────────────────────────────
 async function loadCCCStatus() {
   const box = document.getElementById('ccc-update-output');
   box.textContent = 'Running ccc-update-status...';
@@ -2373,16 +2406,15 @@ async function loadCCCStatus() {
 tabLoaders.updates = loadCCCStatus;
 
 async function runCCCSelfUpdate() {
-  const ok = await confirm(
-    'Run ccc-self-update',
+  const ok = await confirm('Run ccc-self-update',
     'Pull latest CCC tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
-    'Update'
-  );
+    'Update');
   if (!ok) return;
   const box = document.getElementById('ccc-update-output');
   box.textContent = 'Running ccc-self-update...';
   try {
-    box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-self-update'], {err: 'message', superuser: 'try'});
+    box.textContent = await cockpit.spawn(
+      ['sudo', '/usr/local/bin/ccc-self-update'], {err: 'message', superuser: 'try'});
     showToast('ccc-self-update complete');
   } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
 }
@@ -2394,23 +2426,25 @@ async function checkOculusUpdate() {
     await cockpit.spawn(['git', '-C', '/opt/oculus-configs', 'fetch', 'origin'], {err: 'message'});
     const log = await cockpit.spawn(
       ['git', '-C', '/opt/oculus-configs', 'log', 'HEAD..origin/main', '--oneline'], {err: 'message'});
-    const lines = log.trim().split('\n').filter(l => l);
+    const lines = log.trim().split('
+').filter(l => l);
     if (!lines.length) {
       box.textContent = '✓ Up to date';
-      document.getElementById('apply-update-btn').style.display = 'none';
+      document.getElementById('apply-update-btn-wrapper').classList.add('ccc-hidden');
     } else {
-      box.textContent = lines.length + ' commit(s) behind:\n\n' + lines.join('\n');
-      document.getElementById('apply-update-btn').style.display = '';
+      box.textContent = lines.length + ' commit(s) behind:
+
+' + lines.join('
+');
+      document.getElementById('apply-update-btn-wrapper').classList.remove('ccc-hidden');
     }
   } catch (err) { box.textContent = 'Error: ' + err.message; }
 }
 
 async function applyOculusUpdate() {
-  const ok = await confirm(
-    'Apply oculus-configs Update',
+  const ok = await confirm('Apply oculus-configs Update',
     'Pull latest and re-copy CLAUDE.md, rules, templates, Codex and Gemini skills. Local CLAUDE.md edits will be overwritten.',
-    'Update'
-  );
+    'Update');
   if (!ok) return;
   const box = document.getElementById('oculus-update-output');
   box.textContent = 'Applying update...';
@@ -2424,13 +2458,14 @@ async function applyOculusUpdate() {
   ].join(' && ');
   try {
     const out = await cockpit.spawn(['bash', '-c', script], {err: 'message'});
-    box.textContent = 'Done.' + (out ? '\n' + out : '');
-    document.getElementById('apply-update-btn').style.display = 'none';
+    box.textContent = 'Done.' + (out ? '
+' + out : '');
+    document.getElementById('apply-update-btn-wrapper').classList.add('ccc-hidden');
     showToast('oculus-configs updated');
   } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
 }
 
-// ── Init ────────────────────────────────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────────────
 cockpit.user().then(u => {
   document.getElementById('nav-user').textContent = u.name + '@' + location.hostname;
 }).catch(() => {});
@@ -2438,6 +2473,7 @@ loadOverview();
 </script>
 </body>
 </html>
+
 COCKPITUI
 echo "    Cockpit: https://<ip>:9090 (login as claude-code)"
 
