@@ -294,7 +294,7 @@ get_config() {
   fi
   echo "  User:         ${CC_USER} (non-root, passwordless sudo)"
   echo "  code-server:  port 8080 (web VS Code)"
-  echo "  Dashboard:    port 9090 (CCC Dashboard — terminal, config, projects)"
+  echo "  Cockpit:      port 9090 (system monitoring + file manager)"
   echo "─────────────────────────────────────────────────"
   echo ""
   read -rp "Proceed? (y/N): " confirm
@@ -754,20 +754,20 @@ Alt+Arrow             # switch panes (no prefix)
 Ctrl+B d              # detach (session keeps running)
 ```
 
-## CCC Dashboard (port 9090)
+## Cockpit (port 9090)
 
-Web admin panel: terminal, CLAUDE.md editor, MCP config, project manager, and updates.
-Run `ccc-dashboard-token` to get your login URL and token.
+System monitoring, file manager, and single terminal.
+For multi-terminal work, use this editor (port 8080) instead.
 
 ## Quick Commands
 
 ```bash
-ccc-onboarding        # first-login wizard
-ccc-update            # update CCC app tools from GitHub + Claude Code
-ccc-os-update         # manually update OS packages with apt
-ccc-dashboard-token   # show dashboard URL and auth token
-ccc-doctor            # health check
-ccc                   # full help
+ccc-onboarding     # first-login wizard
+ccc-update         # update CCC app tools from GitHub + Claude Code
+ccc-os-update      # manually update OS packages with apt
+ccc-fix-cockpit-updates  # fix Cockpit offline update cache error
+ccc-doctor         # health check
+ccc                # full help
 ```
 
 ## SSH Access
@@ -880,7 +880,8 @@ ccc() {
   echo -e "    ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
   echo -e "    ${C}ccc-update${N}                Update CCC app tools from GitHub + Claude Code"
   echo -e "    ${C}ccc-os-update${N}             Manual OS package update (apt)"
-  echo -e "    ${C}ccc-dashboard-token${N}       Show dashboard URL and auth token"
+  echo -e "    ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit 'cannot refresh cache whilst offline'"
+  echo -e "    ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
   echo ""
   echo -e "  ${B}SERVICES${N}"
@@ -984,17 +985,6 @@ systemctl disable --now ccc-kit-manager 2>/dev/null || true
 rm -f /etc/systemd/system/ccc-kit-manager.service
 systemctl daemon-reload 2>/dev/null || true
 rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
-# Remove retired Cockpit helper scripts
-rm -f /usr/local/bin/ccc-fix-cockpit-updates /usr/local/bin/ccc-verify-cockpit-updates
-# Stop Cockpit if running — ccc-dashboard takes over port 9090
-systemctl stop cockpit.socket cockpit.service 2>/dev/null || true
-systemctl disable cockpit.socket cockpit.service 2>/dev/null || true
-# Ensure ccc-dashboard.service has StartLimitIntervalSec=0 so systemd never gives up restarting
-if ! grep -q StartLimitIntervalSec /etc/systemd/system/ccc-dashboard.service 2>/dev/null; then
-  printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\nStartLimitIntervalSec=0\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
-    > /etc/systemd/system/ccc-dashboard.service
-  systemctl daemon-reload
-fi
 
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
@@ -1117,22 +1107,98 @@ exec ccc-setup "$@"
 ONBOARDINGSCRIPT
 chmod +x /usr/local/bin/ccc-onboarding
 
-cat > /usr/local/bin/ccc-dashboard-token << 'DASHTOKENSCRIPT'
+cat > /usr/local/bin/ccc-fix-cockpit-updates << 'COCKPITFIXSCRIPT'
 #!/bin/bash
-G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; N='\033[0m'
-TOKEN=$(cat /etc/ccc/dashboard-token 2>/dev/null)
-if [[ -z "$TOKEN" ]]; then
-  echo "No dashboard token found. Run: sudo ccc-self-update" >&2
-  exit 1
+set -e
+QUIET=0
+[[ "${1:-}" == "--quiet" ]] && QUIET=1
+say() { [[ "$QUIET" -eq 1 ]] || echo "$*"; }
+
+enable_universe() {
+  if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+    sudo sed -i '/^Components:/ {
+      /universe/! s/$/ universe/
+      /multiverse/! s/$/ multiverse/
+    }' /etc/apt/sources.list.d/ubuntu.sources
+  elif [[ -f /etc/apt/sources.list ]]; then
+    sudo sed -i -E '/^deb / {
+      / universe/! s/( main)( |$)/\1 universe\2/
+      / multiverse/! s/( universe)( |$)/\1 multiverse\2/
+    }' /etc/apt/sources.list
+  fi
+}
+
+say "Fixing Cockpit/PackageKit offline update detection..."
+enable_universe
+sudo apt-get update -qq
+sudo apt-get install -y -qq packagekit cockpit-packagekit
+
+# PackageKit: disable NM network check
+sudo mkdir -p /etc/PackageKit
+printf '[Daemon]\nUseNetworkManager=false\n' | sudo tee /etc/PackageKit/PackageKit.conf >/dev/null
+
+# GLib network monitor: force base backend (always online) via systemd drop-in
+sudo mkdir -p /etc/systemd/system/packagekit.service.d
+printf '[Service]\nEnvironment=GIO_USE_NETWORK_MONITOR=base\n' \
+  | sudo tee /etc/systemd/system/packagekit.service.d/ccc-always-online.conf >/dev/null
+sudo systemctl daemon-reload
+
+# Ensure NM dummy connection is up
+sudo nmcli con delete ccc-online 2>/dev/null || true
+sudo nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
+  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
+sudo nmcli con up ccc-online 2>/dev/null || true
+
+sudo systemctl stop packagekit 2>/dev/null || true
+sudo rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
+sudo systemctl start packagekit 2>/dev/null || true
+sudo systemctl restart cockpit.socket 2>/dev/null || true
+if command -v pkcon &>/dev/null; then
+  pkcon refresh force || true
 fi
-IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+say "Done. Reload Cockpit and retry Software Updates."
+COCKPITFIXSCRIPT
+chmod +x /usr/local/bin/ccc-fix-cockpit-updates
+
+cat > /usr/local/bin/ccc-verify-cockpit-updates << 'COCKPITVERIFYSCRIPT'
+#!/bin/bash
+B='\033[1m'; G='\033[0;32m'; R='\033[0;31m'; Y='\033[1;33m'; C='\033[0;36m'; N='\033[0m'
+ok() { echo -e "  ${G}✓${N} $*"; }
+fail() { echo -e "  ${R}✗${N} $*"; FAILED=1; }
+warn() { echo -e "  ${Y}!${N} $*"; }
+FAILED=0
+
 echo ""
-echo -e "${B}CCC Dashboard${N}"
-echo -e "  URL:   ${C}http://${IP}:9090${N}"
-echo -e "  Token: ${G}${TOKEN}${N}"
+echo -e "${B}Cockpit Software Updates Check${N}"
 echo ""
-DASHTOKENSCRIPT
-chmod +x /usr/local/bin/ccc-dashboard-token
+
+dpkg -s packagekit &>/dev/null && ok "packagekit installed" || fail "packagekit missing"
+dpkg -s cockpit-packagekit &>/dev/null && ok "cockpit-packagekit installed" || fail "cockpit-packagekit missing"
+systemctl is-active --quiet packagekit && ok "PackageKit running" || fail "PackageKit not running"
+
+ping -c1 -W2 1.1.1.1 &>/dev/null && ok "Internet reachable" || fail "Internet unreachable"
+curl -fsSL --max-time 5 https://api.github.com &>/dev/null && ok "HTTPS/GitHub reachable" || fail "HTTPS/GitHub unreachable"
+
+if [[ -f /etc/PackageKit/PackageKit.conf ]] && grep -q '^UseNetworkManager=false' /etc/PackageKit/PackageKit.conf; then
+  ok "PackageKit UseNetworkManager=false"
+else
+  warn "PackageKit UseNetworkManager=false not set"
+fi
+
+if command -v pkcon &>/dev/null; then
+  pkcon refresh force &>/dev/null && ok "PackageKit refresh works" || warn "PackageKit refresh failed; Cockpit updates may need manual repair"
+fi
+
+echo ""
+if [[ "$FAILED" -eq 0 ]]; then
+  echo -e "${G}${B}Cockpit update path looks ready.${N}"
+else
+  echo -e "${R}${B}Cockpit update path needs repair.${N}"
+  echo -e "  Run: ${C}sudo ccc-fix-cockpit-updates${N}"
+fi
+exit "$FAILED"
+COCKPITVERIFYSCRIPT
+chmod +x /usr/local/bin/ccc-verify-cockpit-updates
 
 # ── ccc-doctor ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-doctor << 'DOCTORSCRIPT'
@@ -1170,7 +1236,13 @@ echo ""
 
 echo -e "${C}── Services ──────────────────────────────────${N}"
 systemctl is-active --quiet "$CCC_CODE_SERVER_SERVICE" && ok "code-server running" || fail "code-server not running — sudo systemctl start $CCC_CODE_SERVER_SERVICE"
-systemctl is-active --quiet ccc-dashboard              && ok "ccc-dashboard running" || fail "ccc-dashboard not running — sudo systemctl start ccc-dashboard"
+systemctl is-active --quiet cockpit.socket            && ok "cockpit running"     || fail "cockpit not running — sudo systemctl start cockpit.socket"
+ccc-verify-cockpit-updates &>/dev/null && ok "Cockpit software updates ready" || warn "Cockpit software updates need repair — sudo ccc-fix-cockpit-updates"
+if [[ -f /etc/PackageKit/PackageKit.conf ]] && grep -q '^UseNetworkManager=false' /etc/PackageKit/PackageKit.conf; then
+  ok "PackageKit ignores NetworkManager offline state"
+else
+  warn "PackageKit may report offline in Cockpit — run: sudo ccc-fix-cockpit-updates"
+fi
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
@@ -1479,7 +1551,7 @@ resolve_latest_commit() {
 
 echo ""
 echo -e "${B}CCC Self-Update${N}"
-echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and dashboard files.${N}"
+echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and Cockpit fixes.${N}"
 echo -e "${Y}Does NOT re-run Node/Go/Rust, Claude install, or user creation.${N}"
 echo ""
 if command -v ccc-update-status &>/dev/null; then
@@ -1512,40 +1584,22 @@ echo -e "${C}[3/3]${N} Applying updates..."
 (echo 'step() { echo "  >>> $2"; }'; echo "$UPDATE_SCRIPT") | sudo bash
 STATUS=$?
 
-# Download CCC Dashboard files directly from GitHub — heredocs in piped bash
+# Install Cockpit plugin files directly from GitHub — heredocs in piped bash
 # are unreliable (both compete for stdin), so we bypass that entirely here.
 echo ""
-echo -e "${C}[4/4]${N} Updating CCC Dashboard..."
-DASH_BASE="${CCC_SELF_UPDATE_RAW_URL%/*}/docs/ccc-dashboard"
-sudo mkdir -p /opt/ccc-dashboard/public
-if curl -fsSL "${DASH_BASE}/server.js" -o /tmp/ccc-server.js 2>/dev/null; then
-  sudo mv /tmp/ccc-server.js /opt/ccc-dashboard/server.js
-  echo -e "  ${G}✓${N} Dashboard server updated"
+echo -e "${C}[4/4]${N} Installing Cockpit plugin..."
+PLUGIN_BASE="${CCC_SELF_UPDATE_RAW_URL%/*}/docs/cockpit-plugin"
+sudo mkdir -p /usr/share/cockpit/ccc
+if curl -fsSL "${PLUGIN_BASE}/index.html" -o /tmp/ccc-plugin.html 2>/dev/null; then
+  sudo mv /tmp/ccc-plugin.html /usr/share/cockpit/ccc/index.html
+  echo -e "  ${G}✓${N} Plugin HTML installed"
 else
-  echo -e "  ${Y}!${N} server.js download failed — dashboard may be outdated"
+  echo -e "  ${Y}!${N} Plugin HTML download failed — Cockpit UI may be outdated"
 fi
-if curl -fsSL "${DASH_BASE}/public/index.html" -o /tmp/ccc-index.html 2>/dev/null; then
-  sudo mv /tmp/ccc-index.html /opt/ccc-dashboard/public/index.html
-  echo -e "  ${G}✓${N} Dashboard UI updated"
+if curl -fsSL "${PLUGIN_BASE}/manifest.json" -o /tmp/ccc-manifest.json 2>/dev/null; then
+  sudo mv /tmp/ccc-manifest.json /usr/share/cockpit/ccc/manifest.json
 fi
-# Install npm deps if this is a first-time setup
-if [[ ! -d /opt/ccc-dashboard/node_modules/ws ]]; then
-  echo -e "  Installing Node.js dependencies..."
-  sudo npm install --prefix /opt/ccc-dashboard --save ws node-pty > /dev/null 2>&1 \
-    && echo -e "  ${G}✓${N} npm deps installed" \
-    || echo -e "  ${Y}!${N} npm install failed — check node/npm"
-fi
-# Create service file if missing (may not exist on containers that had Cockpit)
-if [[ ! -f /etc/systemd/system/ccc-dashboard.service ]]; then
-  printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\nStartLimitIntervalSec=0\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
-    | sudo tee /etc/systemd/system/ccc-dashboard.service > /dev/null
-  sudo systemctl daemon-reload
-  sudo systemctl enable ccc-dashboard
-  echo -e "  ${G}✓${N} Service registered"
-fi
-DASH_IP=$(hostname -I | awk '{print $1}')
-echo -e "  ${G}✓${N} Dashboard will restart in 5s — refresh http://${DASH_IP}:9090"
-(sleep 5 && sudo systemctl restart ccc-dashboard 2>/dev/null || sudo systemctl start ccc-dashboard 2>/dev/null) &
+sudo systemctl restart cockpit.socket 2>/dev/null && echo -e "  ${G}✓${N} Cockpit restarted — do a hard refresh (Ctrl+Shift+R) in the browser" || true
 
 echo ""
 if [[ $STATUS -eq 0 ]]; then
@@ -1584,16 +1638,17 @@ echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
 echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
 echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
 echo -e "  ${C}ccc-os-update${N}             Manual OS package update (apt)"
-echo -e "  ${C}ccc-dashboard-token${N}       Show dashboard URL and auth token"
+echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"
+echo -e "  ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
 echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
 echo -e "  ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
 echo -e "  ${C}ccc-doctor${N}                System health check"
 echo ""
 echo -e "  ${Y}Web Interfaces${N}"
-IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-echo -e "  ${C}http://${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
-echo -e "  ${C}http://${IP}:9090${N}    CCC Dashboard — config, projects, MCP, updates, terminal"
+IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
+echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
+echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — config, projects, MCP, updates"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
 MOTD
@@ -1627,43 +1682,905 @@ cat > /etc/logrotate.d/ccc-app-update << 'LOGROTATE'
 }
 LOGROTATE
 
-# ── CCC Dashboard (web admin UI) ─────────────────────────────────────────────
-step 27 "CCC Dashboard (web admin UI)"
-mkdir -p /opt/ccc-dashboard/public
-
-# Install Node.js deps — node-pty needs native compilation (build tools installed in step 4)
-npm install --prefix /opt/ccc-dashboard --save ws node-pty > /dev/null 2>&1
-
-# Download dashboard files from GitHub
-DASH_BASE="https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/docs/ccc-dashboard"
-if curl -fsSL "${DASH_BASE}/server.js" -o /opt/ccc-dashboard/server.js 2>/dev/null && \
-   curl -fsSL "${DASH_BASE}/public/index.html" -o /opt/ccc-dashboard/public/index.html 2>/dev/null; then
-  echo "    Dashboard files downloaded"
-else
-  echo "    [WARN] Download failed — run sudo ccc-self-update after provisioning"
+# ── Cockpit (web admin UI) ────────────────────────────────────────────────────
+step 27 "Cockpit (web admin UI)"
+# Ubuntu LXC templates can ship with only main enabled; Cockpit update add-ons are in universe.
+if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+  sed -i '/^Components:/ {
+    /universe/! s/$/ universe/
+    /multiverse/! s/$/ multiverse/
+  }' /etc/apt/sources.list.d/ubuntu.sources
+elif [[ -f /etc/apt/sources.list ]]; then
+  sed -i -E '/^deb / {
+    / universe/! s/( main)( |$)/\1 universe\2/
+    / multiverse/! s/( universe)( |$)/\1 multiverse\2/
+  }' /etc/apt/sources.list
 fi
+apt-get update -qq
 
-# Generate auth token
-if [[ ! -f /etc/ccc/dashboard-token ]]; then
-  head -c 16 /dev/urandom | base64 | tr -d '=+/' | head -c 16 > /etc/ccc/dashboard-token
-  chmod 640 /etc/ccc/dashboard-token
-fi
+# NetworkManager is required for Cockpit Networking graphs in LXC.
+apt-get install -y -qq --no-install-recommends network-manager > /dev/null 2>&1
 
-# printf avoids heredoc stdin competition when updateable section runs in a pipe
-printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\nStartLimitIntervalSec=0\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
-  > /etc/systemd/system/ccc-dashboard.service
+cat > /etc/NetworkManager/NetworkManager.conf <<'EOF'
+[main]
+plugins=ifupdown,keyfile
 
+[ifupdown]
+managed=true
+
+[device]
+wifi.scan-rand-mac-address=no
+
+[keyfile]
+unmanaged-devices=none
+EOF
+
+systemctl enable --now NetworkManager
+systemctl restart NetworkManager
+
+nmcli con delete ccc-online 2>/dev/null || true
+nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
+  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
+nmcli con up ccc-online 2>/dev/null || true
+
+apt-get install -y cockpit > /dev/null 2>&1
+apt-get install -y cockpit-files > /dev/null 2>&1 || true
+apt-get install -y -qq packagekit cockpit-packagekit > /dev/null 2>&1 || true
+apt-get purge -y -qq udisks2 > /dev/null 2>&1 || true
+
+# Tell PackageKit not to use NetworkManager for online detection
+mkdir -p /etc/PackageKit
+cat > /etc/PackageKit/PackageKit.conf << 'PKCONF'
+[Daemon]
+UseNetworkManager=false
+PKCONF
+# Disable NM's periodic connectivity portal check — prevents NM marking itself
+# "limited" in LXC where no captive-portal response is available
+cat >> /etc/NetworkManager/conf.d/99-ccc-managed.conf << 'NMCONN'
+
+[connectivity]
+interval=0
+NMCONN
+# Force GLib's network monitor (used by PackageKit) to always report online.
+# GIO_USE_NETWORK_MONITOR=base bypasses NM/netlink checks entirely.
+mkdir -p /etc/systemd/system/packagekit.service.d
+cat > /etc/systemd/system/packagekit.service.d/ccc-always-online.conf << 'PKDROP'
+[Service]
+Environment=GIO_USE_NETWORK_MONITOR=base
+PKDROP
+# autoconnect yes on the ccc-online NM connection handles reconnect at boot.
+# No separate systemd service needed — remove it if present from older installs.
+systemctl disable ccc-online.service 2>/dev/null || true
+systemctl stop ccc-online.service 2>/dev/null || true
+rm -f /etc/systemd/system/ccc-online.service
 systemctl daemon-reload
-systemctl enable ccc-dashboard
-systemctl restart ccc-dashboard 2>/dev/null || systemctl start ccc-dashboard
+systemctl stop packagekit 2>/dev/null || true
+rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
+systemctl start packagekit 2>/dev/null || true
 
-_dash_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-_dash_token=$(cat /etc/ccc/dashboard-token 2>/dev/null || echo "(run: sudo cat /etc/ccc/dashboard-token)")
-echo "    Dashboard: http://${_dash_ip}:9090"
-echo "    Token:     ${_dash_token}"
+if ! /usr/local/bin/ccc-verify-cockpit-updates; then
+  echo "[WARN] Cockpit software update path is not ready."
+  echo "       Inspect later with: ccc-verify-cockpit-updates"
+  echo "       Continuing provision anyway."
+fi
 
+mkdir -p /etc/cockpit
+cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
+[WebService]
+LoginTitle = Claude Code Commander
+LoginTo = false
 
-# Mask motd-news — disable alone leaves it as a visible failed unit in systemd.
+[Session]
+IdleTimeout = 0
+COCKPITCONF
+systemctl enable --now cockpit.socket
+# ── CCC Cockpit plugin ─────────────────────────────────────────────────────
+mkdir -p /usr/share/cockpit/ccc
+cat > /usr/share/cockpit/ccc/manifest.json << 'MANIFEST'
+{
+  "version": 0,
+  "name": "ccc",
+  "priority": 1,
+  "menu": {
+    "index": {
+      "label": "Claude Code Commander",
+      "order": 0
+    }
+  }
+}
+MANIFEST
+cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Claude Code Commander</title>
+  <!-- Load Cockpit's PatternFly CSS for native look and theme inheritance -->
+  <link rel="stylesheet" href="../base1/patternfly.css">
+  <style>
+    /* Map our vars to PatternFly CSS custom properties with hardcoded dark fallbacks.
+       PF5 vars: --pf-v5-global--*   PF4 vars: --pf-global--*  */
+    :root {
+      --bg:      var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #1b1d21));
+      --surface: var(--pf-v5-global--BackgroundColor--200,      var(--pf-global--BackgroundColor--200,      #212427));
+      --card:    var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #292c2f));
+      --border:  var(--pf-v5-global--BorderColor--100,          var(--pf-global--BorderColor--100,          #444548));
+      --text:    var(--pf-v5-global--Color--100,                var(--pf-global--Color--100,                #e0e0e0));
+      --muted:   var(--pf-v5-global--Color--200,                var(--pf-global--Color--200,                #8a8d90));
+      --primary: var(--pf-v5-global--primary-color--100,        var(--pf-global--primary-color--100,        #73bcf7));
+      --pri-fg:  var(--pf-v5-global--primary-color--200,        var(--pf-global--primary-color--200,        #151515));
+      --danger:  var(--pf-v5-global--danger-color--100,         var(--pf-global--danger-color--100,         #ff6166));
+      --success: var(--pf-v5-global--success-color--100,        var(--pf-global--success-color--100,        #5ba352));
+      --warn:    var(--pf-v5-global--warning-color--100,        var(--pf-global--warning-color--100,        #f4c145));
+      --radius:  var(--pf-v5-global--BorderRadius--sm,          var(--pf-global--BorderRadius--sm,          4px));
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: RedHatDisplay, RedHatText, Overpass, overpass, helvetica, arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ── */
+    .ccc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .ccc-header-title { font-size: 18px; font-weight: 700; }
+    .ccc-header-user  { font-size: 13px; color: var(--muted); }
+
+    /* ── Nav tabs ── */
+    .ccc-nav {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      background: var(--bg);
+    }
+    .ccc-nav button {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+      margin-bottom: -1px;
+    }
+    .ccc-nav button:hover { color: var(--text); }
+    .ccc-nav button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+    /* ── Main content ── */
+    .ccc-main { padding: 24px; }
+    .ccc-section { display: none; }
+    .ccc-section.active { display: block; }
+    #tab-claude.active { display: flex; flex-direction: column; height: calc(100vh - 108px); }
+
+    /* ── Cards ── */
+    .ccc-grid { display: grid; gap: 16px; margin-bottom: 24px; }
+    .ccc-grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .ccc-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .ccc-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .ccc-card-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .ccc-card-value { font-size: 20px; font-weight: 700; }
+
+    /* ── Section headings ── */
+    .ccc-section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+    /* ── Labels / pills ── */
+    .ccc-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    .ccc-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border: 1px solid var(--border);
+      border-radius: 20px; font-size: 13px; color: var(--muted);
+    }
+    .ccc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .ccc-dot.on  { background: var(--success); }
+    .ccc-dot.off { background: var(--danger); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 16px; border-radius: var(--radius);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      border: 1px solid transparent; transition: opacity .15s;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary  { background: var(--primary); color: var(--pri-fg); border-color: var(--primary); }
+    .btn-secondary{ background: transparent; color: var(--text); border-color: var(--border); }
+    .btn-danger   { background: transparent; color: var(--danger); border-color: var(--danger); }
+    .btn-link     { background: none; border: none; color: var(--primary); padding: 0; font-weight: 400; text-decoration: underline; cursor: pointer; }
+    .btn-sm       { padding: 4px 10px; font-size: 13px; }
+
+    /* ── Forms ── */
+    .form-group   { margin-bottom: 14px; }
+    .form-label   { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .form-helper  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .form-control {
+      width: 100%; padding: 7px 10px;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      font-size: 14px; font-family: inherit;
+    }
+    .form-control:focus { outline: none; border-color: var(--primary); }
+    select.form-control { cursor: pointer; }
+    textarea.form-control { resize: vertical; }
+    .action-row { display: flex; gap: 8px; margin-top: 4px; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--surface); }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Toggle switch ── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 8px; background: var(--card);
+    }
+    .toggle-label   { font-weight: 600; font-size: 14px; }
+    .toggle-id      { font-size: 12px; font-family: monospace; color: var(--muted); margin-top: 1px; }
+    .toggle-desc    { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .toggle-switch  { position: relative; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      display: block; width: 40px; height: 22px;
+      background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s;
+    }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; transition: left .2s; pointer-events: none;
+    }
+    .toggle-switch input:checked ~ .toggle-track { background: var(--primary); }
+    .toggle-switch input:checked ~ .toggle-thumb { left: 21px; }
+
+    /* ── Code/output box ── */
+    .ccc-output {
+      font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap;
+      background: #111316; color: #c5c8c6;
+      padding: 14px; border-radius: var(--radius); max-height: 220px;
+      overflow-y: auto; margin-bottom: 16px; border: 1px solid #333;
+    }
+    @media (prefers-color-scheme: light) {
+      .ccc-output { background: #111316; }
+    }
+
+    /* ── Wizard progress ── */
+    .wizard-bar { height: 5px; background: var(--surface); border-radius: 3px; margin-bottom: 18px; }
+    .wizard-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width .2s; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+      padding: 10px 16px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 600; border: 1px solid;
+      display: none; box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    }
+    #toast.show { display: block; }
+    #toast.success { background: var(--card); border-color: var(--success); color: var(--success); }
+    #toast.error   { background: var(--card); border-color: var(--danger);  color: var(--danger); }
+    #toast.info    { background: var(--card); border-color: var(--primary); color: var(--primary); }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 500;
+      align-items: center; justify-content: center;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; max-width: 420px; width: 90%;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .modal-body  { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* ── Data list ── */
+    .data-list { list-style: none; }
+    .data-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 6px; background: var(--card);
+    }
+    .data-name { font-size: 14px; font-weight: 500; }
+
+    /* ── CLAUDE.md textarea ── */
+    #claude-textarea {
+      flex: 1; resize: none; font-family: 'Courier New', monospace;
+      font-size: 13px; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="ccc-header">
+  <span class="ccc-header-title">Claude Code Commander</span>
+  <span class="ccc-header-user" id="nav-user"></span>
+</div>
+
+<nav class="ccc-nav">
+  <button class="active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+  <button data-tab="projects"  onclick="showTab('projects')">Projects</button>
+  <button data-tab="claude"    onclick="showTab('claude')">CLAUDE.md</button>
+  <button data-tab="mcp"       onclick="showTab('mcp')">MCP</button>
+  <button data-tab="plugins"   onclick="showTab('plugins')">Plugins</button>
+  <button data-tab="updates"   onclick="showTab('updates')">Updates</button>
+</nav>
+
+<div class="ccc-main">
+
+  <!-- ── Overview ──────────────────────────────────────────────────────── -->
+  <section id="tab-overview" class="ccc-section active">
+    <div class="ccc-grid ccc-grid-4">
+      <div class="ccc-card">
+        <div class="ccc-card-title">CLAUDE.md</div>
+        <div class="ccc-card-value" id="s-claude">—</div>
+      </div>
+      <div class="ccc-card">
+        <div class="ccc-card-title">Rules</div>
+        <div class="ccc-card-value" id="s-rules">—</div>
+      </div>
+      <div class="ccc-card">
+        <div class="ccc-card-title">MCP Servers</div>
+        <div class="ccc-card-value" id="s-mcp">—</div>
+      </div>
+      <div class="ccc-card">
+        <div class="ccc-card-title">Plugins</div>
+        <div class="ccc-card-value" id="s-plugins">—</div>
+      </div>
+    </div>
+
+    <div class="ccc-section-title">Services</div>
+    <div class="ccc-pills">
+      <span class="ccc-pill"><span class="ccc-dot" id="dot-cs"></span>code-server :8080</span>
+      <span class="ccc-pill"><span class="ccc-dot on"></span>cockpit :9090</span>
+      <span class="ccc-pill"><span class="ccc-dot" id="dot-claude"></span>claude</span>
+    </div>
+
+    <div class="ccc-section-title">Quick Links</div>
+    <div class="ccc-grid ccc-grid-2">
+      <div class="ccc-card">
+        <a id="vscode-link" href="#" target="_blank" class="btn-link" style="font-size:14px;font-weight:600">Web VS Code ↗</a>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">code editor + multi-terminal</div>
+      </div>
+      <div class="ccc-card">
+        <button class="btn-link" onclick="showTab('projects')" style="font-size:14px;font-weight:600">New Project →</button>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">wizard → git → github</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Projects ──────────────────────────────────────────────────────── -->
+  <section id="tab-projects" class="ccc-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span class="ccc-section-title" style="margin:0">Projects</span>
+      <button class="btn btn-primary btn-sm" onclick="showWizard()">+ New Project</button>
+    </div>
+    <div id="project-list"></div>
+
+    <div id="wizard" class="ccc-card" style="display:none;margin-top:16px">
+      <div class="wizard-bar"><div class="wizard-fill" id="wizard-fill" style="width:25%"></div></div>
+      <div id="wizard-content"></div>
+      <div class="action-row" style="margin-top:16px">
+        <button class="btn btn-primary btn-sm" id="wizard-next-btn" onclick="wizardNext()">Next →</button>
+        <button class="btn btn-secondary btn-sm" onclick="hideWizard()">Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CLAUDE.md ──────────────────────────────────────────────────────── -->
+  <section id="tab-claude" class="ccc-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span class="ccc-section-title" style="margin:0">CLAUDE.md</span>
+      <div class="action-row">
+        <button class="btn btn-secondary btn-sm" onclick="reloadFromOculus()">↺ Reload from oculus-configs</button>
+        <button class="btn btn-primary btn-sm" onclick="saveClaude()">Save</button>
+      </div>
+    </div>
+    <textarea id="claude-textarea" class="form-control" placeholder="Loading..."></textarea>
+  </section>
+
+  <!-- ── MCP ────────────────────────────────────────────────────────────── -->
+  <section id="tab-mcp" class="ccc-section">
+    <div class="ccc-section-title">MCP Servers</div>
+    <table>
+      <thead><tr><th>Name</th><th>Command</th><th style="width:80px"></th></tr></thead>
+      <tbody id="mcp-table-body"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody>
+    </table>
+
+    <div class="ccc-card" style="margin-bottom:20px">
+      <div class="ccc-section-title" style="font-size:14px">Add Server</div>
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input id="mcp-new-name" class="form-control" placeholder="e.g. github">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Command</label>
+        <input id="mcp-new-cmd" class="form-control" placeholder="e.g. npx -y @modelcontextprotocol/server-github">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addMCPServer()">Add Server</button>
+    </div>
+
+    <div class="ccc-section-title">GitHub Token</div>
+    <div class="action-row" style="max-width:600px">
+      <input id="gh-token" type="password" class="form-control" placeholder="ghp_...">
+      <button class="btn btn-secondary btn-sm" style="white-space:nowrap" onclick="saveGHToken()">Save Token</button>
+    </div>
+  </section>
+
+  <!-- ── Plugins ────────────────────────────────────────────────────────── -->
+  <section id="tab-plugins" class="ccc-section">
+    <div class="ccc-section-title">Plugin State</div>
+    <div id="plugin-list">Loading...</div>
+    <p style="margin-top:14px;font-size:13px;color:var(--muted)">
+      Changes take effect on next <code>claude</code> session.
+    </p>
+  </section>
+
+  <!-- ── Updates ───────────────────────────────────────────────────────── -->
+  <section id="tab-updates" class="ccc-section">
+    <div class="ccc-section-title">CCC Provisioner</div>
+    <div class="ccc-output" id="ccc-update-output">Click refresh to check...</div>
+    <div class="action-row" style="margin-bottom:28px">
+      <button class="btn btn-secondary btn-sm" onclick="loadCCCStatus()">↺ Refresh</button>
+      <button class="btn btn-primary btn-sm" onclick="runCCCSelfUpdate()">Run ccc-self-update</button>
+    </div>
+
+    <div class="ccc-section-title">oculus-configs</div>
+    <div class="ccc-output" id="oculus-update-output">Click "Check for Updates" to fetch status...</div>
+    <div class="action-row">
+      <button class="btn btn-secondary btn-sm" onclick="checkOculusUpdate()">Check for Updates</button>
+      <button class="btn btn-primary btn-sm" id="apply-btn" style="display:none" onclick="applyOculusUpdate()">Apply Update</button>
+    </div>
+  </section>
+
+</div><!-- /ccc-main -->
+
+<div id="toast"></div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Confirm</div>
+    <div class="modal-body"  id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="modalResolve(true)" id="modal-ok">Confirm</button>
+      <button class="btn btn-secondary btn-sm" onclick="modalResolve(false)">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/cockpit/base1/cockpit.js"></script>
+<script>
+// ── Utilities ───────────────────────────────────────────────────────────────
+let _toastTimer;
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+let _modalResolve;
+function confirm(title, body, okLabel = 'Confirm') {
+  return new Promise(resolve => {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').textContent  = body;
+    document.getElementById('modal-ok').textContent    = okLabel;
+    document.getElementById('modal').classList.add('show');
+    _modalResolve = r => { document.getElementById('modal').classList.remove('show'); resolve(r); };
+  });
+}
+function modalResolve(r) { _modalResolve?.(r); }
+
+const tabLoaders = {};
+function showTab(name) {
+  document.querySelectorAll('.ccc-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.ccc-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`.ccc-nav button[data-tab="${name}"]`).classList.add('active');
+  tabLoaders[name]?.();
+}
+
+// ── Overview ────────────────────────────────────────────────────────────────
+let _ip = '';
+let _home = '/home/claude-code'; // updated at init from cockpit.user()
+async function getIP() {
+  if (_ip) return _ip;
+  try { _ip = (await cockpit.spawn(['hostname', '-I'])).trim().split(' ')[0]; }
+  catch { _ip = location.hostname; }
+  return _ip;
+}
+
+async function loadOverview() {
+  try {
+    await cockpit.spawn(['test', '-f', `${_home}/.claude/CLAUDE.md`], {err: 'ignore'});
+    document.getElementById('s-claude').textContent = '✓ Present';
+  } catch {
+    document.getElementById('s-claude').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+  }
+  try {
+    const n = await cockpit.spawn(['bash', '-c', `ls ${_home}/.claude/rules/ 2>/dev/null | wc -l`]);
+    document.getElementById('s-rules').textContent = n.trim() + ' files';
+  } catch { document.getElementById('s-rules').textContent = '0 files'; }
+  try {
+    const raw = await cockpit.file(`${_home}/.claude/mcp.json`).read();
+    document.getElementById('s-mcp').textContent =
+      Object.keys(JSON.parse(raw || '{"mcpServers":{}}').mcpServers || {}).length + ' servers';
+  } catch { document.getElementById('s-mcp').textContent = '0 servers'; }
+  try {
+    const raw = await cockpit.file(`${_home}/.claude/settings.json`).read();
+    const s = JSON.parse(raw || '{}');
+    document.getElementById('s-plugins').textContent =
+      (Array.isArray(s.plugins?.enabled) ? s.plugins.enabled.length : '?') + ' enabled';
+  } catch { document.getElementById('s-plugins').textContent = '? enabled'; }
+
+  cockpit.spawn(['systemctl', 'is-active', 'code-server'], {err: 'ignore'})
+    .then(s => { document.getElementById('dot-cs').className = 'ccc-dot ' + (s.trim() === 'active' ? 'on' : 'off'); })
+    .catch(() => { document.getElementById('dot-cs').className = 'ccc-dot off'; });
+  cockpit.spawn(['bash', '-c', 'which claude 2>/dev/null'], {err: 'ignore'})
+    .then(p => { document.getElementById('dot-claude').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
+    .catch(() => { document.getElementById('dot-claude').className = 'ccc-dot off'; });
+  getIP().then(ip => { document.getElementById('vscode-link').href = 'http://' + ip + ':8080'; });
+}
+tabLoaders.overview = loadOverview;
+
+// ── Projects ────────────────────────────────────────────────────────────────
+async function loadProjects() {
+  const list = document.getElementById('project-list');
+  try {
+    const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/projects/ 2>/dev/null`]);
+    const projects = out.trim().split('
+').filter(p => p);
+    const ip = await getIP();
+    list.innerHTML = !projects.length
+      ? '<p style="color:var(--muted)">No projects yet.</p>'
+      : '<ul class="data-list">' + projects.map(p => `
+          <li class="data-item">
+            <span class="data-name">${p}</span>
+            <a class="btn btn-secondary btn-sm"
+               href="http://${ip}:8080/?folder=${_home}/projects/${encodeURIComponent(p)}"
+               target="_blank">Open in VS Code ↗</a>
+          </li>`).join('') + '</ul>';
+  } catch {
+    list.innerHTML = '<p style="color:var(--danger)">Error loading projects.</p>';
+  }
+}
+tabLoaders.projects = loadProjects;
+
+const _wiz = { step: 1, name: '', location: '', template: '', remote: '' };
+function showWizard() {
+  Object.assign(_wiz, { step: 1, name: '', location: '', template: '', remote: '' });
+  document.getElementById('wizard').style.display = 'block';
+  renderWizardStep();
+}
+function hideWizard() { document.getElementById('wizard').style.display = 'none'; }
+
+async function renderWizardStep() {
+  const s = _wiz.step;
+  document.getElementById('wizard-fill').style.width = (s * 25) + '%';
+  document.getElementById('wizard-next-btn').textContent = s === 4 ? 'Create Project' : 'Next →';
+  const labels = ['Project Name', 'Location', 'Template', 'GitHub Remote'];
+  let html = `<div style="font-weight:600;margin-bottom:12px">Step ${s} of 4 — ${labels[s-1]}</div>`;
+  if (s === 1) {
+    html += `<div class="form-group"><label class="form-label">Project Name</label>
+      <input id="w-name" class="form-control" placeholder="my-project" value="${_wiz.name}"></div>`;
+  } else if (s === 2) {
+    html += `<div class="form-group"><label class="form-label">Location</label>
+      <input id="w-loc" class="form-control" value="${_wiz.location || _home + '/projects/' + _wiz.name}"></div>`;
+  } else if (s === 3) {
+    let opts = '<option value="">— None (blank project) —</option>';
+    try {
+      const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/Templates/ 2>/dev/null`]);
+      out.trim().split('
+').filter(t => t).forEach(t => {
+        opts += `<option value="${t}" ${_wiz.template === t ? 'selected' : ''}>${t}</option>`;
+      });
+    } catch {}
+    html += `<div class="form-group"><label class="form-label">Starter Template</label>
+      <select id="w-tpl" class="form-control">${opts}</select></div>`;
+  } else {
+    html += `<div class="form-group"><label class="form-label">GitHub Remote (optional)</label>
+      <input id="w-remote" class="form-control" placeholder="username/repo-name" value="${_wiz.remote}">
+      <span class="form-helper">Runs: gh repo create &lt;name&gt; --private --source=. --push</span></div>`;
+  }
+  document.getElementById('wizard-content').innerHTML = html;
+}
+
+async function wizardNext() {
+  const s = _wiz.step;
+  if (s === 1) {
+    const name = document.getElementById('w-name').value.trim();
+    if (!name || name.includes('/') || name.includes('..') || name.startsWith('.')) {
+      showToast('Invalid project name', 'error'); return;
+    }
+    _wiz.name = name; _wiz.step = 2; renderWizardStep();
+  } else if (s === 2) {
+    const loc = document.getElementById('w-loc').value.trim();
+    if (!loc) { showToast('Location required', 'error'); return; }
+    _wiz.location = loc; _wiz.step = 3; renderWizardStep();
+  } else if (s === 3) {
+    _wiz.template = document.getElementById('w-tpl').value; _wiz.step = 4; renderWizardStep();
+  } else {
+    _wiz.remote = document.getElementById('w-remote').value.trim(); await createProject();
+  }
+}
+
+async function createProject() {
+  const { name, location, template, remote } = _wiz;
+  const btn = document.getElementById('wizard-next-btn');
+  btn.textContent = 'Creating...'; btn.disabled = true;
+  try {
+    await cockpit.spawn(['mkdir', '-p', location]);
+    await cockpit.spawn(['git', '-C', location, 'init']);
+    if (template) await cockpit.spawn(['bash', '-c', 'cp -r "$1"/. "$2"/', '_',
+      `${_home}/Templates/` + template, location]);
+    if (remote) await cockpit.spawn(['bash', '-c',
+      'cd "$1" && gh repo create "$2" --private --source=. --push', '_', location, remote]);
+    showToast('Project created: ' + name, 'success');
+    hideWizard(); loadProjects();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally { btn.textContent = 'Create Project'; btn.disabled = false; }
+}
+
+// ── CLAUDE.md ───────────────────────────────────────────────────────────────
+async function loadClaude() {
+  try {
+    document.getElementById('claude-textarea').value =
+      await cockpit.file(`${_home}/.claude/CLAUDE.md`).read() || '';
+  } catch (err) { showToast('Error reading CLAUDE.md: ' + err.message, 'error'); }
+}
+tabLoaders.claude = loadClaude;
+
+async function saveClaude() {
+  try {
+    await cockpit.file(`${_home}/.claude/CLAUDE.md`)
+      .replace(document.getElementById('claude-textarea').value);
+    showToast('CLAUDE.md saved', 'success');
+  } catch (err) { showToast('Error saving: ' + err.message, 'error'); }
+}
+
+async function reloadFromOculus() {
+  if (!await confirm('Reload CLAUDE.md',
+    'Overwrite your current CLAUDE.md with the version from oculus-configs? Your edits will be lost.',
+    'Overwrite')) return;
+  try {
+    await cockpit.spawn(['cp', '/opt/oculus-configs/claude/CLAUDE.md', `${_home}/.claude/CLAUDE.md`]);
+    await loadClaude(); showToast('Reloaded from oculus-configs', 'success');
+  } catch (err) { showToast('Error: ' + err.message, 'error'); }
+}
+
+// ── MCP ─────────────────────────────────────────────────────────────────────
+let _mcpData = { mcpServers: {} };
+
+async function loadMCP() {
+  try { _mcpData = JSON.parse(await cockpit.file(`${_home}/.claude/mcp.json`).read() || '{"mcpServers":{}}'); }
+  catch { _mcpData = { mcpServers: {} }; }
+  renderMCPTable(); loadGHToken();
+}
+tabLoaders.mcp = loadMCP;
+
+function renderMCPTable() {
+  const entries = Object.entries(_mcpData.mcpServers || {});
+  document.getElementById('mcp-table-body').innerHTML = entries.length
+    ? entries.map(([name, cfg]) => {
+        const cmd = [cfg.command, ...(cfg.args || [])].join(' ');
+        return `<tr>
+          <td><strong>${name}</strong></td>
+          <td><code style="font-size:12px">${cmd}</code></td>
+          <td><button class="btn btn-danger btn-sm" onclick="removeMCPServer('${name}')">Remove</button></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="3" style="color:var(--muted)">No servers configured</td></tr>';
+}
+
+async function addMCPServer() {
+  const name = document.getElementById('mcp-new-name').value.trim();
+  const cmdStr = document.getElementById('mcp-new-cmd').value.trim();
+  if (!name || !cmdStr) { showToast('Name and command required', 'error'); return; }
+  const parts = cmdStr.split(' ');
+  _mcpData.mcpServers[name] = { command: parts[0], args: parts.slice(1) };
+  await persistMCP();
+  document.getElementById('mcp-new-name').value = '';
+  document.getElementById('mcp-new-cmd').value  = '';
+}
+
+async function removeMCPServer(name) {
+  if (!await confirm('Remove MCP Server', `Remove "${name}" from MCP config?`, 'Remove')) return;
+  delete _mcpData.mcpServers[name]; await persistMCP();
+}
+
+async function persistMCP() {
+  try {
+    await cockpit.file(`${_home}/.claude/mcp.json`).replace(JSON.stringify(_mcpData, null, 2));
+    renderMCPTable(); showToast('MCP config saved', 'success');
+  } catch (err) { showToast('Error: ' + err.message, 'error'); }
+}
+
+async function loadGHToken() {
+  try {
+    const m = (await cockpit.file(`${_home}/.bashrc`).read() || '')
+      .match(/export GITHUB_TOKEN="?([^"
+]+)"?/);
+    if (m) document.getElementById('gh-token').value = m[1];
+  } catch {}
+}
+
+async function saveGHToken() {
+  const token = document.getElementById('gh-token').value.trim();
+  if (!token) { showToast('Token required', 'error'); return; }
+  try {
+    const bashrc = await cockpit.file(`${_home}/.bashrc`).read() || '';
+    await cockpit.file(`${_home}/.bashrc`).replace(
+      bashrc.includes('GITHUB_TOKEN')
+        ? bashrc.replace(/export GITHUB_TOKEN="?[^"
+]+"?/, `export GITHUB_TOKEN="${token}"`)
+        : bashrc + `
+export GITHUB_TOKEN="${token}"
+`
+    );
+    showToast('GitHub token saved', 'success');
+  } catch (err) { showToast('Error: ' + err.message, 'error'); }
+}
+
+// ── Plugins ──────────────────────────────────────────────────────────────────
+const KNOWN_PLUGINS = [
+  { id: 'superpowers@claude-plugins-official',     label: 'Superpowers',     desc: 'Core workflow skills (brainstorming, TDD, review)' },
+  { id: 'frontend-design@claude-plugins-official', label: 'Frontend Design', desc: 'UI/UX component and visual layout skills' },
+  { id: 'skill-creator@claude-plugins-official',   label: 'Skill Creator',   desc: 'Build custom project-specific skills' },
+];
+
+async function loadPlugins() {
+  let settings = {};
+  try { settings = JSON.parse(await cockpit.file(`${_home}/.claude/settings.json`).read() || '{}'); }
+  catch {}
+  const enabled = new Set(settings.plugins?.enabled || []);
+  document.getElementById('plugin-list').innerHTML = KNOWN_PLUGINS.map(p => `
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">${p.label}</div>
+        <div class="toggle-id">${p.id}</div>
+        <div class="toggle-desc">${p.desc}</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" ${enabled.has(p.id) ? 'checked' : ''} onchange="togglePlugin('${p.id}',this)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>`).join('');
+}
+tabLoaders.plugins = loadPlugins;
+
+async function togglePlugin(id, input) {
+  let settings = {};
+  try { settings = JSON.parse(await cockpit.file(`${_home}/.claude/settings.json`).read() || '{}'); }
+  catch {}
+  if (!settings.plugins) settings.plugins = {};
+  if (!Array.isArray(settings.plugins.enabled)) settings.plugins.enabled = [];
+  const enabled = new Set(settings.plugins.enabled);
+  input.checked ? enabled.add(id) : enabled.delete(id);
+  settings.plugins.enabled = [...enabled];
+  try {
+    await cockpit.file(`${_home}/.claude/settings.json`).replace(JSON.stringify(settings, null, 2));
+    showToast('Plugin state updated', 'success');
+  } catch (err) { input.checked = !input.checked; showToast('Error: ' + err.message, 'error'); }
+}
+
+// ── Updates ──────────────────────────────────────────────────────────────────
+async function loadCCCStatus() {
+  const box = document.getElementById('ccc-update-output');
+  box.textContent = 'Running ccc-update-status...';
+  try { box.textContent = await cockpit.spawn(['/usr/local/bin/ccc-update-status'], {err: 'message'}); }
+  catch (err) { box.textContent = 'Error: ' + err.message; }
+}
+tabLoaders.updates = loadCCCStatus;
+
+async function runCCCSelfUpdate() {
+  if (!await confirm('Run ccc-self-update',
+    'Pull latest CCC tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
+    'Update')) return;
+  const box = document.getElementById('ccc-update-output');
+  box.textContent = 'Running ccc-self-update...';
+  try {
+    box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-self-update'],
+      {err: 'message', superuser: 'try'});
+    showToast('ccc-self-update complete', 'success');
+  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
+}
+
+async function checkOculusUpdate() {
+  const box = document.getElementById('oculus-update-output');
+  box.textContent = 'Fetching from origin...';
+  try {
+    await cockpit.spawn(['git', '-C', '/opt/oculus-configs', 'fetch', 'origin'], {err: 'message'});
+    const log = await cockpit.spawn(
+      ['git', '-C', '/opt/oculus-configs', 'log', 'HEAD..origin/main', '--oneline'], {err: 'message'});
+    const lines = log.trim().split('
+').filter(l => l);
+    if (!lines.length) {
+      box.textContent = '✓ Up to date';
+      document.getElementById('apply-btn').style.display = 'none';
+    } else {
+      box.textContent = lines.length + ' commit(s) behind:
+
+' + lines.join('
+');
+      document.getElementById('apply-btn').style.display = '';
+    }
+  } catch (err) { box.textContent = 'Error: ' + err.message; }
+}
+
+async function applyOculusUpdate() {
+  if (!await confirm('Apply oculus-configs Update',
+    'Pull latest and re-copy CLAUDE.md, rules, templates, Codex and Gemini skills. Local CLAUDE.md edits will be overwritten.',
+    'Update')) return;
+  const box = document.getElementById('oculus-update-output');
+  box.textContent = 'Applying update...';
+  const script = [
+    'git -C /opt/oculus-configs pull',
+    `cp /opt/oculus-configs/claude/CLAUDE.md ${_home}/.claude/CLAUDE.md`,
+    `cp -r /opt/oculus-configs/claude/rules/. ${_home}/.claude/rules/`,
+    `cp -r /opt/oculus-configs/templates/. ${_home}/Templates/`,
+    `mkdir -p ${_home}/.codex && cp /opt/oculus-configs/codex/AGENTS.md ${_home}/.codex/AGENTS.md 2>/dev/null || true`,
+    `mkdir -p ${_home}/.gemini && cp /opt/oculus-configs/gemini/GEMINI.md ${_home}/.gemini/GEMINI.md 2>/dev/null || true`,
+  ].join(' && ');
+  try {
+    const out = await cockpit.spawn(['bash', '-c', script], {err: 'message'});
+    box.textContent = 'Done.' + (out ? '
+' + out : '');
+    document.getElementById('apply-btn').style.display = 'none';
+    showToast('oculus-configs updated', 'success');
+  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+// Sync Cockpit's PatternFly theme class into this iframe so PF CSS vars
+// (--pf-v5-global--BackgroundColor--100 etc.) resolve to the correct theme.
+// Plugin iframe is same-origin as Cockpit so parent frame is accessible.
+(function syncCockpitTheme() {
+  try {
+    const ph = window.parent.document.documentElement;
+    ['pf-v5-theme-dark','pf-theme-dark','pf-v5-theme-light','pf-theme-light'].forEach(c => {
+      if (ph.classList.contains(c)) document.documentElement.classList.add(c);
+    });
+    // Watch for live theme switches in the parent frame
+    new MutationObserver(() => syncCockpitTheme()).observe(ph, { attributes: true, attributeFilter: ['class'] });
+  } catch {}
+})();
+
+(async () => {
+  try {
+    const u = await cockpit.user();
+    _home = u.home || ('/home/' + u.name);
+    document.getElementById('nav-user').textContent = u.name + '@' + location.hostname;
+  } catch {}
+  loadOverview();
+})();
+</script>
+</body>
+</html>
+
+COCKPITUI
+echo "    Cockpit: https://<ip>:9090 (login as $CCC_USER)"
+
+# Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit.
 # motd-news fetches Canonical marketing content; useless and always times out in LXC.
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 systemctl mask motd-news.service motd-news.timer 2>/dev/null || true
@@ -1775,7 +2692,7 @@ print_summary() {
   [[ -n "${ct_ip:-}" ]] && \
   echo -e "    Web VS Code:      ${CYAN}http://${ct_ip}:8080${NC}  (password: $CS_PASSWORD)"
   [[ -n "${ct_ip:-}" ]] && \
-  echo -e "    CCC Dashboard:    ${CYAN}http://${ct_ip}:9090${NC}  (token: sudo cat /etc/ccc/dashboard-token)"
+  echo -e "    Cockpit:          ${CYAN}https://${ct_ip}:9090${NC}  (user: ${CC_USER})"
   echo ""
   echo -e "  ${BOLD}First steps:${NC}"
   echo -e "    1. ${CYAN}ssh ${CC_USER}@${ct_ip:-<ip>}${NC}"
