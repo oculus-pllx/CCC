@@ -1360,10 +1360,10 @@ if ! clone_repo; then
   exit 1
 fi
 
-latest_commit=$(git -C "$TMP_REPO" rev-parse HEAD)
-latest_short=$(git -C "$TMP_REPO" rev-parse --short HEAD)
-latest_date=$(git -C "$TMP_REPO" log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
-latest_subject=$(git -C "$TMP_REPO" log -1 --format='%s')
+latest_commit=$(run_as_user git -C "$TMP_REPO" rev-parse HEAD)
+latest_short=$(run_as_user git -C "$TMP_REPO" rev-parse --short HEAD)
+latest_date=$(run_as_user git -C "$TMP_REPO" log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
+latest_subject=$(run_as_user git -C "$TMP_REPO" log -1 --format='%s')
 
 if [[ -n "$installed_commit" ]]; then
   installed_short=${installed_commit:0:7}
@@ -1375,18 +1375,18 @@ echo -e "  GitHub:    ${C}${latest_short}${N} — ${latest_date}"
 echo -e "             ${latest_subject}"
 echo ""
 
-if [[ -n "$installed_commit" ]] && git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
-  behind=$(git -C "$TMP_REPO" rev-list --count "${installed_commit}..HEAD")
+if [[ -n "$installed_commit" ]] && run_as_user git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
+  behind=$(run_as_user git -C "$TMP_REPO" rev-list --count "${installed_commit}..HEAD")
   if [[ "$behind" -eq 0 ]]; then
     echo -e "  ${G}Up to date with origin/${CCC_SELF_UPDATE_REF}.${N}"
   else
     echo -e "  ${Y}${behind} commit(s) behind origin/${CCC_SELF_UPDATE_REF}${N}"
-    git -C "$TMP_REPO" log --oneline --max-count=5 "${installed_commit}..HEAD" | sed 's/^/  • /'
+    run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 "${installed_commit}..HEAD" | sed 's/^/  • /'
   fi
 else
   echo -e "  ${Y}Behind count unknown.${N}"
   echo -e "  ${D}Recent GitHub commits:${N}"
-  git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
+  run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
 fi
 
 if [[ "$SHOW_ACTIONS" -eq 1 ]]; then
@@ -1462,7 +1462,7 @@ download_latest() {
 
 resolve_latest_commit() {
   if [[ -n "${CLONE_DIR:-}" && -d "$CLONE_DIR/.git" ]]; then
-    git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true
+    run_as_user git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true
     return 0
   fi
   git ls-remote "$CCC_SELF_UPDATE_REPO" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 && return 0
