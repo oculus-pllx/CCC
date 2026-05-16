@@ -1519,7 +1519,26 @@ if curl -fsSL "${DASH_BASE}/public/index.html" -o /tmp/ccc-index.html 2>/dev/nul
   sudo mv /tmp/ccc-index.html /opt/ccc-dashboard/public/index.html
   echo -e "  ${G}✓${N} Dashboard UI updated"
 fi
-sudo systemctl restart ccc-dashboard 2>/dev/null && echo -e "  ${G}✓${N} Dashboard restarted — refresh browser" || true
+# Install npm deps if this is a first-time setup
+if [[ ! -d /opt/ccc-dashboard/node_modules/ws ]]; then
+  echo -e "  Installing Node.js dependencies..."
+  sudo npm install --prefix /opt/ccc-dashboard --save ws node-pty > /dev/null 2>&1 \
+    && echo -e "  ${G}✓${N} npm deps installed" \
+    || echo -e "  ${Y}!${N} npm install failed — check node/npm"
+fi
+# Create service file if missing (may not exist on containers that had Cockpit)
+if [[ ! -f /etc/systemd/system/ccc-dashboard.service ]]; then
+  printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
+    | sudo tee /etc/systemd/system/ccc-dashboard.service > /dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl enable ccc-dashboard
+  echo -e "  ${G}✓${N} Service registered"
+fi
+sudo systemctl restart ccc-dashboard 2>/dev/null \
+  && echo -e "  ${G}✓${N} Dashboard restarted — open http://$(hostname -I | awk '{print $1}'):9090" \
+  || sudo systemctl start ccc-dashboard 2>/dev/null \
+  && echo -e "  ${G}✓${N} Dashboard started" \
+  || echo -e "  ${Y}!${N} Could not start ccc-dashboard — check: sudo journalctl -u ccc-dashboard -n 20"
 
 echo ""
 if [[ $STATUS -eq 0 ]]; then
@@ -1623,28 +1642,13 @@ if [[ ! -f /etc/ccc/dashboard-token ]]; then
   chmod 640 /etc/ccc/dashboard-token
 fi
 
-cat > /etc/systemd/system/ccc-dashboard.service << 'DASHSERVICE'
-[Unit]
-Description=CCC Dashboard
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/node /opt/ccc-dashboard/server.js
-Restart=always
-RestartSec=5
-WorkingDirectory=/opt/ccc-dashboard
-EnvironmentFile=-/etc/ccc/config
-Environment=PORT=9090
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-DASHSERVICE
+# printf avoids heredoc stdin competition when updateable section runs in a pipe
+printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
+  > /etc/systemd/system/ccc-dashboard.service
 
 systemctl daemon-reload
-systemctl enable --now ccc-dashboard
+systemctl enable ccc-dashboard
+systemctl restart ccc-dashboard 2>/dev/null || systemctl start ccc-dashboard
 
 _dash_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 _dash_token=$(cat /etc/ccc/dashboard-token 2>/dev/null || echo "(run: sudo cat /etc/ccc/dashboard-token)")
