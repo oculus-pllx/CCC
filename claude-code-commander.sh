@@ -1703,6 +1703,9 @@ systemctl enable --now NetworkManager
 systemctl restart NetworkManager
 
 nmcli con delete ccc-online 2>/dev/null || true
+nmcli con add type dummy con-name ccc-online ifname ccc-online0 \
+  ip4 192.0.2.2/24 gw4 192.0.2.1 ipv6.method disabled autoconnect yes 2>/dev/null || true
+nmcli con up ccc-online 2>/dev/null || true
 
 apt-get install -y cockpit > /dev/null 2>&1
 apt-get install -y cockpit-files > /dev/null 2>&1 || true
@@ -1790,32 +1793,32 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
   <title>Claude Code Commander</title>
   <style>
     :root {
-      --bg:      #ffffff;
-      --surface: #f0f0f0;
-      --card:    #ffffff;
-      --border:  #d2d2d2;
-      --text:    #151515;
-      --muted:   #6a6e73;
-      --primary: #0066cc;
-      --pri-fg:  #ffffff;
-      --danger:  #c9190b;
-      --success: #1e8f18;
-      --warn:    #f0ab00;
+      --bg:      #1b1d21;
+      --surface: #212427;
+      --card:    #292c2f;
+      --border:  #444548;
+      --text:    #e0e0e0;
+      --muted:   #8a8d90;
+      --primary: #73bcf7;
+      --pri-fg:  #151515;
+      --danger:  #ff6166;
+      --success: #5ba352;
+      --warn:    #f4c145;
       --radius:  4px;
     }
-    @media (prefers-color-scheme: dark) {
+    @media (prefers-color-scheme: light) {
       :root {
-        --bg:      #1b1d21;
-        --surface: #212427;
-        --card:    #292c2f;
-        --border:  #444548;
-        --text:    #e0e0e0;
-        --muted:   #8a8d90;
-        --primary: #73bcf7;
-        --pri-fg:  #151515;
-        --danger:  #ff6166;
-        --success: #5ba352;
-        --warn:    #f4c145;
+        --bg:      #ffffff;
+        --surface: #f0f0f0;
+        --card:    #ffffff;
+        --border:  #d2d2d2;
+        --text:    #151515;
+        --muted:   #6a6e73;
+        --primary: #0066cc;
+        --pri-fg:  #ffffff;
+        --danger:  #c9190b;
+        --success: #1e8f18;
+        --warn:    #f0ab00;
       }
     }
 
@@ -1960,7 +1963,7 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
       overflow-y: auto; margin-bottom: 16px; border: 1px solid #333;
     }
     @media (prefers-color-scheme: light) {
-      .ccc-output { background: #1b1d21; }
+      .ccc-output { background: #111316; }
     }
 
     /* ── Wizard progress ── */
