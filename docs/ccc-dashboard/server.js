@@ -284,8 +284,8 @@ R('GET','/api/network',(req,res)=>{
       const mac = line.match(/link\/\w+\s+([0-9a-f:]+)/);
       const state = line.match(/state\s+(\w+)/);
       if (nm && ifaces[nm[1]]) {
-        ifaces[nm[1]].mac = mac?.[1];
-        ifaces[nm[1]].state = state?.[1];
+        ifaces[nm[1]].mac = mac && mac[1];
+        ifaces[nm[1]].state = state && state[1];
       }
     }
     const routes = shell('ip route show 2>/dev/null').split('\n').filter(Boolean);

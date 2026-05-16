@@ -989,9 +989,10 @@ rm -f /usr/local/bin/ccc-fix-cockpit-updates /usr/local/bin/ccc-verify-cockpit-u
 # Stop Cockpit if running — ccc-dashboard takes over port 9090
 systemctl stop cockpit.socket cockpit.service 2>/dev/null || true
 systemctl disable cockpit.socket cockpit.service 2>/dev/null || true
-# Patch ccc-dashboard.service to never hit systemd restart rate limit
-if [[ -f /etc/systemd/system/ccc-dashboard.service ]] && ! grep -q StartLimitIntervalSec /etc/systemd/system/ccc-dashboard.service; then
-  sed -i 's/\[Unit\]/[Unit]\nStartLimitIntervalSec=0/' /etc/systemd/system/ccc-dashboard.service
+# Ensure ccc-dashboard.service has StartLimitIntervalSec=0 so systemd never gives up restarting
+if ! grep -q StartLimitIntervalSec /etc/systemd/system/ccc-dashboard.service 2>/dev/null; then
+  printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\nStartLimitIntervalSec=0\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
+    > /etc/systemd/system/ccc-dashboard.service
   systemctl daemon-reload
 fi
 
@@ -1590,9 +1591,9 @@ echo -e "  ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token r
 echo -e "  ${C}ccc-doctor${N}                System health check"
 echo ""
 echo -e "  ${Y}Web Interfaces${N}"
-IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
-echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
-echo -e "  ${C}http://\${IP}:9090${N}    CCC Dashboard — config, projects, MCP, updates, terminal"
+IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+echo -e "  ${C}http://${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
+echo -e "  ${C}http://${IP}:9090${N}    CCC Dashboard — config, projects, MCP, updates, terminal"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
 MOTD
