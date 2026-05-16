@@ -6,6 +6,9 @@ const path  = require('path');
 const cp    = require('child_process');
 const os    = require('os');
 
+process.on('uncaughtException',  err  => console.error('[ccc] uncaughtException:',  err.stack || err));
+process.on('unhandledRejection', reason => console.error('[ccc] unhandledRejection:', reason));
+
 const PORT   = parseInt(process.env.PORT || '9090');
 const PUBLIC = path.join(__dirname, 'public');
 const MIME   = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.json':'application/json' };
@@ -299,9 +302,10 @@ R('GET','/api/update-status',(req,res)=>{
 R('POST','/api/self-update',(req,res)=>{
   res.writeHead(200,{'Content-Type':'text/plain','Transfer-Encoding':'chunked'});
   const p = cp.spawn('sudo',['/usr/local/bin/ccc-self-update'],{env:process.env});
-  p.stdout.on('data',d=>res.write(d));
-  p.stderr.on('data',d=>res.write(d));
-  p.on('close',()=>res.end());
+  const write = d => { try{ res.write(d); }catch{} };
+  p.stdout.on('data',write);
+  p.stderr.on('data',write);
+  p.on('close',()=>{ try{ res.end(); }catch{} });
 });
 
 R('GET','/api/settings',(req,res)=>{
@@ -378,7 +382,7 @@ wss.on('connection',(ws,req)=>{
       if (msg.type==='resize') term.resize(msg.cols, msg.rows);
     } catch {}
   });
-  term.onData(d=>{ if(ws.readyState===1) ws.send(JSON.stringify({type:'output',data:d})); });
+  term.onData(d=>{ try{ if(ws.readyState===1) ws.send(JSON.stringify({type:'output',data:d})); }catch{} });
   ws.on('close',()=>{ try{term.kill();}catch{} });
   term.onExit(()=>{ try{ws.close();}catch{} });
 });

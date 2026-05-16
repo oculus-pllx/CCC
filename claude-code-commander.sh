@@ -989,6 +989,11 @@ rm -f /usr/local/bin/ccc-fix-cockpit-updates /usr/local/bin/ccc-verify-cockpit-u
 # Stop Cockpit if running — ccc-dashboard takes over port 9090
 systemctl stop cockpit.socket cockpit.service 2>/dev/null || true
 systemctl disable cockpit.socket cockpit.service 2>/dev/null || true
+# Patch ccc-dashboard.service to never hit systemd restart rate limit
+if [[ -f /etc/systemd/system/ccc-dashboard.service ]] && ! grep -q StartLimitIntervalSec /etc/systemd/system/ccc-dashboard.service; then
+  sed -i 's/\[Unit\]/[Unit]\nStartLimitIntervalSec=0/' /etc/systemd/system/ccc-dashboard.service
+  systemctl daemon-reload
+fi
 
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
@@ -1531,7 +1536,7 @@ if [[ ! -d /opt/ccc-dashboard/node_modules/ws ]]; then
 fi
 # Create service file if missing (may not exist on containers that had Cockpit)
 if [[ ! -f /etc/systemd/system/ccc-dashboard.service ]]; then
-  printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
+  printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\nStartLimitIntervalSec=0\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
     | sudo tee /etc/systemd/system/ccc-dashboard.service > /dev/null
   sudo systemctl daemon-reload
   sudo systemctl enable ccc-dashboard
@@ -1644,7 +1649,7 @@ if [[ ! -f /etc/ccc/dashboard-token ]]; then
 fi
 
 # printf avoids heredoc stdin competition when updateable section runs in a pipe
-printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
+printf '[Unit]\nDescription=CCC Dashboard\nAfter=network.target\nStartLimitIntervalSec=0\n\n[Service]\nType=simple\nExecStart=/usr/bin/node /opt/ccc-dashboard/server.js\nRestart=always\nRestartSec=5\nWorkingDirectory=/opt/ccc-dashboard\nEnvironmentFile=-/etc/ccc/config\nEnvironment=PORT=9090\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\n' \
   > /etc/systemd/system/ccc-dashboard.service
 
 systemctl daemon-reload
