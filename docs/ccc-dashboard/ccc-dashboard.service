@@ -1,0 +1,18 @@
+[Unit]
+Description=CCC Dashboard
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /opt/ccc-dashboard/server.js
+Restart=always
+RestartSec=5
+WorkingDirectory=/opt/ccc-dashboard
+EnvironmentFile=-/etc/ccc/config
+Environment=PORT=9090
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
