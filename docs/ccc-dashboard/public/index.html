@@ -24,38 +24,44 @@
   --mono:     'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
-
-/* ── Layout ── */
 .layout{display:flex;flex-direction:column;height:100vh}
 .topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-.topbar-logo{font-weight:700;font-size:15px;color:var(--text);letter-spacing:-.3px}
+.topbar-logo{font-weight:700;font-size:15px;letter-spacing:-.3px}
 .topbar-logo span{color:var(--primary)}
-.topbar-host{font-size:12px;color:var(--muted);margin-left:4px}
+.topbar-host{font-size:12px;color:var(--muted)}
 .topbar-spacer{flex:1}
 .topbar-user{font-size:12px;color:var(--muted)}
-
-.nav{display:flex;gap:2px;padding:0 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-.nav-btn{padding:10px 14px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap}
+.nav{display:flex;gap:2px;padding:0 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.nav-btn{padding:10px 14px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;flex-shrink:0}
 .nav-btn:hover{color:var(--text)}
 .nav-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
-
 .content{flex:1;overflow:hidden;position:relative}
 .tab{display:none;height:100%;overflow:auto;padding:20px}
 .tab.active{display:block}
 #tab-terminal{padding:0}
+#tab-files{padding:0;display:none;flex-direction:column}
+#tab-files.active{display:flex}
 
-/* ── Cards ── */
+/* Cards */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
-.card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
-.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.section-title{font-size:16px;font-weight:600;margin-bottom:16px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
 .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.stat-value{font-size:20px;font-weight:600;color:var(--text)}
+.stat-value{font-size:20px;font-weight:600}
 .stat-value.ok{color:var(--success)}
 .stat-value.err{color:var(--danger)}
 .stat-value.warn{color:var(--warn)}
 
-/* ── Status dots ── */
+/* Progress bar */
+.bar-wrap{background:var(--border);border-radius:3px;height:8px;margin-top:8px;overflow:hidden}
+.bar{height:100%;border-radius:3px;transition:width .4s}
+.bar.ok{background:var(--success)}
+.bar.warn{background:var(--warn)}
+.bar.err{background:var(--danger)}
+
+/* Dots / services */
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
 .dot.on{background:var(--success);box-shadow:0 0 6px var(--success)}
 .dot.off{background:var(--danger)}
@@ -65,68 +71,81 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .service-name{flex:1;font-size:13px}
 .service-port{font-size:11px;color:var(--muted);margin-right:8px}
 
-/* ── Buttons ── */
+/* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;cursor:pointer;transition:background .15s,border-color .15s}
 .btn:hover{background:var(--surface);border-color:var(--muted)}
 .btn-primary{background:var(--pri-dark);border-color:var(--primary);color:#fff}
-.btn-primary:hover{background:var(--primary);border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary)}
 .btn-danger{background:transparent;border-color:var(--danger);color:var(--danger)}
 .btn-danger:hover{background:var(--danger);color:#fff}
 .btn-sm{padding:4px 10px;font-size:12px}
 .btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
-/* ── Form ── */
+/* Form */
 .form-group{margin-bottom:14px}
 .form-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500}
 .form-control{width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:var(--font)}
 .form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
 textarea.form-control{font-family:var(--mono);font-size:12px;resize:vertical}
 
-/* ── Table ── */
+/* Table */
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border)}
-td{padding:9px 12px;border-bottom:1px solid var(--border)}
+td{padding:8px 12px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(255,255,255,.02)}
 
-/* ── Output ── */
-.output{font-family:var(--mono);font-size:12px;white-space:pre-wrap;background:#010409;color:#c9d1d9;padding:14px;border-radius:var(--radius);border:1px solid var(--border);max-height:280px;overflow-y:auto;margin-bottom:12px;min-height:60px}
+/* Output */
+.output{font-family:var(--mono);font-size:12px;white-space:pre-wrap;background:#010409;color:#c9d1d9;padding:14px;border-radius:var(--radius);border:1px solid var(--border);max-height:320px;overflow-y:auto;margin-bottom:12px;min-height:60px}
 
-/* ── Terminal ── */
+/* Terminal */
 #terminal-wrap{height:100%;background:#010409;display:flex;flex-direction:column}
 #terminal-toolbar{display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
 #terminal-toolbar span{font-size:12px;color:var(--muted)}
 #xterm{flex:1;padding:6px}
 
-/* ── Sections ── */
-.section-title{font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)}
-.link-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-.link-card{padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--primary);text-decoration:none;font-size:13px;transition:border-color .15s}
-.link-card:hover{border-color:var(--primary)}
-.link-card small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+/* File browser */
+#files-toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.breadcrumb{display:flex;align-items:center;gap:4px;flex:1;font-size:13px;min-width:0;overflow:hidden}
+.breadcrumb-part{color:var(--primary);cursor:pointer;white-space:nowrap}
+.breadcrumb-part:hover{text-decoration:underline}
+.breadcrumb-sep{color:var(--muted)}
+#files-body{display:flex;flex:1;overflow:hidden}
+#files-list{width:45%;min-width:220px;overflow-y:auto;border-right:1px solid var(--border)}
+#files-list table{font-size:12px}
+#files-list td{padding:6px 10px;cursor:pointer}
+#files-list tr.selected td{background:rgba(88,166,255,.12)}
+.file-icon{margin-right:6px;user-select:none}
+#file-viewer{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#file-viewer-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+#file-viewer-path{font-size:12px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
+#file-content{flex:1;overflow:auto;padding:14px;font-family:var(--mono);font-size:12px;white-space:pre;background:var(--bg);color:var(--text);border:none;resize:none;width:100%}
+#file-content:focus{outline:none}
 
-/* ── Login ── */
+/* Login */
 #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:32px;width:320px}
 .login-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .login-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
 
-/* ── Toast ── */
+/* Toast */
 .toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:9999}
-.toast{padding:10px 16px;border-radius:var(--radius);font-size:13px;color:#fff;animation:slide-in .2s ease;max-width:320px}
+.toast{padding:10px 16px;border-radius:var(--radius);font-size:13px;color:#fff;animation:slide-in .2s ease;max-width:340px}
 .toast.ok{background:#238636}
 .toast.err{background:#da3633}
 @keyframes slide-in{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 
-/* ── Wizard ── */
+/* Wizard */
 .wizard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;display:none}
 .wizard.open{display:block}
 .wizard-bar{height:4px;background:var(--border);border-radius:2px;margin-bottom:20px}
 .wizard-fill{height:100%;background:var(--primary);border-radius:2px;transition:width .2s}
 
-/* ── Spinner ── */
-@keyframes spin{to{transform:rotate(360deg)}}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+/* Link cards */
+.link-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.link-card{padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--primary);text-decoration:none;font-size:13px;transition:border-color .15s}
+.link-card:hover{border-color:var(--primary)}
+.link-card small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -155,13 +174,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
   <div class="nav">
     <button class="nav-btn active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+    <button class="nav-btn" data-tab="system"   onclick="showTab('system')">System</button>
     <button class="nav-btn" data-tab="terminal" onclick="showTab('terminal')">Terminal</button>
-    <button class="nav-btn" data-tab="claude" onclick="showTab('claude')">CLAUDE.md</button>
-    <button class="nav-btn" data-tab="mcp" onclick="showTab('mcp')">MCP</button>
+    <button class="nav-btn" data-tab="files"    onclick="showTab('files')">Files</button>
+    <button class="nav-btn" data-tab="claude"   onclick="showTab('claude')">CLAUDE.md</button>
+    <button class="nav-btn" data-tab="mcp"      onclick="showTab('mcp')">MCP</button>
     <button class="nav-btn" data-tab="projects" onclick="showTab('projects')">Projects</button>
-    <button class="nav-btn" data-tab="updates" onclick="showTab('updates')">Updates</button>
+    <button class="nav-btn" data-tab="updates"  onclick="showTab('updates')">Updates</button>
   </div>
   <div class="content">
+
     <!-- Overview -->
     <div class="tab active" id="tab-overview">
       <div class="section-title">Overview</div>
@@ -170,6 +192,49 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card">
         <div class="card-title">Services</div>
         <div id="service-list"></div>
+      </div>
+    </div>
+
+    <!-- System -->
+    <div class="tab" id="tab-system">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">System</div>
+        <button class="btn btn-sm" onclick="loadSystem()">↻ Refresh</button>
+        <span id="sys-age" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+      <div class="grid-2" id="sys-cards"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px" id="sys-bars-row">
+        <div class="card" id="sys-mem-card">
+          <div class="card-title">Memory</div>
+          <div id="sys-mem-text" style="font-size:13px;margin-bottom:6px"></div>
+          <div class="bar-wrap"><div class="bar" id="sys-mem-bar" style="width:0%"></div></div>
+        </div>
+        <div class="card" id="sys-swap-card">
+          <div class="card-title">Swap</div>
+          <div id="sys-swap-text" style="font-size:13px;margin-bottom:6px"></div>
+          <div class="bar-wrap"><div class="bar" id="sys-swap-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Disk</div>
+        <table>
+          <thead><tr><th>Mount</th><th>Size</th><th>Used</th><th>Free</th><th style="min-width:120px">Usage</th></tr></thead>
+          <tbody id="sys-disk"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Top Processes</div>
+        <table>
+          <thead><tr><th>PID</th><th>User</th><th>%CPU</th><th>%MEM</th><th>Command</th></tr></thead>
+          <tbody id="sys-procs"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Network</div>
+        <table>
+          <thead><tr><th>Interface</th><th>RX</th><th>TX</th></tr></thead>
+          <tbody id="sys-net"></tbody>
+        </table>
       </div>
     </div>
 
@@ -186,11 +251,40 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
+    <!-- Files -->
+    <div class="tab" id="tab-files">
+      <div id="files-toolbar">
+        <div class="breadcrumb" id="files-breadcrumb"></div>
+        <button class="btn btn-sm" onclick="filesNewFolder()">+ Folder</button>
+        <button class="btn btn-sm" onclick="filesRefresh()">↻</button>
+        <button class="btn btn-danger btn-sm" id="files-del-btn" style="display:none" onclick="filesDelete()">Delete</button>
+      </div>
+      <div id="files-body">
+        <div id="files-list">
+          <table>
+            <thead><tr><th>Name</th><th>Size</th><th>Modified</th></tr></thead>
+            <tbody id="files-tbody"></tbody>
+          </table>
+        </div>
+        <div id="file-viewer">
+          <div id="file-viewer-toolbar" style="display:none">
+            <div id="file-viewer-path"></div>
+            <button class="btn btn-sm btn-primary" onclick="fileSave()">Save</button>
+            <button class="btn btn-sm" onclick="fileClose()">✕</button>
+          </div>
+          <div id="file-viewer-empty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">
+            Select a file to view
+          </div>
+          <textarea id="file-content" style="display:none" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+
     <!-- CLAUDE.md -->
     <div class="tab" id="tab-claude">
       <div class="section-title">CLAUDE.md</div>
       <div class="card">
-        <textarea id="claude-editor" class="form-control" rows="28" placeholder="Loading..."></textarea>
+        <textarea id="claude-editor" class="form-control" rows="30" placeholder="Loading..."></textarea>
         <div class="btn-group">
           <button class="btn btn-primary" onclick="saveClaude()">Save</button>
         </div>
@@ -217,11 +311,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <button class="btn btn-primary" onclick="addMCP()">Add</button>
       </div>
       <div class="card">
-        <div class="card-title">GitHub Token</div>
+        <div class="card-title">GitHub Token (store in shell environment)</div>
         <div class="form-group">
           <input id="gh-token" class="form-control" type="password" placeholder="ghp_...">
         </div>
-        <button class="btn btn-primary" onclick="saveGHToken()">Save Token</button>
+        <button class="btn btn-primary" onclick="saveGHToken()">Save to .bashrc</button>
       </div>
     </div>
 
@@ -232,7 +326,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <button class="btn btn-primary btn-sm" onclick="openWizard()">+ New</button>
       </div>
       <div class="wizard" id="wizard">
-        <div class="wizard-bar"><div class="wizard-fill" id="wiz-bar" style="width:33%"></div></div>
+        <div class="wizard-bar"><div class="wizard-fill" id="wiz-bar" style="width:50%"></div></div>
         <div id="wiz-body"></div>
         <div class="btn-group">
           <button class="btn btn-primary btn-sm" onclick="wizNext()" id="wiz-next">Next →</button>
@@ -249,11 +343,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="card-title">CCC Provisioner</div>
         <div class="output" id="ccc-status-out">Click refresh to check...</div>
         <div class="btn-group">
-          <button class="btn" onclick="loadCCCStatus()">↻ Refresh Status</button>
+          <button class="btn" onclick="loadCCCStatus()">↻ Check Status</button>
           <button class="btn btn-primary" onclick="runSelfUpdate()">Run ccc-self-update</button>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -279,13 +374,13 @@ async function doLogin() {
     document.getElementById('login-err').style.display = 'block';
   }
 }
-document.getElementById('login-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('login-input').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 
 function api(method, path, body) {
   return fetch(`${BASE}${path}`,{
     method, headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},
     body: body ? JSON.stringify(body) : undefined,
-  }).then(r=>r.json());
+  }).then(r=>r.json()).catch(e=>({error:e.message}));
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -309,28 +404,105 @@ function showTab(name) {
 // ── Overview ──────────────────────────────────────────────────────────────────
 async function loadOverview() {
   const s = await api('GET','/api/status');
+  if (s.error) return;
   document.getElementById('topbar-host').textContent = `${s.hostname} — ${s.ip}`;
   document.getElementById('topbar-user').textContent = s.user;
-
   const ip = s.ip || location.hostname;
-  document.getElementById('link-grid').innerHTML = `
-    <a class="link-card" href="http://${ip}:8080" target="_blank">code-server<small>Web VS Code — :8080</small></a>
-    <a class="link-card" href="http://${ip}:9090" target="_blank">CCC Dashboard<small>This UI — :9090</small></a>`;
-
-  const mb = n => (n/1024/1024).toFixed(0)+' MB';
+  document.getElementById('link-grid').innerHTML =
+    `<a class="link-card" href="http://${ip}:8080" target="_blank">code-server<small>Web VS Code — :8080</small></a>
+     <a class="link-card" href="http://${ip}:9090" target="_blank">CCC Dashboard<small>This UI — :9090</small></a>`;
   const memUsed = s.mem.total - s.mem.free;
-  const memPct = Math.round(memUsed/s.mem.total*100);
-  document.getElementById('stat-grid').innerHTML = `
-    <div class="stat"><div class="stat-label">Claude CLI</div><div class="stat-value ${s.claude?'ok':'err'}">${s.claude?'Installed':'Missing'}</div></div>
-    <div class="stat"><div class="stat-label">CLAUDE.md</div><div class="stat-value ${s.claudeMd?'ok':'warn'}">${s.claudeMd?'Present':'Missing'}</div></div>
-    <div class="stat"><div class="stat-label">Load (1m)</div><div class="stat-value">${s.loadavg[0]}</div></div>
-    <div class="stat"><div class="stat-label">Memory</div><div class="stat-value ${memPct>85?'err':memPct>70?'warn':''}">${memPct}%</div></div>`;
-
-  document.getElementById('service-list').innerHTML = `
-    <div class="service-row"><span class="dot ${s.codeServer==='active'?'on':'off'}"></span><span class="service-name">code-server</span><span class="service-port">:8080</span></div>
-    <div class="service-row"><span class="dot on"></span><span class="service-name">ccc-dashboard</span><span class="service-port">:9090</span></div>`;
+  const memPct  = Math.round(memUsed/s.mem.total*100);
+  const uptStr  = fmtUptime(s.uptime);
+  document.getElementById('stat-grid').innerHTML =
+    `<div class="stat"><div class="stat-label">Claude CLI</div><div class="stat-value ${s.claude?'ok':'err'}">${s.claude?'Installed':'Missing'}</div></div>
+     <div class="stat"><div class="stat-label">CLAUDE.md</div><div class="stat-value ${s.claudeMd?'ok':'warn'}">${s.claudeMd?'Present':'Missing'}</div></div>
+     <div class="stat"><div class="stat-label">Load (1m)</div><div class="stat-value">${s.loadavg[0]}</div></div>
+     <div class="stat"><div class="stat-label">Memory</div><div class="stat-value ${memPct>85?'err':memPct>70?'warn':''}">${memPct}%</div></div>
+     <div class="stat"><div class="stat-label">Uptime</div><div class="stat-value" style="font-size:14px">${uptStr}</div></div>`;
+  document.getElementById('service-list').innerHTML =
+    `<div class="service-row"><span class="dot ${s.codeServer==='active'?'on':'off'}"></span><span class="service-name">code-server</span><span class="service-port">:8080</span></div>
+     <div class="service-row"><span class="dot on"></span><span class="service-name">ccc-dashboard</span><span class="service-port">:9090</span></div>`;
 }
 tabLoaders.overview = loadOverview;
+
+function fmtUptime(s) {
+  const d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60);
+  return d>0 ? `${d}d ${h}h` : h>0 ? `${h}h ${m}m` : `${m}m`;
+}
+function fmtBytes(b) {
+  if (b>1e9) return (b/1e9).toFixed(1)+' GB';
+  if (b>1e6) return (b/1e6).toFixed(1)+' MB';
+  if (b>1e3) return (b/1e3).toFixed(1)+' KB';
+  return b+' B';
+}
+
+// ── System ────────────────────────────────────────────────────────────────────
+let sysTimer;
+async function loadSystem() {
+  document.getElementById('sys-age').textContent = 'Loading...';
+  const s = await api('GET','/api/system');
+  if (s.error) { document.getElementById('sys-age').textContent = 'Error: '+s.error; return; }
+  document.getElementById('sys-age').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+  // Stat cards
+  document.getElementById('sys-cards').innerHTML =
+    `<div class="stat"><div class="stat-label">Load 1m</div><div class="stat-value">${s.loadavg[0]}</div></div>
+     <div class="stat"><div class="stat-label">Load 5m</div><div class="stat-value">${s.loadavg[1]}</div></div>
+     <div class="stat"><div class="stat-label">Load 15m</div><div class="stat-value">${s.loadavg[2]}</div></div>
+     <div class="stat"><div class="stat-label">Uptime</div><div class="stat-value" style="font-size:14px">${fmtUptime(s.uptime)}</div></div>`;
+
+  // Memory bar
+  const memUsed = s.mem.total - s.mem.free;
+  const memPct  = Math.round(memUsed/s.mem.total*100);
+  document.getElementById('sys-mem-text').textContent = `${fmtBytes(memUsed)} / ${fmtBytes(s.mem.total)} (${memPct}%)`;
+  const mb = document.getElementById('sys-mem-bar');
+  mb.style.width = memPct+'%';
+  mb.className = 'bar ' + (memPct>85?'err':memPct>70?'warn':'ok');
+
+  // Swap (hide card if no swap)
+  if (s.swap && s.swap.total > 0) {
+    const swPct = Math.round(s.swap.used/s.swap.total*100);
+    document.getElementById('sys-swap-text').textContent = `${fmtBytes(s.swap.used)} / ${fmtBytes(s.swap.total)} (${swPct}%)`;
+    const sb = document.getElementById('sys-swap-bar');
+    sb.style.width = swPct+'%';
+    sb.className = 'bar ' + (swPct>80?'err':swPct>50?'warn':'ok');
+    document.getElementById('sys-swap-card').style.display = '';
+  } else {
+    document.getElementById('sys-swap-card').style.display = 'none';
+  }
+
+  // Disk
+  document.getElementById('sys-disk').innerHTML = (s.disk||[]).map(d=>{
+    const pct = parseInt(d.pct)||0;
+    return `<tr>
+      <td><strong>${d.mount}</strong><br><span style="color:var(--muted);font-size:11px">${d.src}</span></td>
+      <td>${d.size}</td><td>${d.used}</td><td>${d.avail}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="bar-wrap" style="flex:1"><div class="bar ${pct>90?'err':pct>75?'warn':'ok'}" style="width:${pct}%"></div></div>
+          <span style="font-size:11px;white-space:nowrap">${d.pct}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:var(--muted)">No data</td></tr>';
+
+  // Processes
+  document.getElementById('sys-procs').innerHTML = (s.procs||[]).map(p=>
+    `<tr><td>${p.pid}</td><td>${p.user}</td><td>${p.cpu}%</td><td>${p.mem}%</td>
+     <td style="font-family:var(--mono);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.cmd}">${p.cmd}</td></tr>`
+  ).join('') || '<tr><td colspan="5" style="color:var(--muted)">No data</td></tr>';
+
+  // Network
+  document.getElementById('sys-net').innerHTML = (s.net||[]).map(n=>
+    `<tr><td>${n.iface}</td><td>${fmtBytes(n.rx)}</td><td>${fmtBytes(n.tx)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="color:var(--muted)">No data</td></tr>';
+}
+tabLoaders.system = () => {
+  loadSystem();
+  clearInterval(sysTimer);
+  sysTimer = setInterval(loadSystem, 10000);
+};
 
 // ── Terminal ──────────────────────────────────────────────────────────────────
 let term, fitAddon, ws;
@@ -364,6 +536,109 @@ function connectTerm() {
 function reconnectTerm() { connectTerm(); }
 tabLoaders.terminal = () => { if(!term) initTerm(); else fitAddon.fit(); };
 
+// ── Files ─────────────────────────────────────────────────────────────────────
+let filesPath = '';
+let filesSelected = null;
+
+async function loadFiles(p) {
+  filesSelected = null;
+  document.getElementById('files-del-btn').style.display = 'none';
+  fileClose();
+  const d = await api('GET', `/api/files?path=${encodeURIComponent(p||filesPath)}`);
+  if (d.error) { toast(d.error,'err'); return; }
+  if (!filesPath) filesPath = d.home || d.path;
+  filesPath = d.path;
+
+  // Breadcrumb
+  const parts = d.path.split('/').filter(Boolean);
+  let bc = `<span class="breadcrumb-part" onclick="loadFiles('/')">/</span>`;
+  let built = '';
+  for (const part of parts) {
+    built += '/' + part;
+    const cur = built;
+    bc += `<span class="breadcrumb-sep">/</span><span class="breadcrumb-part" onclick="loadFiles('${cur}')">${part}</span>`;
+  }
+  document.getElementById('files-breadcrumb').innerHTML = bc;
+
+  // File list
+  const rows = [];
+  if (d.path !== '/' && d.parent) {
+    rows.push(`<tr onclick="loadFiles('${d.parent}')"><td colspan="3"><span class="file-icon">📁</span>..</td></tr>`);
+  }
+  for (const e of d.entries) {
+    const icon = e.dir ? '📁' : fileIcon(e.name);
+    const size = e.dir ? '—' : fmtBytes(e.size);
+    const mtime = e.mtime ? new Date(e.mtime).toLocaleDateString() : '—';
+    const fullPath = d.path.replace(/\/$/, '') + '/' + e.name;
+    const click = e.dir
+      ? `loadFiles('${fullPath.replace(/'/g,"\\'")}')`
+      : `selectFile('${fullPath.replace(/'/g,"\\'")}','${e.name.replace(/'/g,"\\'")}')`;
+    rows.push(`<tr id="frow-${CSS.escape(e.name)}" onclick="${click}">
+      <td><span class="file-icon">${icon}</span>${e.name}</td>
+      <td style="color:var(--muted)">${size}</td>
+      <td style="color:var(--muted)">${mtime}</td>
+    </tr>`);
+  }
+  document.getElementById('files-tbody').innerHTML = rows.join('') || '<tr><td colspan="3" style="color:var(--muted)">Empty directory</td></tr>';
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const map = {md:'📝',txt:'📝',json:'📋',js:'📜',ts:'📜',py:'🐍',sh:'⚙️',yaml:'📋',yml:'📋',html:'🌐',css:'🎨',go:'📜',rs:'📜',toml:'📋',log:'📄',env:'🔒'};
+  return map[ext] || '📄';
+}
+
+async function selectFile(fullPath, name) {
+  filesSelected = fullPath;
+  document.querySelectorAll('#files-tbody tr').forEach(r=>r.classList.remove('selected'));
+  const row = document.getElementById(`frow-${CSS.escape(name)}`);
+  if (row) row.classList.add('selected');
+  document.getElementById('files-del-btn').style.display = '';
+  const d = await api('GET', `/api/file?path=${encodeURIComponent(fullPath)}`);
+  if (d.error) { toast(d.error,'err'); return; }
+  if (d.binary) { toast('Binary file — cannot preview'); fileClose(); return; }
+  document.getElementById('file-viewer-empty').style.display = 'none';
+  const ta = document.getElementById('file-content');
+  ta.value = d.content;
+  ta.style.display = 'block';
+  document.getElementById('file-viewer-toolbar').style.display = 'flex';
+  document.getElementById('file-viewer-path').textContent = fullPath;
+}
+
+async function fileSave() {
+  if (!filesSelected) return;
+  const r = await api('POST','/api/file',{path:filesSelected, content:document.getElementById('file-content').value});
+  r.ok ? toast('Saved') : toast('Save failed: '+r.error,'err');
+}
+
+function fileClose() {
+  document.getElementById('file-viewer-empty').style.display = 'flex';
+  document.getElementById('file-content').style.display = 'none';
+  document.getElementById('file-viewer-toolbar').style.display = 'none';
+  document.querySelectorAll('#files-tbody tr').forEach(r=>r.classList.remove('selected'));
+  filesSelected = null;
+  document.getElementById('files-del-btn').style.display = 'none';
+}
+
+async function filesDelete() {
+  if (!filesSelected) return;
+  if (!confirm(`Delete ${filesSelected}?`)) return;
+  const r = await api('DELETE',`/api/file?path=${encodeURIComponent(filesSelected)}`);
+  if (r.ok) { toast('Deleted'); fileClose(); loadFiles(filesPath); }
+  else toast('Delete failed: '+r.error,'err');
+}
+
+async function filesNewFolder() {
+  const name = prompt('Folder name:');
+  if (!name) return;
+  const newPath = filesPath.replace(/\/$/, '') + '/' + name;
+  const r = await api('POST','/api/mkdir',{path:newPath});
+  r.ok ? (toast('Created'), loadFiles(filesPath)) : toast('Error: '+r.error,'err');
+}
+
+function filesRefresh() { loadFiles(filesPath); }
+tabLoaders.files = () => { if (!filesPath) loadFiles(''); else loadFiles(filesPath); };
+
 // ── CLAUDE.md ─────────────────────────────────────────────────────────────────
 async function loadClaude() {
   const r = await api('GET','/api/claude-md');
@@ -380,8 +655,6 @@ let mcpData = {mcpServers:{}};
 async function loadMCP() {
   mcpData = await api('GET','/api/mcp');
   renderMCP();
-  // load gh token from settings
-  const s = await api('GET','/api/settings');
 }
 function renderMCP() {
   const entries = Object.entries(mcpData.mcpServers||{});
@@ -396,8 +669,8 @@ async function addMCP() {
   const parts = cmd.split(/\s+/);
   mcpData.mcpServers[name] = {command:parts[0],args:parts.slice(1)};
   const r = await api('POST','/api/mcp',mcpData);
-  r.ok ? (renderMCP(), document.getElementById('mcp-name').value='', document.getElementById('mcp-cmd').value='', toast('MCP server added'))
-       : toast('Save failed: '+r.error,'err');
+  if (r.ok) { renderMCP(); document.getElementById('mcp-name').value=''; document.getElementById('mcp-cmd').value=''; toast('MCP server added'); }
+  else toast('Save failed: '+r.error,'err');
 }
 async function removeMCP(name) {
   if (!confirm(`Remove MCP server "${name}"?`)) return;
@@ -408,8 +681,13 @@ async function removeMCP(name) {
 async function saveGHToken() {
   const t = document.getElementById('gh-token').value.trim();
   if (!t) { toast('Token required','err'); return; }
-  // Write to bashrc via a simple approach — shell out
-  toast('Set GITHUB_TOKEN in your shell: export GITHUB_TOKEN="'+t+'"');
+  const home = document.getElementById('topbar-user').textContent;
+  const bashrc = `/home/${home}/.bashrc`;
+  const r = await api('GET', `/api/file?path=${encodeURIComponent(bashrc)}`);
+  if (r.error) { toast(r.error,'err'); return; }
+  const content = (r.content||'').replace(/\nexport GITHUB_TOKEN=.*\n?/g,'\n') + `\nexport GITHUB_TOKEN="${t}"\n`;
+  const wr = await api('POST','/api/file',{path:bashrc,content});
+  wr.ok ? toast('Token saved to .bashrc — re-login or source ~/.bashrc') : toast('Error: '+wr.error,'err');
 }
 tabLoaders.mcp = loadMCP;
 
@@ -417,11 +695,12 @@ tabLoaders.mcp = loadMCP;
 let wiz = {step:1,name:'',location:''};
 async function loadProjects() {
   const {projects} = await api('GET','/api/projects');
-  const ip = document.getElementById('topbar-host').textContent.split(' — ')[1] || location.hostname;
-  document.getElementById('project-list').innerHTML = !projects.length
-    ? '<div style="color:var(--muted);font-size:13px">No projects yet. Create one with + New.</div>'
+  const ip = (document.getElementById('topbar-host').textContent.split(' — ')[1]||'').trim() || location.hostname;
+  const user = document.getElementById('topbar-user').textContent || 'claude-code';
+  document.getElementById('project-list').innerHTML = !(projects||[]).length
+    ? '<div style="color:var(--muted);font-size:13px">No projects yet.</div>'
     : '<div class="card"><table><thead><tr><th>Project</th><th></th></tr></thead><tbody>'
-      + projects.map(p=>`<tr><td>${p}</td><td style="text-align:right"><a class="btn btn-sm" href="http://${ip}:8080/?folder=/home/${document.getElementById('topbar-user').textContent||'claude-code'}/projects/${encodeURIComponent(p)}" target="_blank">Open in VS Code ↗</a></td></tr>`).join('')
+      + projects.map(p=>`<tr><td>${p}</td><td style="text-align:right"><a class="btn btn-sm" href="http://${ip}:8080/?folder=/home/${user}/projects/${encodeURIComponent(p)}" target="_blank">Open in VS Code ↗</a></td></tr>`).join('')
       + '</tbody></table></div>';
 }
 function openWizard() {
@@ -432,25 +711,25 @@ function openWizard() {
 function closeWizard() { document.getElementById('wizard').classList.remove('open'); }
 function renderWiz() {
   document.getElementById('wiz-bar').style.width = (wiz.step*50)+'%';
-  document.getElementById('wiz-next').textContent = wiz.step===2 ? 'Create Project' : 'Next →';
+  document.getElementById('wiz-next').textContent = wiz.step===2 ? 'Create' : 'Next →';
   if (wiz.step===1) {
     document.getElementById('wiz-body').innerHTML = `<div class="form-group"><label class="form-label">Project Name</label><input id="wiz-name" class="form-control" placeholder="my-project" value="${wiz.name}"></div>`;
   } else {
-    document.getElementById('wiz-body').innerHTML = `<div class="form-group"><label class="form-label">Location</label><input id="wiz-loc" class="form-control" value="${wiz.location}"></div>
-    <div class="form-group"><label class="form-label">GitHub Remote (optional)</label><input id="wiz-remote" class="form-control" placeholder="username/repo-name"></div>`;
+    document.getElementById('wiz-body').innerHTML =
+      `<div class="form-group"><label class="form-label">Location</label><input id="wiz-loc" class="form-control" value="${wiz.location}"></div>
+       <div class="form-group"><label class="form-label">GitHub Remote (optional)</label><input id="wiz-remote" class="form-control" placeholder="username/repo"></div>`;
   }
 }
 async function wizNext() {
   if (wiz.step===1) {
     const name = document.getElementById('wiz-name').value.trim();
     if (!name) { toast('Name required','err'); return; }
-    wiz.name=name; wiz.location=`/home/${document.getElementById('topbar-user').textContent||'claude-code'}/projects/${name}`; wiz.step=2; renderWiz();
+    const user = document.getElementById('topbar-user').textContent || 'claude-code';
+    wiz.name=name; wiz.location=`/home/${user}/projects/${name}`; wiz.step=2; renderWiz();
   } else {
     wiz.location = document.getElementById('wiz-loc').value.trim();
-    const remote = document.getElementById('wiz-remote').value.trim();
     const r = await api('POST','/api/projects',{name:wiz.name,location:wiz.location});
-    if (r.ok) { toast('Project created'); closeWizard(); loadProjects(); }
-    else toast('Error: '+r.error,'err');
+    r.ok ? (toast('Project created'), closeWizard(), loadProjects()) : toast('Error: '+r.error,'err');
   }
 }
 tabLoaders.projects = loadProjects;
@@ -479,17 +758,12 @@ tabLoaders.updates = loadCCCStatus;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
-  loadOverview();
+  await loadOverview();
 }
 
-// Auto-login if token stored
 if (TOKEN) {
   fetch(`${BASE}/api/status`,{headers:{Authorization:`Bearer ${TOKEN}`}}).then(r=>{
-    if(r.ok){
-      document.getElementById('login').style.display='none';
-      document.getElementById('app').style.display='flex';
-      init();
-    }
+    if(r.ok){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display='flex'; init(); }
   });
 }
 </script>

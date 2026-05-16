@@ -56,6 +56,15 @@ function getIP() {
   return 'localhost';
 }
 
+// ── File browser path guard ───────────────────────────────────────────────────
+const FILE_ROOTS = [HOME, '/opt/ccc-dashboard', '/etc/ccc', '/var/log', '/tmp'];
+function safePath(p) {
+  if (!p) return HOME;
+  const resolved = path.resolve(p);
+  if (FILE_ROOTS.some(r => resolved === r || resolved.startsWith(r+'/'))) return resolved;
+  return null;
+}
+
 // ── API routes ────────────────────────────────────────────────────────────────
 const ROUTES = {};
 const R = (m,p,fn) => ROUTES[`${m} ${p}`] = fn;
@@ -71,6 +80,32 @@ R('GET','/api/status',(req,res)=>{
     loadavg: os.loadavg().map(n=>n.toFixed(2)),
     mem: { total: os.totalmem(), free: os.freemem() },
   });
+});
+
+R('GET','/api/system',(req,res)=>{
+  try {
+    const disk = shell("df -h --output=source,size,used,avail,pcent,target 2>/dev/null | tail -n +2")
+      .split('\n').filter(l => l && !l.includes('tmpfs') && !l.includes('udev') && !l.match(/^overlay/))
+      .map(l => { const p=l.trim().split(/\s+/); return {src:p[0],size:p[1],used:p[2],avail:p[3],pct:p[4],mount:p[5]}; });
+
+    const procs = shell("ps aux --sort=-%cpu --no-headers 2>/dev/null | head -15")
+      .split('\n').filter(Boolean)
+      .map(l => {
+        const p = l.trim().split(/\s+/);
+        return { user:p[0], pid:p[1], cpu:p[2], mem:p[3], cmd:p.slice(10).join(' ').replace(/^-/,'').slice(0,40) };
+      });
+
+    const netRaw = fs.readFileSync('/proc/net/dev','utf8').trim().split('\n').slice(2)
+      .map(l => { const p=l.trim().split(/\s+/); return { iface:p[0].replace(':',''), rx:parseInt(p[1]), tx:parseInt(p[9]) }; })
+      .filter(n => n.iface !== 'lo');
+
+    json(res,{
+      loadavg: os.loadavg().map(n=>n.toFixed(2)),
+      uptime:  os.uptime(),
+      mem:     { total: os.totalmem(), free: os.freemem() },
+      disk, procs, net: netRaw,
+    });
+  } catch(e){ json(res,{error:e.message},500); }
 });
 
 R('GET','/api/claude-md',(req,res)=>{
@@ -115,6 +150,67 @@ R('POST','/api/projects',async(req,res)=>{
     const loc = location || `${HOME}/projects/${name}`;
     shell(`mkdir -p "${loc}" && git -C "${loc}" init && chown -R ${CCC_USER}:${CCC_USER} "${loc}"`);
     json(res,{ok:true,location:loc});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+// ── File browser ──────────────────────────────────────────────────────────────
+R('GET','/api/files',(req,res)=>{
+  const p = safePath(new URL(req.url,'http://x').searchParams.get('path'));
+  if (!p) { json(res,{error:'Access denied'},403); return; }
+  try {
+    const entries = fs.readdirSync(p,{withFileTypes:true}).map(e=>{
+      const full = path.join(p,e.name);
+      let size=0, mtime=0, isDir=false;
+      try { const s=fs.statSync(full); size=s.size; mtime=s.mtimeMs; isDir=s.isDirectory(); } catch {}
+      return { name:e.name, dir:isDir, size, mtime };
+    }).sort((a,b)=> b.dir-a.dir || a.name.localeCompare(b.name));
+    json(res,{path:p,parent:path.dirname(p),entries,home:HOME});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('GET','/api/file',(req,res)=>{
+  const p = safePath(new URL(req.url,'http://x').searchParams.get('path'));
+  if (!p) { json(res,{error:'Access denied'},403); return; }
+  try {
+    const stat = fs.statSync(p);
+    if (stat.size > 512*1024) { json(res,{error:'File too large to preview (>512KB)'}); return; }
+    const buf = fs.readFileSync(p);
+    // Detect binary by checking for null bytes in first 8KB
+    const sample = buf.slice(0,8192);
+    const binary = sample.includes(0);
+    json(res,{ content: binary ? null : buf.toString('utf8'), binary, size: stat.size });
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('POST','/api/file',async(req,res)=>{
+  try {
+    const {path:p, content} = JSON.parse(await body(req));
+    const safe = safePath(p);
+    if (!safe) { json(res,{error:'Access denied'},403); return; }
+    fs.mkdirSync(path.dirname(safe),{recursive:true});
+    fs.writeFileSync(safe, content, 'utf8');
+    json(res,{ok:true});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('DELETE','/api/file',async(req,res)=>{
+  try {
+    const p = safePath(new URL(req.url,'http://x').searchParams.get('path'));
+    if (!p) { json(res,{error:'Access denied'},403); return; }
+    const stat = fs.statSync(p);
+    if (stat.isDirectory()) shell(`rm -rf "${p}"`);
+    else fs.unlinkSync(p);
+    json(res,{ok:true});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('POST','/api/mkdir',async(req,res)=>{
+  try {
+    const {path:p} = JSON.parse(await body(req));
+    const safe = safePath(p);
+    if (!safe) { json(res,{error:'Access denied'},403); return; }
+    fs.mkdirSync(safe,{recursive:true});
+    json(res,{ok:true});
   } catch(e){ json(res,{error:e.message},500); }
 });
 
@@ -193,7 +289,6 @@ wss.on('connection',(ws,req)=>{
     },
   });
 
-  // Drop to CCC_USER if server is root
   if (process.getuid && process.getuid()===0) {
     term.write(`sudo -u ${CCC_USER} -i\n`);
   }
