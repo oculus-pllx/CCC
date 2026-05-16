@@ -3,35 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <title>Claude Code Commander</title>
+  <!-- In production Cockpit: loads PatternFly CSS for native theme inheritance.
+       In local dev (mock-cockpit.js): falls back to hardcoded dark vars below. -->
+  <link rel="stylesheet" href="../base1/patternfly.css">
   <style>
     :root {
-      --bg:      #1b1d21;
-      --surface: #212427;
-      --card:    #292c2f;
-      --border:  #444548;
-      --text:    #e0e0e0;
-      --muted:   #8a8d90;
-      --primary: #73bcf7;
-      --pri-fg:  #151515;
-      --danger:  #ff6166;
-      --success: #5ba352;
-      --warn:    #f4c145;
-      --radius:  4px;
-    }
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg:      #ffffff;
-        --surface: #f0f0f0;
-        --card:    #ffffff;
-        --border:  #d2d2d2;
-        --text:    #151515;
-        --muted:   #6a6e73;
-        --primary: #0066cc;
-        --pri-fg:  #ffffff;
-        --danger:  #c9190b;
-        --success: #1e8f18;
-        --warn:    #f0ab00;
-      }
+      --bg:      var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #1b1d21));
+      --surface: var(--pf-v5-global--BackgroundColor--200,      var(--pf-global--BackgroundColor--200,      #212427));
+      --card:    var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #292c2f));
+      --border:  var(--pf-v5-global--BorderColor--100,          var(--pf-global--BorderColor--100,          #444548));
+      --text:    var(--pf-v5-global--Color--100,                var(--pf-global--Color--100,                #e0e0e0));
+      --muted:   var(--pf-v5-global--Color--200,                var(--pf-global--Color--200,                #8a8d90));
+      --primary: var(--pf-v5-global--primary-color--100,        var(--pf-global--primary-color--100,        #73bcf7));
+      --pri-fg:  var(--pf-v5-global--primary-color--200,        var(--pf-global--primary-color--200,        #151515));
+      --danger:  var(--pf-v5-global--danger-color--100,         var(--pf-global--danger-color--100,         #ff6166));
+      --success: var(--pf-v5-global--success-color--100,        var(--pf-global--success-color--100,        #5ba352));
+      --warn:    var(--pf-v5-global--warning-color--100,        var(--pf-global--warning-color--100,        #f4c145));
+      --radius:  var(--pf-v5-global--BorderRadius--sm,          var(--pf-global--BorderRadius--sm,          4px));
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -759,6 +747,16 @@ async function applyOculusUpdate() {
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
+(function syncCockpitTheme() {
+  try {
+    const ph = window.parent.document.documentElement;
+    ['pf-v5-theme-dark','pf-theme-dark','pf-v5-theme-light','pf-theme-light'].forEach(c => {
+      if (ph.classList.contains(c)) document.documentElement.classList.add(c);
+    });
+    new MutationObserver(() => syncCockpitTheme()).observe(ph, { attributes: true, attributeFilter: ['class'] });
+  } catch {}
+})();
+
 (async () => {
   try {
     const u = await cockpit.user();

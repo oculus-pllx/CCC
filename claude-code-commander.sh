@@ -1595,7 +1595,8 @@ if [[ $STATUS -eq 0 ]]; then
     } | sudo tee "$VERSION_FILE" >/dev/null
   fi
   echo -e "${G}${B}Self-update complete.${N}"
-  echo -e "  ccc-* commands, MOTD, and Cockpit fixes updated to latest."
+  echo -e "  ccc-* commands, MOTD, and Cockpit plugin updated to latest."
+  sudo systemctl restart cockpit.socket 2>/dev/null && echo -e "  Cockpit restarted — reload the browser tab to see plugin changes." || true
 else
   echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
 fi
@@ -1779,35 +1780,24 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
 <head>
   <meta charset="UTF-8">
   <title>Claude Code Commander</title>
+  <!-- Load Cockpit's PatternFly CSS for native look and theme inheritance -->
+  <link rel="stylesheet" href="../base1/patternfly.css">
   <style>
+    /* Map our vars to PatternFly CSS custom properties with hardcoded dark fallbacks.
+       PF5 vars: --pf-v5-global--*   PF4 vars: --pf-global--*  */
     :root {
-      --bg:      #1b1d21;
-      --surface: #212427;
-      --card:    #292c2f;
-      --border:  #444548;
-      --text:    #e0e0e0;
-      --muted:   #8a8d90;
-      --primary: #73bcf7;
-      --pri-fg:  #151515;
-      --danger:  #ff6166;
-      --success: #5ba352;
-      --warn:    #f4c145;
-      --radius:  4px;
-    }
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg:      #ffffff;
-        --surface: #f0f0f0;
-        --card:    #ffffff;
-        --border:  #d2d2d2;
-        --text:    #151515;
-        --muted:   #6a6e73;
-        --primary: #0066cc;
-        --pri-fg:  #ffffff;
-        --danger:  #c9190b;
-        --success: #1e8f18;
-        --warn:    #f0ab00;
-      }
+      --bg:      var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #1b1d21));
+      --surface: var(--pf-v5-global--BackgroundColor--200,      var(--pf-global--BackgroundColor--200,      #212427));
+      --card:    var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #292c2f));
+      --border:  var(--pf-v5-global--BorderColor--100,          var(--pf-global--BorderColor--100,          #444548));
+      --text:    var(--pf-v5-global--Color--100,                var(--pf-global--Color--100,                #e0e0e0));
+      --muted:   var(--pf-v5-global--Color--200,                var(--pf-global--Color--200,                #8a8d90));
+      --primary: var(--pf-v5-global--primary-color--100,        var(--pf-global--primary-color--100,        #73bcf7));
+      --pri-fg:  var(--pf-v5-global--primary-color--200,        var(--pf-global--primary-color--200,        #151515));
+      --danger:  var(--pf-v5-global--danger-color--100,         var(--pf-global--danger-color--100,         #ff6166));
+      --success: var(--pf-v5-global--success-color--100,        var(--pf-global--success-color--100,        #5ba352));
+      --warn:    var(--pf-v5-global--warning-color--100,        var(--pf-global--warning-color--100,        #f4c145));
+      --radius:  var(--pf-v5-global--BorderRadius--sm,          var(--pf-global--BorderRadius--sm,          4px));
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2546,6 +2536,20 @@ async function applyOculusUpdate() {
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
+// Sync Cockpit's PatternFly theme class into this iframe so PF CSS vars
+// (--pf-v5-global--BackgroundColor--100 etc.) resolve to the correct theme.
+// Plugin iframe is same-origin as Cockpit so parent frame is accessible.
+(function syncCockpitTheme() {
+  try {
+    const ph = window.parent.document.documentElement;
+    ['pf-v5-theme-dark','pf-theme-dark','pf-v5-theme-light','pf-theme-light'].forEach(c => {
+      if (ph.classList.contains(c)) document.documentElement.classList.add(c);
+    });
+    // Watch for live theme switches in the parent frame
+    new MutationObserver(() => syncCockpitTheme()).observe(ph, { attributes: true, attributeFilter: ['class'] });
+  } catch {}
+})();
+
 (async () => {
   try {
     const u = await cockpit.user();
