@@ -986,6 +986,9 @@ systemctl daemon-reload 2>/dev/null || true
 rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
 # Remove retired Cockpit helper scripts
 rm -f /usr/local/bin/ccc-fix-cockpit-updates /usr/local/bin/ccc-verify-cockpit-updates
+# Stop Cockpit if running — ccc-dashboard takes over port 9090
+systemctl stop cockpit.socket cockpit.service 2>/dev/null || true
+systemctl disable cockpit.socket cockpit.service 2>/dev/null || true
 
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
