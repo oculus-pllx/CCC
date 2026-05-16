@@ -141,6 +141,24 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .wizard-bar{height:4px;background:var(--border);border-radius:2px;margin-bottom:20px}
 .wizard-fill{height:100%;background:var(--primary);border-radius:2px;transition:width .2s}
 
+/* Service badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-ok{background:rgba(63,185,80,.15);color:var(--success);border:1px solid rgba(63,185,80,.3)}
+.badge-err{background:rgba(248,81,73,.15);color:var(--danger);border:1px solid rgba(248,81,73,.3)}
+.badge-muted{background:rgba(139,148,158,.12);color:var(--muted);border:1px solid var(--border)}
+
+/* Plugin toggles */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;background:var(--card)}
+.toggle-label{font-weight:600;font-size:14px}
+.toggle-id{font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:2px}
+.toggle-desc{font-size:12px;color:var(--muted);margin-top:3px}
+.toggle-switch{position:relative;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{display:block;width:40px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;transition:background .2s}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;pointer-events:none}
+.toggle-switch input:checked~.toggle-track{background:var(--primary)}
+.toggle-switch input:checked~.toggle-thumb{left:21px}
+
 /* Link cards */
 .link-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .link-card{padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--primary);text-decoration:none;font-size:13px;transition:border-color .15s}
@@ -173,14 +191,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="topbar-user" id="topbar-user"></div>
   </div>
   <div class="nav">
-    <button class="nav-btn active" data-tab="overview" onclick="showTab('overview')">Overview</button>
-    <button class="nav-btn" data-tab="system"   onclick="showTab('system')">System</button>
-    <button class="nav-btn" data-tab="terminal" onclick="showTab('terminal')">Terminal</button>
-    <button class="nav-btn" data-tab="files"    onclick="showTab('files')">Files</button>
-    <button class="nav-btn" data-tab="claude"   onclick="showTab('claude')">CLAUDE.md</button>
-    <button class="nav-btn" data-tab="mcp"      onclick="showTab('mcp')">MCP</button>
-    <button class="nav-btn" data-tab="projects" onclick="showTab('projects')">Projects</button>
-    <button class="nav-btn" data-tab="updates"  onclick="showTab('updates')">Updates</button>
+    <button class="nav-btn active" data-tab="overview"  onclick="showTab('overview')">Overview</button>
+    <button class="nav-btn" data-tab="system"    onclick="showTab('system')">System</button>
+    <button class="nav-btn" data-tab="services"  onclick="showTab('services')">Services</button>
+    <button class="nav-btn" data-tab="terminal"  onclick="showTab('terminal')">Terminal</button>
+    <button class="nav-btn" data-tab="files"     onclick="showTab('files')">Files</button>
+    <button class="nav-btn" data-tab="claude"    onclick="showTab('claude')">CLAUDE.md</button>
+    <button class="nav-btn" data-tab="mcp"       onclick="showTab('mcp')">MCP</button>
+    <button class="nav-btn" data-tab="plugins"   onclick="showTab('plugins')">Plugins</button>
+    <button class="nav-btn" data-tab="projects"  onclick="showTab('projects')">Projects</button>
+    <button class="nav-btn" data-tab="updates"   onclick="showTab('updates')">Updates</button>
   </div>
   <div class="content">
 
@@ -234,6 +254,25 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <table>
           <thead><tr><th>Interface</th><th>RX</th><th>TX</th></tr></thead>
           <tbody id="sys-net"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Services -->
+    <div class="tab" id="tab-services">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="section-title" style="margin-bottom:0">Services</div>
+        <button class="btn btn-sm" onclick="loadServices()">↻ Refresh</button>
+        <div style="display:flex;gap:6px;margin-left:auto">
+          <button class="btn btn-sm" id="svc-filter-all"    onclick="setSvcFilter('all')"   >All</button>
+          <button class="btn btn-sm" id="svc-filter-active" onclick="setSvcFilter('active')" >Active</button>
+          <button class="btn btn-sm" id="svc-filter-failed" onclick="setSvcFilter('failed')" >Failed</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table>
+          <thead><tr><th>Service</th><th>Status</th><th>Sub-state</th><th>Description</th><th style="width:180px"></th></tr></thead>
+          <tbody id="svc-tbody"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -334,6 +373,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <div id="project-list"></div>
+    </div>
+
+    <!-- Plugins -->
+    <div class="tab" id="tab-plugins">
+      <div class="section-title">Claude Code Plugins</div>
+      <div id="plugin-list"></div>
+      <p style="margin-top:12px;font-size:13px;color:var(--muted)">Changes take effect on the next <code>claude</code> session.</p>
     </div>
 
     <!-- Updates -->
@@ -733,6 +779,92 @@ async function wizNext() {
   }
 }
 tabLoaders.projects = loadProjects;
+
+// ── Services ──────────────────────────────────────────────────────────────────
+let allServices = [], svcFilter = 'all';
+async function loadServices() {
+  document.getElementById('svc-tbody').innerHTML = '<tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr>';
+  const d = await api('GET','/api/services');
+  if (d.error) { document.getElementById('svc-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--danger)">${d.error}</td></tr>`; return; }
+  allServices = d.services || [];
+  renderServices();
+}
+function setSvcFilter(f) {
+  svcFilter = f;
+  ['all','active','failed'].forEach(k => {
+    document.getElementById(`svc-filter-${k}`).classList.toggle('btn-primary', k===f);
+  });
+  renderServices();
+}
+function renderServices() {
+  const filtered = allServices.filter(s => {
+    if (svcFilter==='active') return s.active==='active';
+    if (svcFilter==='failed') return s.active==='failed';
+    return true;
+  });
+  if (!filtered.length) {
+    document.getElementById('svc-tbody').innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No services match filter</td></tr>';
+    return;
+  }
+  document.getElementById('svc-tbody').innerHTML = filtered.map(s => {
+    const badge = s.active==='active' ? 'badge-ok' : s.active==='failed' ? 'badge-err' : 'badge-muted';
+    const sn = s.name.replace(/'/g,"\\'");
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:12px">${s.name}</td>
+      <td><span class="badge ${badge}">${s.active}</span></td>
+      <td style="color:var(--muted);font-size:12px">${s.sub}</td>
+      <td style="color:var(--muted);font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.desc}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm" onclick="svcAction('${sn}','start')">Start</button>
+          <button class="btn btn-sm" onclick="svcAction('${sn}','stop')">Stop</button>
+          <button class="btn btn-sm" onclick="svcAction('${sn}','restart')">Restart</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+async function svcAction(service, action) {
+  const r = await api('POST','/api/service-action',{service,action});
+  if (r.ok) { toast(`${action} ${service}`); loadServices(); }
+  else toast(`Failed: ${r.out||r.error}`,'err');
+}
+tabLoaders.services = loadServices;
+
+// ── Plugins ───────────────────────────────────────────────────────────────────
+const KNOWN_PLUGINS = [
+  { id:'superpowers@claude-plugins-official',     label:'Superpowers',     desc:'Core workflow skills — brainstorming, TDD, code review, debugging' },
+  { id:'frontend-design@claude-plugins-official', label:'Frontend Design', desc:'UI/UX component and visual layout skills' },
+  { id:'skill-creator@claude-plugins-official',   label:'Skill Creator',   desc:'Build custom project-specific skills' },
+];
+async function loadPlugins() {
+  const s = await api('GET','/api/settings');
+  const enabled = new Set((s.plugins?.enabled)||[]);
+  document.getElementById('plugin-list').innerHTML = KNOWN_PLUGINS.map(p=>`
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">${p.label}</div>
+        <div class="toggle-id">${p.id}</div>
+        <div class="toggle-desc">${p.desc}</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" ${enabled.has(p.id)?'checked':''} onchange="togglePlugin('${p.id}',this)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>`).join('');
+}
+async function togglePlugin(id, input) {
+  const s = await api('GET','/api/settings');
+  if (!s.plugins) s.plugins = {};
+  if (!Array.isArray(s.plugins.enabled)) s.plugins.enabled = [];
+  const enabled = new Set(s.plugins.enabled);
+  input.checked ? enabled.add(id) : enabled.delete(id);
+  s.plugins.enabled = [...enabled];
+  const r = await api('POST','/api/settings',s);
+  r.ok ? toast('Plugin state saved') : (input.checked=!input.checked, toast('Save failed: '+r.error,'err'));
+}
+tabLoaders.plugins = loadPlugins;
 
 // ── Updates ───────────────────────────────────────────────────────────────────
 async function loadCCCStatus() {

@@ -214,6 +214,29 @@ R('POST','/api/mkdir',async(req,res)=>{
   } catch(e){ json(res,{error:e.message},500); }
 });
 
+// ── Services ──────────────────────────────────────────────────────────────────
+R('GET','/api/services',(req,res)=>{
+  try {
+    const out = shell('systemctl list-units --type=service --all --no-pager --no-legend --plain 2>/dev/null');
+    const services = out.split('\n').filter(Boolean).map(line => {
+      const parts = line.trim().split(/\s+/);
+      return { name:parts[0], load:parts[1], active:parts[2], sub:parts[3], desc:parts.slice(4).join(' ') };
+    }).filter(s => s.name && s.name.endsWith('.service'));
+    json(res,{services});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('POST','/api/service-action',async(req,res)=>{
+  try {
+    const {service, action} = JSON.parse(await body(req));
+    const allowed = ['start','stop','restart','enable','disable'];
+    if (!allowed.includes(action)) { json(res,{error:'Invalid action'},400); return; }
+    if (!/^[\w@.\-]+$/.test(service)) { json(res,{error:'Invalid service name'},400); return; }
+    const out = shell(`systemctl ${action} ${service} 2>&1`) || 'OK';
+    json(res,{ok:true,out});
+  } catch(e){ json(res,{ok:false,out:String(e.stdout||e.stderr||e.message)},200); }
+});
+
 R('GET','/api/update-status',(req,res)=>{
   try { json(res,{output: shell('/usr/local/bin/ccc-update-status 2>&1')}); }
   catch(e){ json(res,{output: String(e.stdout||e.message)}); }
