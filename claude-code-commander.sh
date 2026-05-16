@@ -1537,11 +1537,9 @@ if [[ ! -f /etc/systemd/system/ccc-dashboard.service ]]; then
   sudo systemctl enable ccc-dashboard
   echo -e "  ${G}✓${N} Service registered"
 fi
-sudo systemctl restart ccc-dashboard 2>/dev/null \
-  && echo -e "  ${G}✓${N} Dashboard restarted — open http://$(hostname -I | awk '{print $1}'):9090" \
-  || sudo systemctl start ccc-dashboard 2>/dev/null \
-  && echo -e "  ${G}✓${N} Dashboard started" \
-  || echo -e "  ${Y}!${N} Could not start ccc-dashboard — check: sudo journalctl -u ccc-dashboard -n 20"
+DASH_IP=$(hostname -I | awk '{print $1}')
+echo -e "  ${G}✓${N} Dashboard will restart in 5s — refresh http://${DASH_IP}:9090"
+(sleep 5 && sudo systemctl restart ccc-dashboard 2>/dev/null || sudo systemctl start ccc-dashboard 2>/dev/null) &
 
 echo ""
 if [[ $STATUS -eq 0 ]]; then
