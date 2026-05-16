@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Code Commander</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --card:     #21262d;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --primary:  #58a6ff;
+  --pri-dark: #1f6feb;
+  --success:  #3fb950;
+  --danger:   #f85149;
+  --warn:     #d29922;
+  --radius:   6px;
+  --font:     -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:     'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+
+/* ── Layout ── */
+.layout{display:flex;flex-direction:column;height:100vh}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar-logo{font-weight:700;font-size:15px;color:var(--text);letter-spacing:-.3px}
+.topbar-logo span{color:var(--primary)}
+.topbar-host{font-size:12px;color:var(--muted);margin-left:4px}
+.topbar-spacer{flex:1}
+.topbar-user{font-size:12px;color:var(--muted)}
+
+.nav{display:flex;gap:2px;padding:0 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.nav-btn{padding:10px 14px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap}
+.nav-btn:hover{color:var(--text)}
+.nav-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+
+.content{flex:1;overflow:hidden;position:relative}
+.tab{display:none;height:100%;overflow:auto;padding:20px}
+.tab.active{display:block}
+#tab-terminal{padding:0}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat-value{font-size:20px;font-weight:600;color:var(--text)}
+.stat-value.ok{color:var(--success)}
+.stat-value.err{color:var(--danger)}
+.stat-value.warn{color:var(--warn)}
+
+/* ── Status dots ── */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.dot.on{background:var(--success);box-shadow:0 0 6px var(--success)}
+.dot.off{background:var(--danger)}
+.dot.unknown{background:var(--muted)}
+.service-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.service-row:last-child{border-bottom:none}
+.service-name{flex:1;font-size:13px}
+.service-port{font-size:11px;color:var(--muted);margin-right:8px}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;cursor:pointer;transition:background .15s,border-color .15s}
+.btn:hover{background:var(--surface);border-color:var(--muted)}
+.btn-primary{background:var(--pri-dark);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary);border-color:var(--primary)}
+.btn-danger{background:transparent;border-color:var(--danger);color:var(--danger)}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+/* ── Form ── */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.form-control{width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:var(--font)}
+.form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(88,166,255,.15)}
+textarea.form-control{font-family:var(--mono);font-size:12px;resize:vertical}
+
+/* ── Table ── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ── Output ── */
+.output{font-family:var(--mono);font-size:12px;white-space:pre-wrap;background:#010409;color:#c9d1d9;padding:14px;border-radius:var(--radius);border:1px solid var(--border);max-height:280px;overflow-y:auto;margin-bottom:12px;min-height:60px}
+
+/* ── Terminal ── */
+#terminal-wrap{height:100%;background:#010409;display:flex;flex-direction:column}
+#terminal-toolbar{display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+#terminal-toolbar span{font-size:12px;color:var(--muted)}
+#xterm{flex:1;padding:6px}
+
+/* ── Sections ── */
+.section-title{font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)}
+.link-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.link-card{padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);color:var(--primary);text-decoration:none;font-size:13px;transition:border-color .15s}
+.link-card:hover{border-color:var(--primary)}
+.link-card small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+
+/* ── Login ── */
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:32px;width:320px}
+.login-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.login-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+
+/* ── Toast ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{padding:10px 16px;border-radius:var(--radius);font-size:13px;color:#fff;animation:slide-in .2s ease;max-width:320px}
+.toast.ok{background:#238636}
+.toast.err{background:#da3633}
+@keyframes slide-in{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── Wizard ── */
+.wizard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;display:none}
+.wizard.open{display:block}
+.wizard-bar{height:4px;background:var(--border);border-radius:2px;margin-bottom:20px}
+.wizard-fill{height:100%;background:var(--primary);border-radius:2px;transition:width .2s}
+
+/* ── Spinner ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login">
+  <div class="login-box">
+    <div class="login-title">Claude Code Commander</div>
+    <div class="login-sub">Enter your dashboard token to continue</div>
+    <div class="form-group">
+      <label class="form-label">Token</label>
+      <input id="login-input" class="form-control" type="password" placeholder="Dashboard token" autocomplete="current-password">
+    </div>
+    <div id="login-err" style="color:var(--danger);font-size:12px;margin-bottom:10px;display:none">Invalid token</div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- App -->
+<div class="layout" id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-logo">Claude Code <span>Commander</span></div>
+    <div class="topbar-host" id="topbar-host"></div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-user" id="topbar-user"></div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+    <button class="nav-btn" data-tab="terminal" onclick="showTab('terminal')">Terminal</button>
+    <button class="nav-btn" data-tab="claude" onclick="showTab('claude')">CLAUDE.md</button>
+    <button class="nav-btn" data-tab="mcp" onclick="showTab('mcp')">MCP</button>
+    <button class="nav-btn" data-tab="projects" onclick="showTab('projects')">Projects</button>
+    <button class="nav-btn" data-tab="updates" onclick="showTab('updates')">Updates</button>
+  </div>
+  <div class="content">
+    <!-- Overview -->
+    <div class="tab active" id="tab-overview">
+      <div class="section-title">Overview</div>
+      <div id="link-grid" class="link-grid"></div>
+      <div class="grid-2" id="stat-grid"></div>
+      <div class="card">
+        <div class="card-title">Services</div>
+        <div id="service-list"></div>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="tab" id="tab-terminal">
+      <div id="terminal-wrap">
+        <div id="terminal-toolbar">
+          <span class="dot on" id="term-dot"></span>
+          <span id="term-label">Shell — connecting...</span>
+          <div style="flex:1"></div>
+          <button class="btn btn-sm" onclick="reconnectTerm()">Reconnect</button>
+        </div>
+        <div id="xterm"></div>
+      </div>
+    </div>
+
+    <!-- CLAUDE.md -->
+    <div class="tab" id="tab-claude">
+      <div class="section-title">CLAUDE.md</div>
+      <div class="card">
+        <textarea id="claude-editor" class="form-control" rows="28" placeholder="Loading..."></textarea>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="saveClaude()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP -->
+    <div class="tab" id="tab-mcp">
+      <div class="section-title">MCP Servers</div>
+      <div class="card">
+        <table><thead><tr><th>Name</th><th>Command</th><th style="width:80px"></th></tr></thead>
+        <tbody id="mcp-tbody"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody></table>
+      </div>
+      <div class="card">
+        <div class="card-title">Add Server</div>
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input id="mcp-name" class="form-control" placeholder="e.g. github">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Command</label>
+          <input id="mcp-cmd" class="form-control" placeholder="e.g. npx -y @modelcontextprotocol/server-github">
+        </div>
+        <button class="btn btn-primary" onclick="addMCP()">Add</button>
+      </div>
+      <div class="card">
+        <div class="card-title">GitHub Token</div>
+        <div class="form-group">
+          <input id="gh-token" class="form-control" type="password" placeholder="ghp_...">
+        </div>
+        <button class="btn btn-primary" onclick="saveGHToken()">Save Token</button>
+      </div>
+    </div>
+
+    <!-- Projects -->
+    <div class="tab" id="tab-projects">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">Projects</div>
+        <button class="btn btn-primary btn-sm" onclick="openWizard()">+ New</button>
+      </div>
+      <div class="wizard" id="wizard">
+        <div class="wizard-bar"><div class="wizard-fill" id="wiz-bar" style="width:33%"></div></div>
+        <div id="wiz-body"></div>
+        <div class="btn-group">
+          <button class="btn btn-primary btn-sm" onclick="wizNext()" id="wiz-next">Next →</button>
+          <button class="btn btn-sm" onclick="closeWizard()">Cancel</button>
+        </div>
+      </div>
+      <div id="project-list"></div>
+    </div>
+
+    <!-- Updates -->
+    <div class="tab" id="tab-updates">
+      <div class="section-title">Updates</div>
+      <div class="card">
+        <div class="card-title">CCC Provisioner</div>
+        <div class="output" id="ccc-status-out">Click refresh to check...</div>
+        <div class="btn-group">
+          <button class="btn" onclick="loadCCCStatus()">↻ Refresh Status</button>
+          <button class="btn btn-primary" onclick="runSelfUpdate()">Run ccc-self-update</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+let TOKEN = localStorage.getItem('ccc-token') || '';
+const BASE = `${location.protocol}//${location.host}`;
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  TOKEN = document.getElementById('login-input').value.trim();
+  const r = await fetch(`${BASE}/api/status`,{headers:{Authorization:`Bearer ${TOKEN}`}});
+  if (r.ok) {
+    localStorage.setItem('ccc-token', TOKEN);
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    init();
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+  }
+}
+document.getElementById('login-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function api(method, path, body) {
+  return fetch(`${BASE}${path}`,{
+    method, headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(r=>r.json());
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`; el.textContent = msg;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+const tabLoaders = {};
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  document.querySelector(`.nav-btn[data-tab="${name}"]`).classList.add('active');
+  tabLoaders[name]?.();
+}
+
+// ── Overview ──────────────────────────────────────────────────────────────────
+async function loadOverview() {
+  const s = await api('GET','/api/status');
+  document.getElementById('topbar-host').textContent = `${s.hostname} — ${s.ip}`;
+  document.getElementById('topbar-user').textContent = s.user;
+
+  const ip = s.ip || location.hostname;
+  document.getElementById('link-grid').innerHTML = `
+    <a class="link-card" href="http://${ip}:8080" target="_blank">code-server<small>Web VS Code — :8080</small></a>
+    <a class="link-card" href="http://${ip}:9090" target="_blank">CCC Dashboard<small>This UI — :9090</small></a>`;
+
+  const mb = n => (n/1024/1024).toFixed(0)+' MB';
+  const memUsed = s.mem.total - s.mem.free;
+  const memPct = Math.round(memUsed/s.mem.total*100);
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat"><div class="stat-label">Claude CLI</div><div class="stat-value ${s.claude?'ok':'err'}">${s.claude?'Installed':'Missing'}</div></div>
+    <div class="stat"><div class="stat-label">CLAUDE.md</div><div class="stat-value ${s.claudeMd?'ok':'warn'}">${s.claudeMd?'Present':'Missing'}</div></div>
+    <div class="stat"><div class="stat-label">Load (1m)</div><div class="stat-value">${s.loadavg[0]}</div></div>
+    <div class="stat"><div class="stat-label">Memory</div><div class="stat-value ${memPct>85?'err':memPct>70?'warn':''}">${memPct}%</div></div>`;
+
+  document.getElementById('service-list').innerHTML = `
+    <div class="service-row"><span class="dot ${s.codeServer==='active'?'on':'off'}"></span><span class="service-name">code-server</span><span class="service-port">:8080</span></div>
+    <div class="service-row"><span class="dot on"></span><span class="service-name">ccc-dashboard</span><span class="service-port">:9090</span></div>`;
+}
+tabLoaders.overview = loadOverview;
+
+// ── Terminal ──────────────────────────────────────────────────────────────────
+let term, fitAddon, ws;
+function initTerm() {
+  if (term) return;
+  term = new Terminal({ theme:{background:'#010409',foreground:'#c9d1d9',cursor:'#58a6ff',selectionBackground:'rgba(88,166,255,.3)'}, fontFamily:"'SFMono-Regular',Consolas,monospace", fontSize:13, cursorBlink:true });
+  fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('xterm'));
+  fitAddon.fit();
+  new ResizeObserver(()=>{ fitAddon.fit(); if(ws?.readyState===1) ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows})); }).observe(document.getElementById('xterm'));
+  connectTerm();
+}
+function connectTerm() {
+  if (ws) { try{ws.close();}catch{} }
+  const proto = location.protocol==='https:'?'wss':'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/terminal?token=${TOKEN}`);
+  ws.onopen = () => {
+    document.getElementById('term-dot').className = 'dot on';
+    document.getElementById('term-label').textContent = 'Shell — connected';
+    ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
+  };
+  ws.onmessage = e => { const m=JSON.parse(e.data); if(m.type==='output') term.write(m.data); };
+  ws.onclose = () => {
+    document.getElementById('term-dot').className = 'dot off';
+    document.getElementById('term-label').textContent = 'Shell — disconnected';
+    term.write('\r\n\x1b[33m[disconnected — click Reconnect]\x1b[0m\r\n');
+  };
+  term.onData(d => { if(ws.readyState===1) ws.send(JSON.stringify({type:'input',data:d})); });
+}
+function reconnectTerm() { connectTerm(); }
+tabLoaders.terminal = () => { if(!term) initTerm(); else fitAddon.fit(); };
+
+// ── CLAUDE.md ─────────────────────────────────────────────────────────────────
+async function loadClaude() {
+  const r = await api('GET','/api/claude-md');
+  document.getElementById('claude-editor').value = r.content || '';
+}
+async function saveClaude() {
+  const r = await api('POST','/api/claude-md',{content:document.getElementById('claude-editor').value});
+  r.ok ? toast('CLAUDE.md saved') : toast('Save failed: '+r.error,'err');
+}
+tabLoaders.claude = loadClaude;
+
+// ── MCP ───────────────────────────────────────────────────────────────────────
+let mcpData = {mcpServers:{}};
+async function loadMCP() {
+  mcpData = await api('GET','/api/mcp');
+  renderMCP();
+  // load gh token from settings
+  const s = await api('GET','/api/settings');
+}
+function renderMCP() {
+  const entries = Object.entries(mcpData.mcpServers||{});
+  document.getElementById('mcp-tbody').innerHTML = entries.length
+    ? entries.map(([n,c])=>`<tr><td><strong>${n}</strong></td><td><code style="font-size:11px">${[c.command,...(c.args||[])].join(' ')}</code></td><td><button class="btn btn-danger btn-sm" onclick="removeMCP('${n}')">Remove</button></td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--muted)">No servers configured</td></tr>';
+}
+async function addMCP() {
+  const name = document.getElementById('mcp-name').value.trim();
+  const cmd  = document.getElementById('mcp-cmd').value.trim();
+  if (!name||!cmd) { toast('Name and command required','err'); return; }
+  const parts = cmd.split(/\s+/);
+  mcpData.mcpServers[name] = {command:parts[0],args:parts.slice(1)};
+  const r = await api('POST','/api/mcp',mcpData);
+  r.ok ? (renderMCP(), document.getElementById('mcp-name').value='', document.getElementById('mcp-cmd').value='', toast('MCP server added'))
+       : toast('Save failed: '+r.error,'err');
+}
+async function removeMCP(name) {
+  if (!confirm(`Remove MCP server "${name}"?`)) return;
+  delete mcpData.mcpServers[name];
+  const r = await api('POST','/api/mcp',mcpData);
+  r.ok ? (renderMCP(), toast('Removed')) : toast('Failed: '+r.error,'err');
+}
+async function saveGHToken() {
+  const t = document.getElementById('gh-token').value.trim();
+  if (!t) { toast('Token required','err'); return; }
+  // Write to bashrc via a simple approach — shell out
+  toast('Set GITHUB_TOKEN in your shell: export GITHUB_TOKEN="'+t+'"');
+}
+tabLoaders.mcp = loadMCP;
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+let wiz = {step:1,name:'',location:''};
+async function loadProjects() {
+  const {projects} = await api('GET','/api/projects');
+  const ip = document.getElementById('topbar-host').textContent.split(' — ')[1] || location.hostname;
+  document.getElementById('project-list').innerHTML = !projects.length
+    ? '<div style="color:var(--muted);font-size:13px">No projects yet. Create one with + New.</div>'
+    : '<div class="card"><table><thead><tr><th>Project</th><th></th></tr></thead><tbody>'
+      + projects.map(p=>`<tr><td>${p}</td><td style="text-align:right"><a class="btn btn-sm" href="http://${ip}:8080/?folder=/home/${document.getElementById('topbar-user').textContent||'claude-code'}/projects/${encodeURIComponent(p)}" target="_blank">Open in VS Code ↗</a></td></tr>`).join('')
+      + '</tbody></table></div>';
+}
+function openWizard() {
+  wiz={step:1,name:'',location:''};
+  document.getElementById('wizard').classList.add('open');
+  renderWiz();
+}
+function closeWizard() { document.getElementById('wizard').classList.remove('open'); }
+function renderWiz() {
+  document.getElementById('wiz-bar').style.width = (wiz.step*50)+'%';
+  document.getElementById('wiz-next').textContent = wiz.step===2 ? 'Create Project' : 'Next →';
+  if (wiz.step===1) {
+    document.getElementById('wiz-body').innerHTML = `<div class="form-group"><label class="form-label">Project Name</label><input id="wiz-name" class="form-control" placeholder="my-project" value="${wiz.name}"></div>`;
+  } else {
+    document.getElementById('wiz-body').innerHTML = `<div class="form-group"><label class="form-label">Location</label><input id="wiz-loc" class="form-control" value="${wiz.location}"></div>
+    <div class="form-group"><label class="form-label">GitHub Remote (optional)</label><input id="wiz-remote" class="form-control" placeholder="username/repo-name"></div>`;
+  }
+}
+async function wizNext() {
+  if (wiz.step===1) {
+    const name = document.getElementById('wiz-name').value.trim();
+    if (!name) { toast('Name required','err'); return; }
+    wiz.name=name; wiz.location=`/home/${document.getElementById('topbar-user').textContent||'claude-code'}/projects/${name}`; wiz.step=2; renderWiz();
+  } else {
+    wiz.location = document.getElementById('wiz-loc').value.trim();
+    const remote = document.getElementById('wiz-remote').value.trim();
+    const r = await api('POST','/api/projects',{name:wiz.name,location:wiz.location});
+    if (r.ok) { toast('Project created'); closeWizard(); loadProjects(); }
+    else toast('Error: '+r.error,'err');
+  }
+}
+tabLoaders.projects = loadProjects;
+
+// ── Updates ───────────────────────────────────────────────────────────────────
+async function loadCCCStatus() {
+  document.getElementById('ccc-status-out').textContent = 'Running ccc-update-status...';
+  const r = await api('GET','/api/update-status');
+  document.getElementById('ccc-status-out').textContent = r.output || r.error || '';
+}
+async function runSelfUpdate() {
+  const box = document.getElementById('ccc-status-out');
+  box.textContent = 'Running ccc-self-update...\n';
+  const r = await fetch(`${BASE}/api/self-update`,{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`}});
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  while(true) {
+    const {done,value} = await reader.read();
+    if(done) break;
+    box.textContent += dec.decode(value);
+    box.scrollTop = box.scrollHeight;
+  }
+  toast('ccc-self-update complete');
+}
+tabLoaders.updates = loadCCCStatus;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  loadOverview();
+}
+
+// Auto-login if token stored
+if (TOKEN) {
+  fetch(`${BASE}/api/status`,{headers:{Authorization:`Bearer ${TOKEN}`}}).then(r=>{
+    if(r.ok){
+      document.getElementById('login').style.display='none';
+      document.getElementById('app').style.display='flex';
+      init();
+    }
+  });
+}
+</script>
+</body>
+</html>
