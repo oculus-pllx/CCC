@@ -2565,7 +2565,7 @@ echo "    Cockpit: https://<ip>:9090 (login as $CCC_USER)"
 # motd-news fetches Canonical marketing content; useless and always times out in LXC.
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 systemctl mask motd-news.service motd-news.timer 2>/dev/null || true
-systemctl reset-failed motd-news.service 2>/dev/null || true
+systemctl reset-failed motd-news.service motd-news.timer 2>/dev/null || true
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
