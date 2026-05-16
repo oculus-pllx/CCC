@@ -1732,24 +1732,12 @@ cat > /etc/systemd/system/packagekit.service.d/ccc-always-online.conf << 'PKDROP
 [Service]
 Environment=GIO_USE_NETWORK_MONITOR=base
 PKDROP
-# Boot service: bring up the NM dummy connection after every reboot so NM
-# reports a managed interface, which some Cockpit versions also check.
-cat > /etc/systemd/system/ccc-online.service << 'SVCU'
-[Unit]
-Description=CCC dummy online interface
-After=NetworkManager.service
-Wants=NetworkManager.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/nmcli con up ccc-online
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-SVCU
+# autoconnect yes on the ccc-online NM connection handles reconnect at boot.
+# No separate systemd service needed — remove it if present from older installs.
+systemctl disable ccc-online.service 2>/dev/null || true
+systemctl stop ccc-online.service 2>/dev/null || true
+rm -f /etc/systemd/system/ccc-online.service
 systemctl daemon-reload
-systemctl enable ccc-online.service
 systemctl stop packagekit 2>/dev/null || true
 rm -rf /var/cache/PackageKit/* /var/lib/PackageKit/transactions.db 2>/dev/null || true
 systemctl start packagekit 2>/dev/null || true
@@ -2577,9 +2565,9 @@ echo "    Cockpit: https://<ip>:9090 (login as $CCC_USER)"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 step 28 "Cleanup"
-# Disable noisy motd-news fetch (fails in LXC due to permissions)
+# Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
-systemctl disable motd-news 2>/dev/null || true
+systemctl mask motd-news.service motd-news.timer 2>/dev/null || true
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*
