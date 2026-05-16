@@ -429,6 +429,8 @@ function api(method, path, body) {
   }).then(r=>r.json()).catch(e=>({error:e.message}));
 }
 
+function stripAnsi(s) { return s.replace(/\x1B\[[0-9;]*[a-zA-Z]/g,''); }
+
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg, type='ok') {
   const el = document.createElement('div');
@@ -881,7 +883,7 @@ async function runSelfUpdate() {
   while(true) {
     const {done,value} = await reader.read();
     if(done) break;
-    box.textContent += dec.decode(value);
+    box.textContent += stripAnsi(dec.decode(value));
     box.scrollTop = box.scrollHeight;
   }
   toast('ccc-self-update complete');

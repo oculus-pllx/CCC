@@ -49,6 +49,11 @@ function body(req) {
 function shell(cmd, opts={}) {
   return cp.execSync(cmd,{encoding:'utf8',timeout:20000,...opts}).trim();
 }
+function stripAnsi(s) {
+  return s.replace(/\x1B\[[0-9;]*[a-zA-Z]/g,'');
+}
+// Trust all /tmp dirs — ccc-update-status clones as CCC_USER but reads as root
+try { cp.execSync('git config --global --add safe.directory "*"',{stdio:'ignore'}); } catch {}
 function getIP() {
   for (const [,ifaces] of Object.entries(os.networkInterfaces()))
     for (const i of ifaces)
@@ -238,8 +243,8 @@ R('POST','/api/service-action',async(req,res)=>{
 });
 
 R('GET','/api/update-status',(req,res)=>{
-  try { json(res,{output: shell('/usr/local/bin/ccc-update-status 2>&1')}); }
-  catch(e){ json(res,{output: String(e.stdout||e.message)}); }
+  try { json(res,{output: stripAnsi(shell('/usr/local/bin/ccc-update-status 2>&1'))}); }
+  catch(e){ json(res,{output: stripAnsi(String(e.stdout||e.message))}); }
 });
 R('POST','/api/self-update',(req,res)=>{
   res.writeHead(200,{'Content-Type':'text/plain','Transfer-Encoding':'chunked'});
