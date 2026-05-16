@@ -201,6 +201,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="nav-btn" data-tab="plugins"   onclick="showTab('plugins')">Plugins</button>
     <button class="nav-btn" data-tab="projects"  onclick="showTab('projects')">Projects</button>
     <button class="nav-btn" data-tab="updates"   onclick="showTab('updates')">Updates</button>
+    <button class="nav-btn" data-tab="logs"      onclick="showTab('logs')">Logs</button>
+    <button class="nav-btn" data-tab="accounts"  onclick="showTab('accounts')">Accounts</button>
+    <button class="nav-btn" data-tab="network"   onclick="showTab('network')">Network</button>
   </div>
   <div class="content">
 
@@ -380,6 +383,59 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="section-title">Claude Code Plugins</div>
       <div id="plugin-list"></div>
       <p style="margin-top:12px;font-size:13px;color:var(--muted)">Changes take effect on the next <code>claude</code> session.</p>
+    </div>
+
+    <!-- Logs -->
+    <div class="tab" id="tab-logs">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="section-title" style="margin-bottom:0">Logs</div>
+        <input id="log-unit" class="form-control" style="width:200px" placeholder="Unit (blank = all)">
+        <select id="log-lines" class="form-control" style="width:110px">
+          <option value="100">100 lines</option>
+          <option value="200" selected>200 lines</option>
+          <option value="500">500 lines</option>
+          <option value="1000">1000 lines</option>
+        </select>
+        <button class="btn btn-sm" onclick="loadLogs()">↻ Refresh</button>
+      </div>
+      <div class="output" id="log-out" style="max-height:calc(100vh - 180px);font-size:11px">Click Refresh to load logs...</div>
+    </div>
+
+    <!-- Accounts -->
+    <div class="tab" id="tab-accounts">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">Accounts</div>
+        <button class="btn btn-sm" onclick="loadAccounts()">↻ Refresh</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table>
+          <thead><tr><th>User</th><th>UID</th><th>Home</th><th>Shell</th><th>Groups</th></tr></thead>
+          <tbody id="accounts-tbody"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Network -->
+    <div class="tab" id="tab-network">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">Network</div>
+        <button class="btn btn-sm" onclick="loadNetwork()">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Interfaces</div>
+        <div id="net-ifaces"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Routes</div>
+        <div class="output" id="net-routes" style="max-height:160px;font-size:11px"></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="card-title" style="padding:16px 16px 0">Listening Ports</div>
+        <table>
+          <thead><tr><th>State</th><th>Local Address</th><th>Process</th></tr></thead>
+          <tbody id="net-ports"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Updates -->
@@ -867,6 +923,62 @@ async function togglePlugin(id, input) {
   r.ok ? toast('Plugin state saved') : (input.checked=!input.checked, toast('Save failed: '+r.error,'err'));
 }
 tabLoaders.plugins = loadPlugins;
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const unit = document.getElementById('log-unit').value.trim();
+  const lines = document.getElementById('log-lines').value;
+  const box = document.getElementById('log-out');
+  box.textContent = 'Loading...';
+  const r = await api('GET', `/api/logs?unit=${encodeURIComponent(unit)}&lines=${lines}`);
+  if (r.error) { box.textContent = 'Error: ' + r.error; return; }
+  box.textContent = (r.lines||[]).join('\n') || '(no log entries)';
+  box.scrollTop = box.scrollHeight;
+}
+tabLoaders.logs = loadLogs;
+
+// ── Accounts ──────────────────────────────────────────────────────────────────
+async function loadAccounts() {
+  document.getElementById('accounts-tbody').innerHTML = '<tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr>';
+  const r = await api('GET','/api/accounts');
+  if (r.error) { document.getElementById('accounts-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--danger)">${r.error}</td></tr>`; return; }
+  document.getElementById('accounts-tbody').innerHTML = (r.users||[]).map(u=>
+    `<tr>
+      <td><strong>${u.name}</strong>${u.gecos?`<br><span style="font-size:11px;color:var(--muted)">${u.gecos}</span>`:''}</td>
+      <td style="color:var(--muted)">${u.uid}</td>
+      <td style="font-family:var(--mono);font-size:12px">${u.home}</td>
+      <td style="font-family:var(--mono);font-size:12px">${u.shell.split('/').pop()}</td>
+      <td style="font-size:12px;color:var(--muted)">${u.groups}</td>
+    </tr>`
+  ).join('') || '<tr><td colspan="5" style="color:var(--muted)">No users found</td></tr>';
+}
+tabLoaders.accounts = loadAccounts;
+
+// ── Network ───────────────────────────────────────────────────────────────────
+async function loadNetwork() {
+  const r = await api('GET','/api/network');
+  if (r.error) { toast('Network error: '+r.error,'err'); return; }
+  document.getElementById('net-ifaces').innerHTML = (r.ifaces||[]).filter(i=>i.name!=='lo').map(i=>{
+    const cls = i.state==='UP' ? 'on' : i.state==='DOWN' ? 'off' : 'unknown';
+    const addrs = (i.addrs||[]).filter(a=>a.family==='inet'||a.family==='inet6')
+      .map(a=>`<code style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px">${a.addr}</code>`).join(' ');
+    return `<div class="service-row">
+      <span class="dot ${cls}"></span>
+      <span class="service-name" style="font-family:var(--mono);font-size:13px">${i.name}</span>
+      <span style="flex:2;font-size:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">${addrs||'<span style="color:var(--muted)">no address</span>'}</span>
+      <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">${i.mac||''}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px 0">No interfaces found</div>';
+  document.getElementById('net-routes').textContent = (r.routes||[]).join('\n') || '(no routes)';
+  document.getElementById('net-ports').innerHTML = (r.ports||[]).map(p=>
+    `<tr>
+      <td><span class="badge badge-ok">${p.state}</span></td>
+      <td style="font-family:var(--mono);font-size:12px">${p.local}</td>
+      <td style="font-size:12px;color:var(--muted)">${p.process}</td>
+    </tr>`
+  ).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:12px">No listening ports</td></tr>';
+}
+tabLoaders.network = loadNetwork;
 
 // ── Updates ───────────────────────────────────────────────────────────────────
 async function loadCCCStatus() {

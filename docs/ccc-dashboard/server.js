@@ -242,6 +242,56 @@ R('POST','/api/service-action',async(req,res)=>{
   } catch(e){ json(res,{ok:false,out:String(e.stdout||e.stderr||e.message)},200); }
 });
 
+R('GET','/api/logs',(req,res)=>{
+  try {
+    const url = new URL(req.url,'http://x');
+    const unit = (url.searchParams.get('unit')||'').replace(/[^a-zA-Z0-9@._-]/g,'');
+    const lines = Math.min(parseInt(url.searchParams.get('lines')||'200'),1000);
+    const unitFlag = unit ? `-u ${unit}` : '';
+    const out = shell(`journalctl ${unitFlag} -n ${lines} --no-pager --output=short-iso 2>/dev/null`);
+    json(res,{lines: out.split('\n').filter(Boolean)});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('GET','/api/accounts',(req,res)=>{
+  try {
+    const users = shell("getent passwd | awk -F: '$3 >= 1000 && $1 != \"nobody\" {print $0}'")
+      .split('\n').filter(Boolean)
+      .map(line => {
+        const p = line.split(':');
+        let groups = '';
+        try { groups = shell(`id -Gn ${p[0]} 2>/dev/null`); } catch {}
+        return { name:p[0], uid:p[2], gid:p[3], gecos:p[4], home:p[5], shell:p[6], groups:groups.trim() };
+      });
+    json(res,{users});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
+R('GET','/api/network',(req,res)=>{
+  try {
+    const ifaces = {};
+    for (const line of shell('ip -o addr show 2>/dev/null').split('\n').filter(Boolean)) {
+      const m = line.match(/^\d+:\s+(\S+)\s+(\w+)\s+(\S+)/);
+      if (!m) continue;
+      if (!ifaces[m[1]]) ifaces[m[1]] = {name:m[1], addrs:[]};
+      ifaces[m[1]].addrs.push({family:m[2], addr:m[3]});
+    }
+    for (const line of shell('ip -o link show 2>/dev/null').split('\n').filter(Boolean)) {
+      const nm = line.match(/^\d+:\s+(\S+):/);
+      const mac = line.match(/link\/\w+\s+([0-9a-f:]+)/);
+      const state = line.match(/state\s+(\w+)/);
+      if (nm && ifaces[nm[1]]) {
+        ifaces[nm[1]].mac = mac?.[1];
+        ifaces[nm[1]].state = state?.[1];
+      }
+    }
+    const routes = shell('ip route show 2>/dev/null').split('\n').filter(Boolean);
+    const ports = shell('ss -tlnp 2>/dev/null').split('\n').slice(1).filter(Boolean)
+      .map(l => { const p=l.trim().split(/\s+/); return {state:p[0],local:p[3],process:p[6]||''}; });
+    json(res,{ifaces:Object.values(ifaces), routes, ports});
+  } catch(e){ json(res,{error:e.message},500); }
+});
+
 R('GET','/api/update-status',(req,res)=>{
   try { json(res,{output: stripAnsi(shell('/usr/local/bin/ccc-update-status 2>&1'))}); }
   catch(e){ json(res,{output: stripAnsi(String(e.stdout||e.message))}); }
