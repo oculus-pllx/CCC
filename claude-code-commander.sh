@@ -1584,6 +1584,23 @@ echo -e "${C}[3/3]${N} Applying updates..."
 (echo 'step() { echo "  >>> $2"; }'; echo "$UPDATE_SCRIPT") | sudo bash
 STATUS=$?
 
+# Install Cockpit plugin files directly from GitHub — heredocs in piped bash
+# are unreliable (both compete for stdin), so we bypass that entirely here.
+echo ""
+echo -e "${C}[4/4]${N} Installing Cockpit plugin..."
+PLUGIN_BASE="${CCC_SELF_UPDATE_RAW_URL%/*}/docs/cockpit-plugin"
+sudo mkdir -p /usr/share/cockpit/ccc
+if curl -fsSL "${PLUGIN_BASE}/index.html" -o /tmp/ccc-plugin.html 2>/dev/null; then
+  sudo mv /tmp/ccc-plugin.html /usr/share/cockpit/ccc/index.html
+  echo -e "  ${G}✓${N} Plugin HTML installed"
+else
+  echo -e "  ${Y}!${N} Plugin HTML download failed — Cockpit UI may be outdated"
+fi
+if curl -fsSL "${PLUGIN_BASE}/manifest.json" -o /tmp/ccc-manifest.json 2>/dev/null; then
+  sudo mv /tmp/ccc-manifest.json /usr/share/cockpit/ccc/manifest.json
+fi
+sudo systemctl restart cockpit.socket 2>/dev/null && echo -e "  ${G}✓${N} Cockpit restarted — do a hard refresh (Ctrl+Shift+R) in the browser" || true
+
 echo ""
 if [[ $STATUS -eq 0 ]]; then
   if [[ -n "$LATEST_COMMIT" ]]; then
@@ -1595,8 +1612,6 @@ if [[ $STATUS -eq 0 ]]; then
     } | sudo tee "$VERSION_FILE" >/dev/null
   fi
   echo -e "${G}${B}Self-update complete.${N}"
-  echo -e "  ccc-* commands, MOTD, and Cockpit plugin updated to latest."
-  sudo systemctl restart cockpit.socket 2>/dev/null && echo -e "  Cockpit restarted — reload the browser tab to see plugin changes." || true
 else
   echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
 fi
