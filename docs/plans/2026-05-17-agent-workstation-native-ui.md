@@ -121,11 +121,11 @@ git commit -m "feat(native-ui): add system overview"
 - Modify: `tests/agent-workstation-static.sh`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write failing static checks**
+- [x] **Step 1: Write failing static checks**
 
 Update `tests/agent-workstation-static.sh` to require `agent-workstation.service`, port `9090`, `agent-workstation/`, and no Cockpit install path for the native UI branch.
 
-- [ ] **Step 2: Run static check to verify it fails**
+- [x] **Step 2: Run static check to verify it fails**
 
 Run:
 ```bash
@@ -133,7 +133,7 @@ bash tests/agent-workstation-static.sh
 ```
 Expected: FAIL because the installer still provisions Cockpit.
 
-- [ ] **Step 3: Modify installer**
+- [x] **Step 3: Modify installer**
 
 Replace the Cockpit plugin install section with native UI installation:
 - build or install `/usr/local/bin/agent-workstation`
@@ -143,7 +143,7 @@ Replace the Cockpit plugin install section with native UI installation:
 - keep code-server on port 8080
 - remove legacy `ccc-dashboard` conflicts
 
-- [ ] **Step 4: Run checks**
+- [x] **Step 4: Run checks**
 
 Run:
 ```bash
@@ -153,7 +153,7 @@ git diff --check
 ```
 Expected: PASS, except unrelated pre-existing `HANDOFF.md` whitespace may remain outside the scoped diff.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md claude-code-commander.sh tests/agent-workstation-static.sh

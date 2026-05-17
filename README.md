@@ -5,7 +5,7 @@ A Proxmox LXC provisioner that creates a lean, headless dev workstation for Clau
 > Built on [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — free, open-source server virtualization (community edition).
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workstation-native-ui/claude-code-commander.sh)
 ```
 
 ---
@@ -21,7 +21,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Three update paths** — OS packages, Agent Workstation tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Cockpit** on port 9090 — Agent Workstation controls plus system monitoring, services, logs, networking, files, and terminal
+- **Agent Workstation UI** on port 9090 — native headless management for system overview, services, logs, networking, files, terminal, projects, updates, and agent configs
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
@@ -47,13 +47,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 SSH into your Proxmox host as root and run:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workstation-native-ui/claude-code-commander.sh)
 ```
 
 Or download and inspect first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh \
+curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workstation-native-ui/claude-code-commander.sh \
   -o /tmp/ccc.sh && bash /tmp/ccc.sh
 ```
 
@@ -63,7 +63,7 @@ The script is interactive. You'll be prompted for:
 |---|---|---|
 | Container ID | next available | Auto-detected via `pvesh` |
 | Hostname | `ccc-dev` | |
-| **Username** | `claude-code` | Your working user — used for SSH, Cockpit, code-server |
+| **Username** | `claude-code` | Your working user — used for SSH, Agent Workstation, code-server |
 | Root password | — | Temporary, setup only |
 | User password | — | Password for your chosen username |
 | code-server password | `codeserver` | Web VS Code UI |
@@ -166,8 +166,6 @@ ccc-self-update         # update Agent Workstation tooling from GitHub
 ccc-update              # update Agent Workstation tooling + app CLIs
 ccc-os-update           # update OS packages with apt
 ccc-sync-agent-configs  # update Claude/Codex/Gemini configs from oculus-configs
-ccc-fix-cockpit-updates # fix Cockpit "cannot refresh cache whilst offline"
-ccc-verify-cockpit-updates # verify Cockpit GUI updater readiness
 ccc-doctor              # health check: network, runtimes, services, disk
 ccc-install-playwright  # install Playwright + headless Chromium (optional)
 ccc-install-codex       # install OpenAI Codex CLI (optional)
@@ -189,9 +187,8 @@ ll    # ls -lah
 sudo systemctl status  code-server@claude-code
 sudo systemctl restart code-server@claude-code
 sudo systemctl start   redis-server
-sudo systemctl status  cockpit.socket
-sudo systemctl restart cockpit.socket
-ccc-verify-cockpit-updates
+sudo systemctl status  agent-workstation.service
+sudo systemctl restart agent-workstation.service
 ```
 
 ---
@@ -226,7 +223,7 @@ Agent Workstation separates updates so OS packages, workstation tooling, and sha
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean
 ccc-update-status           # show installed vs GitHub provisioner version
-sudo ccc-self-update        # Agent Workstation tooling: commands, MOTD, Cockpit plugin
+sudo ccc-self-update        # Agent Workstation tooling: commands, MOTD, native UI service
 sudo ccc-sync-agent-configs # shared Claude/Codex/Gemini config from oculus-configs
 ccc-update                  # convenience: tooling + app CLI updates, no apt upgrade
 claude update               # Claude Code only
@@ -300,24 +297,23 @@ Add manually from the Proxmox host:
 ha-manager add ct:<CT_ID> --state started --group <group>
 ```
 
-**Cockpit not loading (port 9090)**
+**Agent Workstation UI not loading (port 9090)**
 ```bash
-pct exec <CT_ID> -- systemctl status cockpit.socket
-pct exec <CT_ID> -- systemctl restart cockpit.socket
+pct exec <CT_ID> -- systemctl status agent-workstation.service
+pct exec <CT_ID> -- systemctl restart agent-workstation.service
 ```
-If `cockpit.socket` reports `Address already in use`, check what owns port 9090:
+If `agent-workstation.service` cannot bind port 9090, check what owns the port:
 ```bash
 pct exec <CT_ID> -- ss -ltnp | grep ':9090'
 ```
-Older CCC installers used a standalone Node dashboard on port 9090. Agent Workstation does not use that service. Remove the legacy service/process, then start Cockpit:
+Older CCC installers used a standalone Node dashboard on port 9090. Agent Workstation does not use that service. Remove the legacy service/process, then start the native UI:
 ```bash
-pct exec <CT_ID> -- systemctl disable --now ccc-dashboard
+pct exec <CT_ID> -- systemctl disable --now ccc-dashboard cockpit.socket cockpit.service
 pct exec <CT_ID> -- rm -f /etc/systemd/system/ccc-dashboard.service
 pct exec <CT_ID> -- systemctl daemon-reload
-pct exec <CT_ID> -- systemctl reset-failed cockpit.socket
-pct exec <CT_ID> -- systemctl enable --now cockpit.socket
+pct exec <CT_ID> -- systemctl restart agent-workstation.service
 ```
-Cockpit uses a self-signed cert — accept the browser security warning on first load. Login with `claude-code` user credentials.
+Open `http://<container-ip>:9090` and sign in with the generated Agent Workstation password printed at install time or stored in `/etc/agent-workstation/env`.
 
 Until the latest local commits are pushed to GitHub, install fresh test containers from this local checkout instead of the GitHub curl command:
 ```bash
