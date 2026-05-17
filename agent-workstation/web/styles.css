@@ -103,14 +103,23 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   gap: 8px;
 }
 
+.login-panel > input,
 .login-row input {
-  flex: 1;
-  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: #111316;
   color: var(--text);
   padding: 8px 10px;
+}
+
+.login-panel > input {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.login-row input {
+  flex: 1;
+  min-width: 0;
 }
 
 .login-row button,

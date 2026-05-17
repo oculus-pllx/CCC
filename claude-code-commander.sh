@@ -1836,6 +1836,7 @@ cat > "$AGENT_WORKSTATION_ENV" <<EOF
 AGENT_WORKSTATION_ADDR=0.0.0.0:9090
 AGENT_WORKSTATION_WEB_DIR=$AGENT_WORKSTATION_ROOT/web
 AGENT_WORKSTATION_SESSION_TOKEN=$AGENT_WORKSTATION_SESSION_TOKEN
+AGENT_WORKSTATION_USERNAME=$CCC_USER
 AGENT_WORKSTATION_PASSWORD=$AGENT_WORKSTATION_PASSWORD
 EOF
 chown root:"$CCC_USER" "$AGENT_WORKSTATION_ENV"
@@ -1865,7 +1866,7 @@ systemctl daemon-reload
 systemctl enable --now agent-workstation.service
 
 echo "    Agent Workstation: http://<ip>:9090 (login as $CCC_USER)"
-echo "    Agent Workstation password: $AGENT_WORKSTATION_PASSWORD"
+echo "    Agent Workstation uses the $CCC_USER user password after final setup."
 
 # Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit.
 # motd-news fetches Canonical marketing content; useless and always times out in LXC.
@@ -1898,10 +1899,19 @@ PROVISION_EOF
   kill "$_timer_pid" 2>/dev/null; wait "$_timer_pid" 2>/dev/null || true
   rm -f /tmp/provision-${CT_ID}.sh
 
-  # ── Passwords + code-server config (variable expansion — outside heredoc) ───
-  info "Setting passwords and finalizing code-server ..."
+  # ── Passwords + web UI config (variable expansion — outside heredoc) ───────
+  info "Setting passwords and finalizing web UI configs ..."
 
   printf '%s:%s\n' "${CC_USER}" "${CC_PASSWORD}" | pct exec "$CT_ID" -- chpasswd
+
+  _aw_token=$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)
+  printf 'AGENT_WORKSTATION_ADDR=0.0.0.0:9090\nAGENT_WORKSTATION_WEB_DIR=/opt/agent-workstation/web\nAGENT_WORKSTATION_SESSION_TOKEN=%s\nAGENT_WORKSTATION_USERNAME=%s\nAGENT_WORKSTATION_PASSWORD=%s\n' \
+    "$_aw_token" "$CC_USER" "$CC_PASSWORD" \
+    | pct exec "$CT_ID" -- tee /etc/agent-workstation/env > /dev/null
+  pct exec "$CT_ID" -- chown "root:${CC_USER}" /etc/agent-workstation/env
+  pct exec "$CT_ID" -- chmod 640 /etc/agent-workstation/env
+  pct exec "$CT_ID" -- systemctl restart agent-workstation.service
+  success "Agent Workstation UI login set to ${CC_USER} user credentials."
 
   pct exec "$CT_ID" -- bash -c "mkdir -p /home/${CC_USER}/.config/code-server"
   local _cs_password_yaml
@@ -1979,7 +1989,7 @@ print_summary() {
   [[ -n "${ct_ip:-}" ]] && \
   echo -e "    Web VS Code:      ${CYAN}http://${ct_ip}:8080${NC}  (password: $CS_PASSWORD)"
   [[ -n "${ct_ip:-}" ]] && \
-  echo -e "    Agent Workstation:${CYAN}http://${ct_ip}:9090${NC}  (user: ${CC_USER})"
+  echo -e "    Agent Workstation:${CYAN}http://${ct_ip}:9090${NC}  (user: ${CC_USER}, password: user password entered above)"
   echo ""
   echo -e "  ${BOLD}First steps:${NC}"
   echo -e "    1. ${CYAN}ssh ${CC_USER}@${ct_ip:-<ip>}${NC}"

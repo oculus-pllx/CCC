@@ -37,6 +37,7 @@ async function loadOverview() {
 
 async function login(event) {
   event.preventDefault();
+  const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
   const error = document.getElementById('login-error');
   error.textContent = '';
@@ -45,7 +46,7 @@ async function login(event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ username, password }),
     });
     if (!response.ok) {
       error.textContent = response.status === 401 ? 'Invalid password.' : 'Sign in failed.';

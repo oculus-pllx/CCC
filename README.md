@@ -313,7 +313,7 @@ pct exec <CT_ID> -- rm -f /etc/systemd/system/ccc-dashboard.service
 pct exec <CT_ID> -- systemctl daemon-reload
 pct exec <CT_ID> -- systemctl restart agent-workstation.service
 ```
-Open `http://<container-ip>:9090` and sign in with the generated Agent Workstation password printed at install time or stored in `/etc/agent-workstation/env`.
+Open `http://<container-ip>:9090` and sign in with the workstation username and the user password entered during install. The service stores those credentials in `/etc/agent-workstation/env` so the native UI and LXC user stay aligned.
 
 Until the latest local commits are pushed to GitHub, install fresh test containers from this local checkout instead of the GitHub curl command:
 ```bash

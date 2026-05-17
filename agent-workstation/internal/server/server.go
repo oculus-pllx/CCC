@@ -13,6 +13,7 @@ const SessionCookieName = "aw_session"
 
 type Config struct {
 	SessionToken string
+	Username     string
 	Password     string
 	WebDir       string
 	Overview     func() (system.Overview, error)
@@ -21,6 +22,7 @@ type Config struct {
 type Server struct {
 	mux          *http.ServeMux
 	sessionToken string
+	username     string
 	password     string
 	webDir       string
 	overview     func() (system.Overview, error)
@@ -30,6 +32,7 @@ func New(config Config) *Server {
 	s := &Server{
 		mux:          http.NewServeMux(),
 		sessionToken: config.SessionToken,
+		username:     config.Username,
 		password:     config.Password,
 		webDir:       config.WebDir,
 		overview:     config.Overview,
@@ -76,18 +79,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.password == "" || s.sessionToken == "" {
+	if s.username == "" || s.password == "" || s.sessionToken == "" {
 		http.Error(w, "login is not configured", http.StatusInternalServerError)
 		return
 	}
 	var body struct {
+		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid login request", http.StatusBadRequest)
 		return
 	}
-	if body.Password != s.password {
+	if body.Username != s.username || body.Password != s.password {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

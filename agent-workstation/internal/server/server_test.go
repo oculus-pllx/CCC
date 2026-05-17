@@ -60,9 +60,9 @@ func TestProtectedAPIReturnsUnauthorizedWithoutSession(t *testing.T) {
 	}
 }
 
-func TestLoginSetsSessionCookieForValidPassword(t *testing.T) {
+func TestLoginSetsSessionCookieForValidUserPassword(t *testing.T) {
 	srv := newTestServer()
-	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"password":"secret"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"username":"oculus","password":"secret"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 
@@ -88,7 +88,20 @@ func TestLoginSetsSessionCookieForValidPassword(t *testing.T) {
 
 func TestLoginRejectsInvalidPassword(t *testing.T) {
 	srv := newTestServer()
-	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"password":"wrong"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"username":"oculus","password":"wrong"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", res.Code)
+	}
+}
+
+func TestLoginRejectsInvalidUsername(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"username":"wrong","password":"secret"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 
@@ -138,6 +151,7 @@ func TestProtectedAPIAllowsValidSessionCookie(t *testing.T) {
 func newTestServer() *Server {
 	return New(Config{
 		SessionToken: "test-token",
+		Username:     "oculus",
 		Password:     "secret",
 		WebDir:       "../../web",
 		Overview: func() (system.Overview, error) {
