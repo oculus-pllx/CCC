@@ -13,10 +13,15 @@ import (
 type Overview struct {
 	Hostname string     `json:"hostname"`
 	IPs      []string   `json:"ips"`
+	CPU      CPUInfo    `json:"cpu"`
 	Memory   MemoryInfo `json:"memory"`
 	Load     LoadInfo   `json:"load"`
 	Uptime   UptimeInfo `json:"uptime"`
 	Disk     DiskInfo   `json:"disk"`
+}
+
+type CPUInfo struct {
+	Cores int `json:"cores"`
 }
 
 type MemoryInfo struct {
@@ -47,6 +52,7 @@ type DiskInfo struct {
 func CollectOverview() (Overview, error) {
 	hostname, _ := os.Hostname()
 	memRaw, memErr := os.ReadFile("/proc/meminfo")
+	cpuRaw, cpuErr := os.ReadFile("/proc/cpuinfo")
 	loadRaw, loadErr := os.ReadFile("/proc/loadavg")
 	uptimeRaw, uptimeErr := os.ReadFile("/proc/uptime")
 	dfRaw, dfErr := exec.Command("df", "-B1", "--output=size,used,avail,pcent,target", "/").Output()
@@ -58,6 +64,9 @@ func CollectOverview() (Overview, error) {
 	if memErr == nil {
 		overview.Memory, memErr = ParseMemInfo(string(memRaw))
 	}
+	if cpuErr == nil {
+		overview.CPU = CPUInfo{Cores: ParseCPUInfo(string(cpuRaw))}
+	}
 	if loadErr == nil {
 		overview.Load, loadErr = ParseLoadAverage(string(loadRaw))
 	}
@@ -68,7 +77,7 @@ func CollectOverview() (Overview, error) {
 		overview.Disk, dfErr = ParseDFOutput(lastLine(string(dfRaw)))
 	}
 
-	return overview, errors.Join(memErr, loadErr, uptimeErr, dfErr)
+	return overview, errors.Join(memErr, cpuErr, loadErr, uptimeErr, dfErr)
 }
 
 func ParseMemInfo(input string) (MemoryInfo, error) {
@@ -112,6 +121,19 @@ func ParseLoadAverage(input string) (LoadInfo, error) {
 		return LoadInfo{}, err
 	}
 	return LoadInfo{One: one, Five: five, Fifteen: fifteen}, nil
+}
+
+func ParseCPUInfo(input string) int {
+	count := 0
+	for _, line := range strings.Split(input, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "processor") {
+			count++
+		}
+	}
+	if count == 0 {
+		return 1
+	}
+	return count
 }
 
 func ParseUptime(input string) (UptimeInfo, error) {

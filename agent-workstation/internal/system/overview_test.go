@@ -31,6 +31,17 @@ func TestParseLoadAverage(t *testing.T) {
 	}
 }
 
+func TestParseCPUInfoCountsProcessors(t *testing.T) {
+	count := ParseCPUInfo(`processor   : 0
+vendor_id   : GenuineIntel
+processor   : 1
+processor   : 2
+`)
+	if count != 3 {
+		t.Fatalf("expected 3 processors, got %d", count)
+	}
+}
+
 func TestParseUptime(t *testing.T) {
 	uptime, err := ParseUptime("3661.25 100.00\n")
 	if err != nil {

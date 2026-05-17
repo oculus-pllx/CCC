@@ -130,15 +130,53 @@ function renderSection(section) {
 
 function renderOverview() {
   const data = snapshot.overview || {};
+  const services = snapshot.services || [];
+  const activeServices = services.filter(service => service.active === 'active').length;
+  const totalServices = services.length;
+  const cpuPercent = loadPercent(data.load?.one, data.cpu?.cores);
+  const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
+  const updateBadge = updateText.includes('Up to date') ? 'Current' : updateText.includes('behind') ? 'Updates available' : 'Unknown';
+  const configs = snapshot.agentConfigs || [];
+  const presentConfigs = configs.filter(config => config.exists).length;
+  const logs = snapshot.logs || [];
+  const primaryLog = stripANSI(logs[0]?.lines || '').split('\n').slice(-8).join('\n');
   return `
-    <dl class="facts">
-      <dt>Hostname</dt><dd>${escapeHTML(data.hostname || 'unknown')}</dd>
-      <dt>IPs</dt><dd>${escapeHTML((data.ips || []).join(', ') || 'none')}</dd>
-      <dt>Uptime</dt><dd>${escapeHTML(data.uptime?.display || 'unknown')}</dd>
-      <dt>Load</dt><dd>${escapeHTML(formatLoad(data.load))}</dd>
-      <dt>Memory</dt><dd>${escapeHTML(formatPercent(data.memory?.usedPercent))}</dd>
-      <dt>Disk</dt><dd>${escapeHTML(formatPercent(data.disk?.usedPercent))}</dd>
-    </dl>
+    <div class="dashboard">
+      <section class="status-strip">
+        ${statusTile('Host', data.hostname || 'unknown')}
+        ${statusTile('IP', (data.ips || [])[0] || 'none')}
+        ${statusTile('Uptime', data.uptime?.display || 'unknown')}
+        ${statusTile('Services', `${activeServices}/${totalServices} active`)}
+        ${statusTile('Projects', `${(snapshot.projects || []).length}`)}
+      </section>
+
+      <section class="gauge-grid">
+        ${gauge('CPU Load', cpuPercent, `${formatLoad(data.load)} · ${data.cpu?.cores || 1} cores`)}
+        ${gauge('Memory', data.memory?.usedPercent, `${formatBytes(usedBytes(data.memory))} / ${formatBytes(data.memory?.totalBytes || 0)}`)}
+        ${gauge('Disk', data.disk?.usedPercent, `${formatBytes(data.disk?.usedBytes || 0)} / ${formatBytes(data.disk?.totalBytes || 0)} on ${data.disk?.mount || '/'}`)}
+      </section>
+
+      <section class="dashboard-grid">
+        <div class="dash-panel">
+          <h3>Update Status</h3>
+          <span class="badge ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' ? 'warn' : ''}">${escapeHTML(updateBadge)}</span>
+          <pre class="mini-output">${escapeHTML(firstUsefulLines(updateText, 6))}</pre>
+        </div>
+        <div class="dash-panel">
+          <h3>Agent Configs</h3>
+          <span class="badge ${presentConfigs === configs.length ? 'ok' : 'warn'}">${presentConfigs}/${configs.length} present</span>
+          ${configs.map(config => `<div class="mini-row"><span>${escapeHTML(config.name)}</span><strong>${config.exists ? 'ready' : 'missing'}</strong></div>`).join('')}
+        </div>
+        <div class="dash-panel">
+          <h3>Services</h3>
+          ${services.map(service => `<div class="mini-row"><span>${escapeHTML(service.name)}</span><strong class="${service.active === 'active' ? 'ok-text' : 'warn-text'}">${escapeHTML(service.active || 'unknown')}</strong></div>`).join('')}
+        </div>
+        <div class="dash-panel">
+          <h3>Recent Activity</h3>
+          <pre class="mini-output">${escapeHTML(primaryLog || 'No recent Agent Workstation logs.')}</pre>
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -666,9 +704,61 @@ function table(headers, rows) {
   `;
 }
 
+function statusTile(label, value) {
+  return `
+    <div class="status-tile">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value)}</strong>
+    </div>
+  `;
+}
+
+function gauge(label, value, detail) {
+  const percent = clampPercent(value);
+  return `
+    <div class="gauge-card">
+      <div class="gauge" style="--value:${percent}">
+        <div class="gauge-inner">
+          <strong>${Number.isFinite(percent) ? percent.toFixed(0) : 0}%</strong>
+          <span>${escapeHTML(label)}</span>
+        </div>
+      </div>
+      <p>${escapeHTML(detail || '')}</p>
+    </div>
+  `;
+}
+
 function formatLoad(load) {
   if (!load) return 'unknown';
   return `${load.one?.toFixed?.(2) ?? '0.00'} / ${load.five?.toFixed?.(2) ?? '0.00'} / ${load.fifteen?.toFixed?.(2) ?? '0.00'}`;
+}
+
+function loadPercent(loadOne, cores) {
+  const coreCount = Number.isFinite(cores) && cores > 0 ? cores : 1;
+  return Number.isFinite(loadOne) ? (loadOne / coreCount) * 100 : 0;
+}
+
+function usedBytes(memory) {
+  if (!memory?.totalBytes) return 0;
+  return memory.totalBytes - (memory.availableBytes || 0);
+}
+
+function clampPercent(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
+function firstUsefulLines(text, limit) {
+  return stripANSI(text)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(0, limit)
+    .join('\n');
+}
+
+function stripANSI(value) {
+  return String(value || '').replace(/\x1b\[[0-9;]*m/g, '').replace(/\[[0-9;]*m/g, '');
 }
 
 function formatPercent(value) {
