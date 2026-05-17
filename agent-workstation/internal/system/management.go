@@ -75,6 +75,7 @@ type FileContent struct {
 type UpdateStatus struct {
 	AgentWorkstation string `json:"agentWorkstation"`
 	OS               string `json:"os"`
+	SelfUpdateLog    string `json:"selfUpdateLog"`
 }
 
 type ProjectStatus struct {
@@ -174,6 +175,8 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 		return RunShellCommand("sudo ccc-sync-agent-configs", workstationHome())
 	case "update-status":
 		return RunShellCommand("ccc-update-status", workstationHome())
+	case "self-update":
+		return RunShellCommand("sudo nohup ccc-self-update > /var/log/ccc-self-update.log 2>&1 & echo 'Agent Workstation self-update started in background. Watch /var/log/ccc-self-update.log for progress.'", workstationHome())
 	case "os-update":
 		return RunShellCommand("sudo ccc-os-update", workstationHome())
 	case "restart-code-server":
@@ -446,6 +449,7 @@ func collectUpdates() UpdateStatus {
 	return UpdateStatus{
 		AgentWorkstation: runText("ccc-update-status"),
 		OS:               runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
+		SelfUpdateLog:    runText("bash", "-lc", "tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
 	}
 }
 

@@ -266,12 +266,15 @@ function renderUpdates() {
   return `
     <div class="action-row">
       <button class="small-button" data-action="update-status">Refresh Agent Workstation Status</button>
+      <button class="small-button" data-action="self-update">Apply Agent Workstation Update</button>
       <button class="small-button" data-action="os-update">Run OS Update</button>
     </div>
     <h3>Agent Workstation</h3>
-    <pre class="output">${escapeHTML(snapshot.updates?.agentWorkstation || 'No Agent Workstation update status.')}</pre>
+    <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.agentWorkstation || 'No Agent Workstation update status.'))}</pre>
+    <h3>Last Self-Update Log</h3>
+    <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.selfUpdateLog || 'No self-update log yet.'))}</pre>
     <h3>OS Packages</h3>
-    <pre class="output">${escapeHTML(snapshot.updates?.os || 'No package update data.')}</pre>
+    <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.os || 'No package update data.'))}</pre>
     <pre id="action-output" class="output" hidden></pre>
   `;
 }

@@ -40,7 +40,11 @@ require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_ADDR=0.0.0.0:9
 require_file_contains claude-code-commander.sh "systemctl disable --now ccc-dashboard"
 require_file_contains claude-code-commander.sh "fuser -k 9090/tcp"
 require_file_contains claude-code-commander.sh "systemctl disable --now cockpit.socket"
-require_file_contains claude-code-commander.sh "systemctl enable --now agent-workstation.service"
+require_file_contains claude-code-commander.sh "systemctl enable agent-workstation.service"
+require_file_contains claude-code-commander.sh "/var/log/ccc-self-update.log"
+require_file_contains claude-code-commander.sh "timeout 600 /usr/local/go/bin/go build"
+require_file_contains agent-workstation/web/app.js "Apply Agent Workstation Update"
+require_file_contains agent-workstation/web/app.js "self-update"
 
 require_file_not_contains claude-code-commander.sh "/opt/ccc-dashboard"
 require_file_not_contains claude-code-commander.sh "node-pty"

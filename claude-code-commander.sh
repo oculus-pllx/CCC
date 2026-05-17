@@ -1613,12 +1613,14 @@ CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-agent-workstation-native-ui}"
 CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-claude-code-commander.sh}"
 CCC_SELF_UPDATE_RAW_URL="${CCC_SELF_UPDATE_RAW_URL:-https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/${CCC_SELF_UPDATE_SCRIPT}}"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
+LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
 TMP="/tmp/ccc-provisioner-$$.sh"
+APPLY_SCRIPT="/tmp/ccc-updateable-$$.sh"
 CLONE_DIR=""
 LATEST_COMMIT=""
 
 cleanup() {
-  rm -f "$TMP"
+  rm -f "$TMP" "$APPLY_SCRIPT"
   [[ -n "${CLONE_DIR:-}" ]] && rm -rf "$CLONE_DIR"
 }
 trap cleanup EXIT
@@ -1705,7 +1707,16 @@ fi
 
 echo ""
 echo -e "${C}[3/3]${N} Applying updates..."
-(echo 'step() { echo "  >>> $2"; }'; echo "$UPDATE_SCRIPT") | sudo bash
+sudo mkdir -p "$(dirname "$LOG_FILE")"
+{
+  echo "#!/bin/bash"
+  echo "set -euo pipefail"
+  echo 'step() { echo "  >>> $2"; }'
+  echo "$UPDATE_SCRIPT"
+} > "$APPLY_SCRIPT"
+chmod +x "$APPLY_SCRIPT"
+echo -e "  Log: ${C}${LOG_FILE}${N}"
+sudo bash -c "bash '$APPLY_SCRIPT' 2>&1 | tee '$LOG_FILE'"
 STATUS=$?
 
 echo ""
@@ -1814,16 +1825,19 @@ if [[ "$_agent_repo" == git@github.com:* ]]; then
   _agent_repo="https://github.com/${_agent_repo#git@github.com:}"
 fi
 _agent_repo="${_agent_repo%.git}.git"
+echo "    Cloning Agent Workstation source from $_agent_repo ($CCC_SELF_UPDATE_REF)..."
 if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" "$AGENT_WORKSTATION_SRC"; then
   echo "[WARN] Could not clone $_agent_repo branch $CCC_SELF_UPDATE_REF; trying main."
   git clone --quiet --depth 1 --branch main "$_agent_repo" "$AGENT_WORKSTATION_SRC"
 fi
 
-/usr/local/go/bin/go build \
+echo "    Building Agent Workstation binary..."
+timeout 600 /usr/local/go/bin/go build \
   -C "$AGENT_WORKSTATION_SRC/agent-workstation" \
   -o /usr/local/bin/agent-workstation \
   ./cmd/server
 chmod +x /usr/local/bin/agent-workstation
+echo "    Syncing Agent Workstation web assets..."
 rsync -a --delete "$AGENT_WORKSTATION_SRC/agent-workstation/web/" "$AGENT_WORKSTATION_ROOT/web/"
 
 if [[ -r "$AGENT_WORKSTATION_ENV" ]]; then
@@ -1863,7 +1877,9 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now agent-workstation.service
+systemctl enable agent-workstation.service
+echo "    Restarting Agent Workstation service..."
+timeout 60 systemctl restart agent-workstation.service
 
 echo "    Agent Workstation: http://<ip>:9090 (login as $CCC_USER)"
 echo "    Agent Workstation uses the $CCC_USER user password after final setup."
