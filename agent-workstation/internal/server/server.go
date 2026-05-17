@@ -17,6 +17,9 @@ type Config struct {
 	Password     string
 	WebDir       string
 	Overview     func() (system.Overview, error)
+	Snapshot     func() (system.ManagementSnapshot, error)
+	RunCommand   func(command string, cwd string) (system.CommandResult, error)
+	RunAction    func(action string) (system.CommandResult, error)
 }
 
 type Server struct {
@@ -26,6 +29,9 @@ type Server struct {
 	password     string
 	webDir       string
 	overview     func() (system.Overview, error)
+	snapshot     func() (system.ManagementSnapshot, error)
+	runCommand   func(command string, cwd string) (system.CommandResult, error)
+	runAction    func(action string) (system.CommandResult, error)
 }
 
 func New(config Config) *Server {
@@ -36,9 +42,21 @@ func New(config Config) *Server {
 		password:     config.Password,
 		webDir:       config.WebDir,
 		overview:     config.Overview,
+		snapshot:     config.Snapshot,
+		runCommand:   config.RunCommand,
+		runAction:    config.RunAction,
 	}
 	if s.overview == nil {
 		s.overview = system.CollectOverview
+	}
+	if s.snapshot == nil {
+		s.snapshot = system.CollectManagementSnapshot
+	}
+	if s.runCommand == nil {
+		s.runCommand = system.RunShellCommand
+	}
+	if s.runAction == nil {
+		s.runAction = system.RunWorkstationAction
 	}
 	s.routes()
 	return s
@@ -53,6 +71,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/login", s.handleLogin)
 	s.mux.Handle("/api/logout", s.requireSession(http.HandlerFunc(s.handleLogout)))
 	s.mux.Handle("/api/overview", s.requireSession(http.HandlerFunc(s.handleOverview)))
+	s.mux.Handle("/api/workstation", s.requireSession(http.HandlerFunc(s.handleWorkstation)))
+	s.mux.Handle("/api/terminal", s.requireSession(http.HandlerFunc(s.handleTerminal)))
+	s.mux.Handle("/api/action", s.requireSession(http.HandlerFunc(s.handleAction)))
 	s.mux.Handle("/", s.staticHandler())
 }
 
@@ -72,6 +93,66 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, overview)
+}
+
+func (s *Server) handleWorkstation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	snapshot, err := s.snapshot()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error": err.Error(),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
+func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Command string `json:"command"`
+		Cwd     string `json:"cwd"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid terminal request", http.StatusBadRequest)
+		return
+	}
+	result, err := s.runCommand(body.Command, body.Cwd)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": err.Error(),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Action string `json:"action"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid action request", http.StatusBadRequest)
+		return
+	}
+	result, err := s.runAction(body.Action)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": err.Error(),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

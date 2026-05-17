@@ -148,6 +148,70 @@ func TestProtectedAPIAllowsValidSessionCookie(t *testing.T) {
 	}
 }
 
+func TestProtectedManagementSnapshotReturnsNativeSections(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/workstation", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	var body system.ManagementSnapshot
+	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+		t.Fatalf("snapshot response is not JSON: %v", err)
+	}
+	if len(body.Services) == 0 || body.Services[0].Name != "agent-workstation.service" {
+		t.Fatalf("expected service status in snapshot, got %#v", body.Services)
+	}
+	if len(body.Projects) == 0 || body.Projects[0].Name != "demo" {
+		t.Fatalf("expected projects in snapshot, got %#v", body.Projects)
+	}
+	if body.OculusConfigs.Path != "/opt/oculus-configs" {
+		t.Fatalf("expected oculus-configs status, got %#v", body.OculusConfigs)
+	}
+}
+
+func TestProtectedCommandRunsThroughConfiguredRunner(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/terminal", strings.NewReader(`{"command":"pwd","cwd":"/home/oculus/projects"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	var body system.CommandResult
+	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+		t.Fatalf("terminal response is not JSON: %v", err)
+	}
+	if body.Output != "ran pwd in /home/oculus/projects" {
+		t.Fatalf("expected configured runner output, got %#v", body)
+	}
+}
+
+func TestProtectedActionRunsAllowlistedAction(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/action", strings.NewReader(`{"action":"sync-oculus-configs"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "sync ok") {
+		t.Fatalf("expected action output, got %q", res.Body.String())
+	}
+}
+
 func newTestServer() *Server {
 	return New(Config{
 		SessionToken: "test-token",
@@ -156,6 +220,19 @@ func newTestServer() *Server {
 		WebDir:       "../../web",
 		Overview: func() (system.Overview, error) {
 			return system.Overview{Hostname: "test-host", IPs: []string{"192.0.2.10"}}, nil
+		},
+		Snapshot: func() (system.ManagementSnapshot, error) {
+			return system.ManagementSnapshot{
+				Services:      []system.ServiceStatus{{Name: "agent-workstation.service", Active: "active"}},
+				Projects:      []system.ProjectStatus{{Name: "demo", Path: "/home/oculus/projects/demo"}},
+				OculusConfigs: system.RepoStatus{Path: "/opt/oculus-configs", Branch: "main"},
+			}, nil
+		},
+		RunCommand: func(command string, cwd string) (system.CommandResult, error) {
+			return system.CommandResult{Command: command, Cwd: cwd, Output: "ran " + command + " in " + cwd}, nil
+		},
+		RunAction: func(action string) (system.CommandResult, error) {
+			return system.CommandResult{Command: action, Output: "sync ok"}, nil
 		},
 	})
 }
