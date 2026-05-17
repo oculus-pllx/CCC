@@ -9,7 +9,10 @@
 <body>
   <header class="topbar">
     <h1>Agent Workstation</h1>
-    <span id="health">Checking...</span>
+    <div class="topbar-actions">
+      <span id="health">Checking...</span>
+      <button id="logout-button" class="small-button" hidden>Log Out</button>
+    </div>
   </header>
   <main class="layout">
     <nav class="sidebar" aria-label="Sections">
@@ -25,6 +28,15 @@
       <button>oculus-configs</button>
     </nav>
     <section class="content">
+      <form id="login-panel" class="panel login-panel" hidden>
+        <h2>Sign In</h2>
+        <label for="password">Password</label>
+        <div class="login-row">
+          <input id="password" name="password" type="password" autocomplete="current-password">
+          <button type="submit">Sign In</button>
+        </div>
+        <p id="login-error" class="error-text"></p>
+      </form>
       <h2>Overview</h2>
       <div id="overview" class="panel">Loading system overview...</div>
     </section>

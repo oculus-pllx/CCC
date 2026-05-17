@@ -13,6 +13,7 @@ const SessionCookieName = "aw_session"
 
 type Config struct {
 	SessionToken string
+	Password     string
 	WebDir       string
 	Overview     func() (system.Overview, error)
 }
@@ -20,6 +21,7 @@ type Config struct {
 type Server struct {
 	mux          *http.ServeMux
 	sessionToken string
+	password     string
 	webDir       string
 	overview     func() (system.Overview, error)
 }
@@ -28,6 +30,7 @@ func New(config Config) *Server {
 	s := &Server{
 		mux:          http.NewServeMux(),
 		sessionToken: config.SessionToken,
+		password:     config.Password,
 		webDir:       config.WebDir,
 		overview:     config.Overview,
 	}
@@ -44,6 +47,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("/api/health", s.handleHealth)
+	s.mux.HandleFunc("/api/login", s.handleLogin)
+	s.mux.Handle("/api/logout", s.requireSession(http.HandlerFunc(s.handleLogout)))
 	s.mux.Handle("/api/overview", s.requireSession(http.HandlerFunc(s.handleOverview)))
 	s.mux.Handle("/", s.staticHandler())
 }
@@ -66,6 +71,35 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, overview)
 }
 
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.password == "" || s.sessionToken == "" {
+		http.Error(w, "login is not configured", http.StatusInternalServerError)
+		return
+	}
+	var body struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid login request", http.StatusBadRequest)
+		return
+	}
+	if body.Password != s.password {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	http.SetCookie(w, sessionCookie(s.sessionToken, 0))
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
+	http.SetCookie(w, sessionCookie("", -1))
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (s *Server) requireSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.sessionToken == "" {
@@ -79,6 +113,17 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func sessionCookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   maxAge,
+	}
 }
 
 func (s *Server) staticHandler() http.Handler {

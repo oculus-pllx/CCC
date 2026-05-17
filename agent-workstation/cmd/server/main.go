@@ -13,12 +13,17 @@ import (
 func main() {
 	addr := envDefault("AGENT_WORKSTATION_ADDR", ":9090")
 	token := os.Getenv("AGENT_WORKSTATION_SESSION_TOKEN")
+	password := os.Getenv("AGENT_WORKSTATION_PASSWORD")
 	if token == "" {
 		token = randomToken()
 		log.Printf("generated session token for this process")
 	}
+	if password == "" {
+		password = token
+		log.Printf("generated login password for this process")
+	}
 
-	srv := server.New(server.Config{SessionToken: token})
+	srv := server.New(server.Config{SessionToken: token, Password: password})
 	log.Printf("Agent Workstation listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {
 		log.Fatal(err)

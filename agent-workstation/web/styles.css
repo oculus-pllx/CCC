@@ -26,6 +26,12 @@ body {
   background: #111316;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 h1 { font-size: 18px; margin: 0; }
 h2 { font-size: 18px; margin: 0 0 16px; }
 
@@ -79,4 +85,46 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 
 .facts dd {
   margin: 0;
+}
+
+.login-panel {
+  max-width: 520px;
+  margin-bottom: 20px;
+}
+
+.login-panel label {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.login-row {
+  display: flex;
+  gap: 8px;
+}
+
+.login-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #111316;
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+.login-row button,
+.small-button {
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.error-text {
+  min-height: 20px;
+  color: #f87171;
+  margin: 8px 0 0;
 }
