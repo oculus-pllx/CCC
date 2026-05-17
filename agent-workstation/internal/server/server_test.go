@@ -278,6 +278,40 @@ func TestProtectedServiceControlRunsConfiguredController(t *testing.T) {
 	}
 }
 
+func TestProtectedFileOperationRunsConfiguredOperator(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/file-op", strings.NewReader(`{"operation":"rename","path":"/home/oculus/projects/old.md","target":"/home/oculus/projects/new.md"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "renamed") {
+		t.Fatalf("expected file operation response, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedProjectOperationRunsConfiguredOperator(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/project", strings.NewReader(`{"operation":"create","name":"new-project","template":"blank"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "created new-project") {
+		t.Fatalf("expected project operation response, got %q", res.Body.String())
+	}
+}
+
 func newTestServer() *Server {
 	return New(Config{
 		SessionToken: "test-token",
@@ -311,6 +345,12 @@ func newTestServer() *Server {
 		},
 		ControlService: func(service string, operation string) (system.CommandResult, error) {
 			return system.CommandResult{Command: operation + " " + service, Output: operation + " " + service}, nil
+		},
+		FileOperation: func(operation system.FileOperation) (system.CommandResult, error) {
+			return system.CommandResult{Command: operation.Operation, Output: "renamed"}, nil
+		},
+		ProjectOperation: func(operation system.ProjectOperation) (system.CommandResult, error) {
+			return system.CommandResult{Command: operation.Operation, Output: "created " + operation.Name}, nil
 		},
 	})
 }

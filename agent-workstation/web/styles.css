@@ -143,11 +143,57 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   cursor: pointer;
 }
 
+.danger-button {
+  border-color: #f87171;
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+.project-create {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 240px) auto;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.project-create input,
+.project-create select {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #111316;
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+.project-list {
+  display: grid;
+  gap: 10px;
+}
+
+.project-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #1b1e22;
+}
+
+.project-row p {
+  margin: 4px 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.project-row span {
+  color: var(--muted);
 }
 
 .service-list {
@@ -173,6 +219,19 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 
 .service-row span {
   color: var(--muted);
+}
+
+#terminal-pane {
+  min-height: 560px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #050608;
+}
+
+#terminal-status {
+  color: var(--muted);
+  align-self: center;
 }
 
 .stack + .stack {
@@ -320,6 +379,8 @@ td {
   }
 
   .service-row,
+  .project-row,
+  .project-create,
   .file-browser {
     grid-template-columns: 1fr;
   }

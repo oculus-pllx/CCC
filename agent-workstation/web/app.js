@@ -16,6 +16,9 @@ let currentSection = 'overview';
 let snapshot = null;
 let filePath = '';
 let currentFile = '';
+let terminalSocket = null;
+let terminal = null;
+let rawTerminalBuffer = '';
 
 async function loadHealth() {
   const target = document.getElementById('health');
@@ -198,6 +201,8 @@ function renderFiles() {
       <input id="file-path" type="text" value="${escapeAttribute(filePath)}">
       <button id="browse-button" class="small-button">Open</button>
       <button id="parent-button" class="small-button">Up</button>
+      <button id="file-new-file-button" class="small-button">New File</button>
+      <button id="file-new-folder-button" class="small-button">New Folder</button>
     </div>
     <div class="file-browser">
       <div>
@@ -209,6 +214,8 @@ function renderFiles() {
         <div class="file-toolbar">
           <input id="current-file" type="text" value="${escapeAttribute(currentFile)}" placeholder="Select a file">
           <button id="save-file-button" class="small-button">Save</button>
+          <button id="file-rename-button" class="small-button">Rename</button>
+          <button id="file-delete-button" class="small-button danger-button">Delete</button>
         </div>
         <textarea id="file-editor" spellcheck="false"></textarea>
         <pre id="file-output" class="output" hidden></pre>
@@ -232,28 +239,52 @@ function renderUpdates() {
 }
 
 function renderTerminal() {
-  const cwd = snapshot.projects?.[0]?.path || '';
   return `
-    <form id="terminal-form" class="terminal-form">
-      <label for="terminal-cwd">Working directory</label>
-      <input id="terminal-cwd" type="text" value="${escapeAttribute(cwd)}" placeholder="/home/oculus/projects">
-      <label for="terminal-command">Command</label>
+    <div class="action-row">
+      <button id="terminal-connect" class="small-button">Connect</button>
+      <button id="terminal-disconnect" class="small-button">Disconnect</button>
+      <button id="terminal-tmux" class="small-button">tmux</button>
+      <span id="terminal-status">Disconnected</span>
+    </div>
+    <div id="terminal-pane"></div>
+    <div id="terminal-fallback" hidden>
+      <pre id="terminal-raw-output" class="output">Raw terminal output will appear here.</pre>
       <div class="login-row">
-        <input id="terminal-command" type="text" autocomplete="off" placeholder="pwd">
-        <button type="submit">Run</button>
+        <input id="terminal-raw-input" type="text" autocomplete="off" placeholder="type command or input">
+        <button id="terminal-raw-send" type="button">Send</button>
       </div>
-    </form>
-    <pre id="terminal-output" class="output">Command output will appear here.</pre>
+    </div>
   `;
 }
 
 function renderProjects() {
-  return table(['Project', 'Branch', 'Status', 'Path'], (snapshot.projects || []).map(project => [
-    project.name,
-    project.gitBranch || 'not a git repo',
-    project.gitStatus || '',
-    project.path,
-  ]));
+  return `
+    <div class="project-create">
+      <input id="project-name" type="text" placeholder="new-project">
+      <select id="project-template">
+        <option value="blank">Blank project</option>
+      </select>
+      <button id="create-project-button" class="small-button">Create</button>
+    </div>
+    <div class="project-list">
+      ${(snapshot.projects || []).map(project => `
+        <section class="project-row">
+          <div>
+            <strong>${escapeHTML(project.name)}</strong>
+            <p>${escapeHTML(project.path)}</p>
+            <span>${escapeHTML(project.gitBranch || 'not a git repo')}</span>
+          </div>
+          <div class="action-row">
+            <button class="small-button" data-project-browse="${escapeAttribute(project.path)}">Files</button>
+            <button class="small-button" data-project-open="${escapeAttribute(project.path)}">VS Code</button>
+            <button class="small-button" data-project-rename="${escapeAttribute(project.name)}">Rename</button>
+            <button class="small-button danger-button" data-project-delete="${escapeAttribute(project.name)}">Delete</button>
+          </div>
+        </section>
+      `).join('') || '<p>No projects yet.</p>'}
+    </div>
+    <pre id="project-output" class="output" hidden></pre>
+  `;
 }
 
 function renderConfigs() {
@@ -294,10 +325,13 @@ function bindSectionActions(section) {
     button.addEventListener('click', () => controlService(button.dataset.service, button.dataset.operation));
   });
   if (section === 'terminal') {
-    document.getElementById('terminal-form').addEventListener('submit', runTerminal);
+    bindTerminal();
   }
   if (section === 'files') {
     bindFileBrowser();
+  }
+  if (section === 'projects') {
+    bindProjects();
   }
 }
 
@@ -328,20 +362,6 @@ async function controlService(service, operation) {
   }
 }
 
-async function runTerminal(event) {
-  event.preventDefault();
-  const command = document.getElementById('terminal-command').value;
-  const cwd = document.getElementById('terminal-cwd').value;
-  const output = document.getElementById('terminal-output');
-  output.textContent = 'Running...';
-  try {
-    const result = await postJSON('/api/terminal', { command, cwd });
-    output.textContent = `$ ${result.command}\n${result.output || ''}\nexit ${result.exitCode}`;
-  } catch (error) {
-    output.textContent = error.message;
-  }
-}
-
 function bindFileBrowser() {
   document.getElementById('browse-button').addEventListener('click', () => {
     filePath = document.getElementById('file-path').value;
@@ -358,6 +378,10 @@ function bindFileBrowser() {
     loadFiles(filePath);
   });
   document.getElementById('save-file-button').addEventListener('click', saveCurrentFile);
+  document.getElementById('file-new-file-button')?.addEventListener('click', () => createFileEntry('file'));
+  document.getElementById('file-new-folder-button')?.addEventListener('click', () => createFileEntry('dir'));
+  document.getElementById('file-rename-button')?.addEventListener('click', renameCurrentFile);
+  document.getElementById('file-delete-button')?.addEventListener('click', deleteCurrentFile);
   loadFiles(filePath);
 }
 
@@ -423,6 +447,188 @@ async function saveCurrentFile() {
     output.textContent = result.status || 'saved';
     currentFile = path;
     await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function createFileEntry(kind) {
+  const name = prompt(kind === 'dir' ? 'Folder name' : 'File name');
+  if (!name) return;
+  const path = `${filePath.replace(/\/+$/, '')}/${name}`;
+  const output = document.getElementById('file-output');
+  output.hidden = false;
+  output.textContent = 'Creating...';
+  try {
+    const result = await postJSON('/api/file-op', { operation: 'create', path, kind });
+    output.textContent = result.output || 'created';
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function renameCurrentFile() {
+  const path = document.getElementById('current-file').value;
+  if (!path) return;
+  const target = prompt('New path', path);
+  if (!target || target === path) return;
+  const output = document.getElementById('file-output');
+  output.hidden = false;
+  output.textContent = 'Renaming...';
+  try {
+    const result = await postJSON('/api/file-op', { operation: 'rename', path, target });
+    output.textContent = result.output || 'renamed';
+    currentFile = target;
+    document.getElementById('current-file').value = target;
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function deleteCurrentFile() {
+  const path = document.getElementById('current-file').value;
+  if (!path || !confirm(`Delete ${path}?`)) return;
+  const output = document.getElementById('file-output');
+  output.hidden = false;
+  output.textContent = 'Deleting...';
+  try {
+    const result = await postJSON('/api/file-op', { operation: 'delete', path });
+    output.textContent = result.output || 'deleted';
+    currentFile = '';
+    document.getElementById('current-file').value = '';
+    document.getElementById('file-editor').value = '';
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+function bindTerminal() {
+  document.getElementById('terminal-connect').addEventListener('click', connectTerminal);
+  document.getElementById('terminal-disconnect').addEventListener('click', disconnectTerminal);
+  document.getElementById('terminal-tmux').addEventListener('click', () => sendTerminalInput('tmux\n'));
+  document.getElementById('terminal-raw-send').addEventListener('click', () => {
+    const input = document.getElementById('terminal-raw-input');
+    sendTerminalInput(`${input.value}\n`);
+    input.value = '';
+  });
+  connectTerminal();
+}
+
+function connectTerminal() {
+  if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) return;
+  const status = document.getElementById('terminal-status');
+  status.textContent = 'Connecting...';
+  const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+  terminalSocket = new WebSocket(`${scheme}://${location.host}/api/pty`);
+  terminalSocket.addEventListener('open', () => {
+    status.textContent = 'Connected';
+    if (window.Terminal) {
+      document.getElementById('terminal-fallback').hidden = true;
+      terminal = new window.Terminal({ cursorBlink: true, fontSize: 13, convertEol: true });
+      terminal.open(document.getElementById('terminal-pane'));
+      terminal.focus();
+      terminal.onData(sendTerminalInput);
+      resizeTerminal();
+      window.addEventListener('resize', resizeTerminal);
+    } else {
+      document.getElementById('terminal-fallback').hidden = false;
+      document.getElementById('terminal-pane').textContent = 'xterm.js unavailable; using raw terminal fallback.';
+    }
+  });
+  terminalSocket.addEventListener('message', event => {
+    if (terminal) {
+      terminal.write(event.data);
+    } else {
+      rawTerminalBuffer += event.data;
+      const output = document.getElementById('terminal-raw-output');
+      output.textContent = rawTerminalBuffer;
+      output.scrollTop = output.scrollHeight;
+    }
+  });
+  terminalSocket.addEventListener('close', () => {
+    status.textContent = 'Disconnected';
+  });
+}
+
+function disconnectTerminal() {
+  if (terminalSocket) {
+    terminalSocket.close();
+    terminalSocket = null;
+  }
+  if (terminal) {
+    terminal.dispose();
+    terminal = null;
+  }
+}
+
+function sendTerminalInput(data) {
+  if (!terminalSocket || terminalSocket.readyState !== WebSocket.OPEN) return;
+  terminalSocket.send(JSON.stringify({ type: 'input', data }));
+}
+
+function resizeTerminal() {
+  if (!terminalSocket || terminalSocket.readyState !== WebSocket.OPEN || !terminal) return;
+  terminalSocket.send(JSON.stringify({ type: 'resize', cols: terminal.cols || 100, rows: terminal.rows || 30 }));
+}
+
+function bindProjects() {
+  document.getElementById('create-project-button').addEventListener('click', createProject);
+  document.querySelectorAll('[data-project-browse]').forEach(button => {
+    button.addEventListener('click', () => {
+      filePath = button.dataset.projectBrowse;
+      selectSection('files');
+    });
+  });
+  document.querySelectorAll('[data-project-open]').forEach(button => {
+    button.addEventListener('click', () => {
+      window.open(`http://${location.hostname}:8080/?folder=${encodeURIComponent(button.dataset.projectOpen)}`, '_blank');
+    });
+  });
+  document.querySelectorAll('[data-project-rename]').forEach(button => {
+    button.addEventListener('click', () => renameProject(button.dataset.projectRename));
+  });
+  document.querySelectorAll('[data-project-delete]').forEach(button => {
+    button.addEventListener('click', () => deleteProject(button.dataset.projectDelete));
+  });
+}
+
+async function createProject() {
+  const output = document.getElementById('project-output');
+  const name = document.getElementById('project-name').value.trim();
+  const template = document.getElementById('project-template').value;
+  output.hidden = false;
+  output.textContent = 'Creating...';
+  try {
+    const result = await postJSON('/api/project', { operation: 'create', name, template });
+    output.textContent = result.output || 'created';
+    await refresh();
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function renameProject(name) {
+  const newName = prompt('New project name', name);
+  if (!newName || newName === name) return;
+  await runProjectOperation({ operation: 'rename', name, newName });
+}
+
+async function deleteProject(name) {
+  if (!confirm(`Delete project ${name}?`)) return;
+  await runProjectOperation({ operation: 'delete', name });
+}
+
+async function runProjectOperation(payload) {
+  const output = document.getElementById('project-output');
+  output.hidden = false;
+  output.textContent = 'Running...';
+  try {
+    const result = await postJSON('/api/project', payload);
+    output.textContent = result.output || 'ok';
+    await refresh();
   } catch (error) {
     output.textContent = error.message;
   }

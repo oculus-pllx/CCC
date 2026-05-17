@@ -108,6 +108,21 @@ type CommandResult struct {
 	ExitCode int    `json:"exitCode"`
 }
 
+type FileOperation struct {
+	Operation string `json:"operation"`
+	Path      string `json:"path"`
+	Target    string `json:"target"`
+	Kind      string `json:"kind"`
+}
+
+type ProjectOperation struct {
+	Operation string `json:"operation"`
+	Name      string `json:"name"`
+	NewName   string `json:"newName"`
+	Template  string `json:"template"`
+	Remote    string `json:"remote"`
+}
+
 func CollectManagementSnapshot() (ManagementSnapshot, error) {
 	home := workstationHome()
 	overview, _ := CollectOverview()
@@ -242,6 +257,88 @@ func WriteTextFile(path string, content string) error {
 	return os.WriteFile(cleaned, []byte(content), info.Mode().Perm())
 }
 
+func RunFileOperation(operation FileOperation) (CommandResult, error) {
+	if strings.TrimSpace(operation.Path) == "" || operation.Path == "/" {
+		return CommandResult{}, errors.New("valid path is required")
+	}
+	switch operation.Operation {
+	case "create":
+		if operation.Kind == "dir" {
+			if err := os.MkdirAll(operation.Path, 0o755); err != nil {
+				return CommandResult{}, err
+			}
+			return CommandResult{Command: "create " + operation.Path, Output: "created directory"}, nil
+		}
+		file, err := os.OpenFile(operation.Path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+		if err != nil {
+			return CommandResult{}, err
+		}
+		_ = file.Close()
+		return CommandResult{Command: "create " + operation.Path, Output: "created file"}, nil
+	case "rename":
+		if strings.TrimSpace(operation.Target) == "" || operation.Target == "/" {
+			return CommandResult{}, errors.New("valid target path is required")
+		}
+		if err := os.Rename(operation.Path, operation.Target); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "rename " + operation.Path, Output: "renamed"}, nil
+	case "delete":
+		if err := os.RemoveAll(operation.Path); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "delete " + operation.Path, Output: "deleted"}, nil
+	default:
+		return CommandResult{}, fmt.Errorf("file operation %q is not allowed", operation.Operation)
+	}
+}
+
+func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
+	projectsRoot := filepath.Join(workstationHome(), "projects")
+	if err := os.MkdirAll(projectsRoot, 0o755); err != nil {
+		return CommandResult{}, err
+	}
+	switch operation.Operation {
+	case "create":
+		if !safeProjectName(operation.Name) {
+			return CommandResult{}, errors.New("invalid project name")
+		}
+		path := filepath.Join(projectsRoot, operation.Name)
+		if err := os.Mkdir(path, 0o755); err != nil {
+			return CommandResult{}, err
+		}
+		if operation.Template != "" && operation.Template != "blank" {
+			templatePath := filepath.Join(workstationHome(), "Templates", operation.Template)
+			if err := copyDirectory(templatePath, path); err != nil {
+				return CommandResult{}, err
+			}
+		}
+		_, _ = RunShellCommand("git init", path)
+		if operation.Remote != "" {
+			return RunShellCommand("gh repo create "+shellQuote(operation.Remote)+" --private --source=. --push", path)
+		}
+		return CommandResult{Command: "create " + operation.Name, Output: "created " + operation.Name}, nil
+	case "rename":
+		if !safeProjectName(operation.Name) || !safeProjectName(operation.NewName) {
+			return CommandResult{}, errors.New("invalid project name")
+		}
+		if err := os.Rename(filepath.Join(projectsRoot, operation.Name), filepath.Join(projectsRoot, operation.NewName)); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "rename " + operation.Name, Output: "renamed " + operation.Name + " to " + operation.NewName}, nil
+	case "delete":
+		if !safeProjectName(operation.Name) {
+			return CommandResult{}, errors.New("invalid project name")
+		}
+		if err := os.RemoveAll(filepath.Join(projectsRoot, operation.Name)); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "delete " + operation.Name, Output: "deleted " + operation.Name}, nil
+	default:
+		return CommandResult{}, fmt.Errorf("project operation %q is not allowed", operation.Operation)
+	}
+}
+
 func collectServices() []ServiceStatus {
 	names := []string{"agent-workstation.service", "code-server@" + currentUsername() + ".service", "ssh.service", "redis-server.service"}
 	services := make([]ServiceStatus, 0, len(names))
@@ -254,6 +351,46 @@ func collectServices() []ServiceStatus {
 		})
 	}
 	return services
+}
+
+func safeProjectName(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 80 || strings.Contains(name, "..") {
+		return false
+	}
+	for _, char := range name {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' || char == '-' || char == '.' {
+			continue
+		}
+		return false
+	}
+	first := name[0]
+	return (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') || (first >= '0' && first <= '9')
+}
+
+func copyDirectory(src string, dst string) error {
+	return filepath.WalkDir(src, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, content, info.Mode().Perm())
+	})
 }
 
 func shellQuote(value string) string {
