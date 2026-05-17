@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Claude Code Commander</title>
+  <title>Agent Workstation</title>
   <!-- In production Cockpit: loads PatternFly CSS for native theme inheritance.
        In local dev (mock-cockpit.js): falls back to hardcoded dark vars below. -->
   <link rel="stylesheet" href="../base1/patternfly.css">
@@ -217,7 +217,7 @@
 <body>
 
 <div class="ccc-header">
-  <span class="ccc-header-title">Claude Code Commander</span>
+  <span class="ccc-header-title">Agent Workstation</span>
   <span class="ccc-header-user" id="nav-user"></span>
 </div>
 
@@ -236,20 +236,20 @@
   <section id="tab-overview" class="ccc-section active">
     <div class="ccc-grid ccc-grid-4">
       <div class="ccc-card">
-        <div class="ccc-card-title">CLAUDE.md</div>
+        <div class="ccc-card-title">Claude</div>
         <div class="ccc-card-value" id="s-claude">—</div>
       </div>
       <div class="ccc-card">
-        <div class="ccc-card-title">Rules</div>
-        <div class="ccc-card-value" id="s-rules">—</div>
+        <div class="ccc-card-title">Codex</div>
+        <div class="ccc-card-value" id="s-codex">—</div>
       </div>
       <div class="ccc-card">
-        <div class="ccc-card-title">MCP Servers</div>
-        <div class="ccc-card-value" id="s-mcp">—</div>
+        <div class="ccc-card-title">Gemini</div>
+        <div class="ccc-card-value" id="s-gemini">—</div>
       </div>
       <div class="ccc-card">
-        <div class="ccc-card-title">Plugins</div>
-        <div class="ccc-card-value" id="s-plugins">—</div>
+        <div class="ccc-card-title">Shared Config</div>
+        <div class="ccc-card-value" id="s-config">—</div>
       </div>
     </div>
 
@@ -258,6 +258,8 @@
       <span class="ccc-pill"><span class="ccc-dot" id="dot-cs"></span>code-server :8080</span>
       <span class="ccc-pill"><span class="ccc-dot on"></span>cockpit :9090</span>
       <span class="ccc-pill"><span class="ccc-dot" id="dot-claude"></span>claude</span>
+      <span class="ccc-pill"><span class="ccc-dot" id="dot-codex"></span>codex</span>
+      <span class="ccc-pill"><span class="ccc-dot" id="dot-gemini"></span>gemini</span>
     </div>
 
     <div class="ccc-section-title">Quick Links</div>
@@ -342,7 +344,13 @@
 
   <!-- ── Updates ───────────────────────────────────────────────────────── -->
   <section id="tab-updates" class="ccc-section">
-    <div class="ccc-section-title">CCC Provisioner</div>
+    <div class="ccc-section-title">OS Packages</div>
+    <div class="ccc-output" id="os-update-output">Run manually when you want apt package updates.</div>
+    <div class="action-row" style="margin-bottom:28px">
+      <button class="btn btn-primary btn-sm" onclick="runOSUpdate()">Run ccc-os-update</button>
+    </div>
+
+    <div class="ccc-section-title">Agent Workstation</div>
     <div class="ccc-output" id="ccc-update-output">Click refresh to check...</div>
     <div class="action-row" style="margin-bottom:28px">
       <button class="btn btn-secondary btn-sm" onclick="loadCCCStatus()">↺ Refresh</button>
@@ -350,10 +358,9 @@
     </div>
 
     <div class="ccc-section-title">oculus-configs</div>
-    <div class="ccc-output" id="oculus-update-output">Click "Check for Updates" to fetch status...</div>
+    <div class="ccc-output" id="oculus-update-output">Run sync to pull shared Claude/Codex/Gemini configs.</div>
     <div class="action-row">
-      <button class="btn btn-secondary btn-sm" onclick="checkOculusUpdate()">Check for Updates</button>
-      <button class="btn btn-primary btn-sm" id="apply-btn" style="display:none" onclick="applyOculusUpdate()">Apply Update</button>
+      <button class="btn btn-primary btn-sm" onclick="runAgentConfigSync()">Run ccc-sync-agent-configs</button>
     </div>
   </section>
 
@@ -423,20 +430,21 @@ async function loadOverview() {
     document.getElementById('s-claude').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
   }
   try {
+    await cockpit.spawn(['test', '-f', `${_home}/.codex/AGENTS.md`], {err: 'ignore'});
+    document.getElementById('s-codex').textContent = '✓ Present';
+  } catch {
+    document.getElementById('s-codex').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+  }
+  try {
+    await cockpit.spawn(['test', '-f', `${_home}/.gemini/GEMINI.md`], {err: 'ignore'});
+    document.getElementById('s-gemini').textContent = '✓ Present';
+  } catch {
+    document.getElementById('s-gemini').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+  }
+  try {
     const n = await cockpit.spawn(['bash', '-c', `ls ${_home}/.claude/rules/ 2>/dev/null | wc -l`]);
-    document.getElementById('s-rules').textContent = n.trim() + ' files';
-  } catch { document.getElementById('s-rules').textContent = '0 files'; }
-  try {
-    const raw = await cockpit.file(`${_home}/.claude/mcp.json`).read();
-    document.getElementById('s-mcp').textContent =
-      Object.keys(JSON.parse(raw || '{"mcpServers":{}}').mcpServers || {}).length + ' servers';
-  } catch { document.getElementById('s-mcp').textContent = '0 servers'; }
-  try {
-    const raw = await cockpit.file(`${_home}/.claude/settings.json`).read();
-    const s = JSON.parse(raw || '{}');
-    document.getElementById('s-plugins').textContent =
-      (Array.isArray(s.plugins?.enabled) ? s.plugins.enabled.length : '?') + ' enabled';
-  } catch { document.getElementById('s-plugins').textContent = '? enabled'; }
+    document.getElementById('s-config').textContent = n.trim() + ' rules';
+  } catch { document.getElementById('s-config').textContent = '0 rules'; }
 
   cockpit.spawn(['systemctl', 'is-active', 'code-server'], {err: 'ignore'})
     .then(s => { document.getElementById('dot-cs').className = 'ccc-dot ' + (s.trim() === 'active' ? 'on' : 'off'); })
@@ -444,6 +452,12 @@ async function loadOverview() {
   cockpit.spawn(['bash', '-c', 'which claude 2>/dev/null'], {err: 'ignore'})
     .then(p => { document.getElementById('dot-claude').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
     .catch(() => { document.getElementById('dot-claude').className = 'ccc-dot off'; });
+  cockpit.spawn(['bash', '-c', 'which codex 2>/dev/null'], {err: 'ignore'})
+    .then(p => { document.getElementById('dot-codex').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
+    .catch(() => { document.getElementById('dot-codex').className = 'ccc-dot off'; });
+  cockpit.spawn(['bash', '-c', 'which gemini 2>/dev/null'], {err: 'ignore'})
+    .then(p => { document.getElementById('dot-gemini').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
+    .catch(() => { document.getElementById('dot-gemini').className = 'ccc-dot off'; });
   getIP().then(ip => { document.getElementById('vscode-link').href = 'http://' + ip + ':8080'; });
 }
 tabLoaders.overview = loadOverview;
@@ -693,9 +707,22 @@ async function loadCCCStatus() {
 }
 tabLoaders.updates = loadCCCStatus;
 
+async function runOSUpdate() {
+  if (!await confirm('Run OS Update',
+    'Run apt update, apt upgrade, autoremove, and clean inside the container?',
+    'Update OS')) return;
+  const box = document.getElementById('os-update-output');
+  box.textContent = 'Running ccc-os-update...';
+  try {
+    box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-os-update'],
+      {err: 'message', superuser: 'try'});
+    showToast('OS update complete', 'success');
+  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('OS update failed', 'error'); }
+}
+
 async function runCCCSelfUpdate() {
   if (!await confirm('Run ccc-self-update',
-    'Pull latest CCC tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
+    'Pull latest Agent Workstation tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
     'Update')) return;
   const box = document.getElementById('ccc-update-output');
   box.textContent = 'Running ccc-self-update...';
@@ -706,44 +733,18 @@ async function runCCCSelfUpdate() {
   } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
 }
 
-async function checkOculusUpdate() {
+async function runAgentConfigSync() {
+  if (!await confirm('Sync oculus-configs',
+    'Pull latest shared agent configs and sync Claude, Codex, Gemini, and templates. Managed instruction files are backed up before replacement.',
+    'Sync')) return;
   const box = document.getElementById('oculus-update-output');
-  box.textContent = 'Fetching from origin...';
+  box.textContent = 'Running ccc-sync-agent-configs...';
   try {
-    await cockpit.spawn(['git', '-C', '/opt/oculus-configs', 'fetch', 'origin'], {err: 'message'});
-    const log = await cockpit.spawn(
-      ['git', '-C', '/opt/oculus-configs', 'log', 'HEAD..origin/main', '--oneline'], {err: 'message'});
-    const lines = log.trim().split('\n').filter(l => l);
-    if (!lines.length) {
-      box.textContent = '✓ Up to date';
-      document.getElementById('apply-btn').style.display = 'none';
-    } else {
-      box.textContent = lines.length + ' commit(s) behind:\n\n' + lines.join('\n');
-      document.getElementById('apply-btn').style.display = '';
-    }
-  } catch (err) { box.textContent = 'Error: ' + err.message; }
-}
-
-async function applyOculusUpdate() {
-  if (!await confirm('Apply oculus-configs Update',
-    'Pull latest and re-copy CLAUDE.md, rules, templates, Codex and Gemini skills. Local CLAUDE.md edits will be overwritten.',
-    'Update')) return;
-  const box = document.getElementById('oculus-update-output');
-  box.textContent = 'Applying update...';
-  const script = [
-    'git -C /opt/oculus-configs pull',
-    `cp /opt/oculus-configs/claude/CLAUDE.md ${_home}/.claude/CLAUDE.md`,
-    `cp -r /opt/oculus-configs/claude/rules/. ${_home}/.claude/rules/`,
-    `cp -r /opt/oculus-configs/templates/. ${_home}/Templates/`,
-    `mkdir -p ${_home}/.codex && cp /opt/oculus-configs/codex/AGENTS.md ${_home}/.codex/AGENTS.md 2>/dev/null || true`,
-    `mkdir -p ${_home}/.gemini && cp /opt/oculus-configs/gemini/GEMINI.md ${_home}/.gemini/GEMINI.md 2>/dev/null || true`,
-  ].join(' && ');
-  try {
-    const out = await cockpit.spawn(['bash', '-c', script], {err: 'message'});
-    box.textContent = 'Done.' + (out ? '\n' + out : '');
-    document.getElementById('apply-btn').style.display = 'none';
-    showToast('oculus-configs updated', 'success');
-  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
+    box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-sync-agent-configs'],
+      {err: 'message', superuser: 'try'});
+    await loadOverview();
+    showToast('oculus-configs synced', 'success');
+  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Sync failed', 'error'); }
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
-# Claude Code Commander (CCC)
+# Agent Workstation
 
-A Proxmox LXC provisioner that creates a lean, production-ready **Ubuntu 26.04** container for agentic coding with Claude Code. No Docker. No bloat. Everything pre-installed and pre-approved at provision time.
+A Proxmox LXC provisioner that creates a lean, headless dev workstation for Claude Code, OpenAI Codex, and Gemini CLI. No desktop GUI, no Docker, no bloat. Everything is installed into a browser-accessible, CLI-first Linux container.
 
 > Built on [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — free, open-source server virtualization (community edition).
 
@@ -16,19 +16,20 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Non-root `claude-code` user** with passwordless sudo
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
+- **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
-- **Update command** — `ccc-update` syncs packages and Claude Code
+- **Three update paths** — OS packages, Agent Workstation tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
-- **code-server** (web VS Code) on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Cockpit** on port 9090 — full CCC management UI (CLAUDE.md editor, MCP servers, plugins, projects, updates) plus system monitoring and browser terminal
+- **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
+- **Cockpit** on port 9090 — Agent Workstation controls plus system monitoring, services, logs, networking, files, and terminal
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
 - **IPv6 disabled** — avoids apt/curl failures in containers without IPv6 routing
 - **Optional Proxmox HA** — register with `ha-manager` at provision time (cluster only)
-- **oculus-configs** — CLAUDE.md, rules, templates, and Codex/Gemini skills pre-loaded from [oculus-configs](https://github.com/oculus-pllx/oculus-configs)
+- **oculus-configs** — shared Claude/Codex/Gemini config, rules, skills, and templates synced from [oculus-configs](https://github.com/oculus-pllx/oculus-configs)
 - **Zero Docker** — pure native toolchain, minimal overhead
-- **Weekly auto-updates** — Sundays 3 AM ET
+- **Weekly Agent Workstation tooling updates** — Sundays 3 AM ET; OS and agent config updates stay explicit
 
 ---
 
@@ -99,14 +100,17 @@ ccc-onboarding
 # 3. Authenticate Claude Code
 claude
 
-# 4. Install Playwright + headless Chromium (optional, takes 5–15 min)
+# 4. Sync shared Claude/Codex/Gemini configs from oculus-configs
+ccc-sync-agent-configs
+
+# 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
 
-# 5. Install Codex CLI or jCodeMunch MCP (optional)
+# 6. Install Codex CLI or jCodeMunch MCP (optional)
 ccc-install-codex
 ccc-install-jcodemunch
 
-# 6. Full help and command reference
+# 7. Full help and command reference
 ccc
 ```
 
@@ -137,6 +141,13 @@ ccc
 - Remote control enabled
 - Config at `~/.claude/settings.json`
 
+### Shared Agent Config
+- **Claude** — `~/.claude/CLAUDE.md`, `~/.claude/rules/`, and MCP template from `oculus-configs`
+- **Codex** — `~/.codex/AGENTS.md` and optional `~/.codex/skills/`
+- **Gemini** — `~/.gemini/GEMINI.md` and optional `~/.gemini/skills/`
+- **Templates** — copied from `oculus-configs/templates/` into `~/Templates/`
+- Sync manually with `ccc-sync-agent-configs`
+
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
 
@@ -151,8 +162,10 @@ The `ccc` command prints the full reference. Quick shortcuts:
 ccc-onboarding          # first-login wizard: git identity, SSH key, GitHub
 ccc-setup               # same wizard, safe to re-run
 ccc-update-status       # show installed vs GitHub provisioner version
-ccc-self-update         # pull latest ccc-* tools from GitHub (no reprovision needed)
-ccc-update              # update packages + Claude Code
+ccc-self-update         # update Agent Workstation tooling from GitHub
+ccc-update              # update Agent Workstation tooling + app CLIs
+ccc-os-update           # update OS packages with apt
+ccc-sync-agent-configs  # update Claude/Codex/Gemini configs from oculus-configs
 ccc-fix-cockpit-updates # fix Cockpit "cannot refresh cache whilst offline"
 ccc-verify-cockpit-updates # verify Cockpit GUI updater readiness
 ccc-doctor              # health check: network, runtimes, services, disk
@@ -208,16 +221,20 @@ echo '{"model":{"id":"claude-sonnet-4"},"thinking":{"enabled":true}}' \
 
 ## Updating the Container
 
-System packages update automatically every Sunday at 3 AM ET. To update manually:
+Agent Workstation separates updates so OS packages, workstation tooling, and shared agent behavior can move independently.
 
 ```bash
-ccc-update        # system packages + Claude Code
-ccc-update-status # show installed vs GitHub provisioner version
-ccc-self-update   # refresh ccc-* tools from GitHub
-claude update     # Claude Code only
+sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean
+ccc-update-status           # show installed vs GitHub provisioner version
+sudo ccc-self-update        # Agent Workstation tooling: commands, MOTD, Cockpit plugin
+sudo ccc-sync-agent-configs # shared Claude/Codex/Gemini config from oculus-configs
+ccc-update                  # convenience: tooling + app CLI updates, no apt upgrade
+claude update               # Claude Code only
 ```
 
 `ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning `git@github.com:oculus-pllx/CCC.git`. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+
+`ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
 
 ---
 

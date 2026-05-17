@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  Claude Code Commander (CCC) — Proxmox LXC Provisioner
-#  Creates a lean, production-ready Ubuntu 26.04 LXC container for Claude Code
+#  Agent Workstation — Proxmox LXC Provisioner
+#  Creates a lean, production-ready headless LXC dev workstation
+#  for Claude Code, OpenAI Codex, and Gemini CLI
 #
 #  Run on your Proxmox host:
 #    bash claude-code-commander.sh
@@ -11,10 +12,10 @@
 #    • Non-root claude-code user with passwordless sudo
 #    • Full dev + test stack pre-installed at provision time
 #    • code-server (web VS Code) via native systemd on port 8080
-#    • Claude Code + all tools pre-approved, skills pre-cloned
+#    • Claude Code + agent configs preloaded from oculus-configs
 #    • SSH hardened — root login disabled
 #    • ccc help command + MOTD on every login
-#    • Weekly application self-updates from GitHub (no unattended OS upgrades)
+#    • Separate OS, Agent Workstation, and oculus-configs update paths
 # ============================================================================
 set -euo pipefail
 
@@ -34,7 +35,7 @@ error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 header() {
   echo ""
   echo -e "${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-  echo -e "${BOLD}║         Claude Code Commander (Proxmox)          ║${NC}"
+  echo -e "${BOLD}║          Agent Workstation (Proxmox)             ║${NC}"
   echo -e "${BOLD}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
 }
@@ -294,7 +295,8 @@ get_config() {
   fi
   echo "  User:         ${CC_USER} (non-root, passwordless sudo)"
   echo "  code-server:  port 8080 (web VS Code)"
-  echo "  Cockpit:      port 9090 (system monitoring + file manager)"
+  echo "  VS Code Web:  port 8080 (code-server)"
+  echo "  Cockpit:      port 9090 (Agent Workstation controls)"
   echo "─────────────────────────────────────────────────"
   echo ""
   read -rp "Proceed? (y/N): " confirm
@@ -543,6 +545,9 @@ CCC_CODE_SERVER_SERVICE="code-server@claude-code"
 CCC_SELF_UPDATE_REPO="git@github.com:oculus-pllx/CCC.git"
 CCC_SELF_UPDATE_REF="main"
 CCC_SELF_UPDATE_SCRIPT="claude-code-commander.sh"
+OCULUS_CONFIGS_REPO="https://github.com/oculus-pllx/oculus-configs.git"
+OCULUS_CONFIGS_REF="main"
+OCULUS_CONFIGS_DIR="/opt/oculus-configs"
 CCCONFIG
 chmod 0644 /etc/ccc/config
 
@@ -615,38 +620,121 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
 }
 SETTINGS
 
+# ── Agent config sync command ────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-sync-agent-configs << 'AGENTCONFIGSYNCSCRIPT'
+#!/bin/bash
+set -euo pipefail
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"
+OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
+OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
+PULL=1
+[[ "${1:-}" == "--no-pull" ]] && PULL=0
+
+say()  { echo -e "  $*"; }
+ok()   { say "${G}✓${N} $*"; }
+warn2(){ say "${Y}!${N} $*"; }
+chown_if_root() { [[ "$(id -u)" -eq 0 ]] && chown "$@" || true; }
+
+run_as_user() {
+  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
+    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  else
+    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  fi
+}
+
+backup_file() {
+  local dest=$1
+  [[ -f "$dest" ]] || return 0
+  cp "$dest" "${dest}.bak.$(date +%Y%m%d%H%M%S)"
+}
+
+copy_managed_file() {
+  local src=$1 dest=$2 label=$3
+  if [[ ! -f "$src" ]]; then
+    warn2 "oculus-configs: $label not found, skipping"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  backup_file "$dest"
+  cp "$src" "$dest"
+  chown_if_root "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
+copy_optional_dir() {
+  local src=$1 dest=$2 label=$3
+  mkdir -p "$dest"
+  if [[ ! -d "$src" ]]; then
+    warn2 "oculus-configs: $label not found, skipping"
+    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    return 0
+  fi
+  cp -a "$src"/. "$dest"/
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
+echo ""
+echo -e "${B}Agent Config Sync${N}"
+echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
+echo ""
+
+mkdir -p "$CCC_HOME/projects" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
+chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates" "$CCC_HOME/projects"
+
+if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
+  rm -rf "$OCULUS_CONFIGS_DIR"
+  git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
+  ok "oculus-configs cloned"
+elif [[ "$PULL" -eq 1 ]]; then
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
+  run_as_user git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
+  run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
+  run_as_user git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
+  ok "oculus-configs updated"
+else
+  ok "oculus-configs checkout present"
+fi
+
+copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
+
+if [[ -f "$OCULUS_CONFIGS_DIR/claude/mcp.json" ]]; then
+  cp "$OCULUS_CONFIGS_DIR/claude/mcp.json" "$CCC_HOME/.claude/mcp.template.json"
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/mcp.template.json"
+  ok "Claude MCP template synced"
+  if [[ ! -f "$CCC_HOME/.claude/mcp.json" ]]; then
+    cp "$CCC_HOME/.claude/mcp.template.json" "$CCC_HOME/.claude/mcp.json"
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/mcp.json"
+    ok "Claude MCP config initialized"
+  else
+    warn2 "Claude MCP config exists, left untouched"
+  fi
+else
+  warn2 "oculus-configs: claude/mcp.json not found, skipping"
+fi
+
+copy_optional_dir "$OCULUS_CONFIGS_DIR/templates" "$CCC_HOME/Templates" "project templates"
+copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS.md" "Codex AGENTS.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
+copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
+
+echo ""
+echo -e "${G}${B}Agent config sync complete.${N}"
+echo ""
+AGENTCONFIGSYNCSCRIPT
+chmod +x /usr/local/bin/ccc-sync-agent-configs
+
 # ── oculus-configs ────────────────────────────────────────────────────────────
-step 18 "oculus-configs"
-sudo -u claude-code mkdir -p /home/claude-code/projects
-git clone --depth 1 https://github.com/oculus-pllx/oculus-configs /opt/oculus-configs 2>&1 | sed 's/^/  /'
-chown -R claude-code:claude-code /opt/oculus-configs
-# CLAUDE.md
-cp /opt/oculus-configs/claude/CLAUDE.md /home/claude-code/.claude/CLAUDE.md \
-  || warn "oculus-configs: CLAUDE.md not found, skipping"
-# rules/
-if [[ -d /opt/oculus-configs/claude/rules ]]; then
-  sudo -u claude-code cp -r /opt/oculus-configs/claude/rules/. /home/claude-code/.claude/rules/
-else
-  warn "oculus-configs: rules/ not found, skipping"
-fi
-# templates/
-sudo -u claude-code mkdir -p /home/claude-code/Templates
-if [[ -d /opt/oculus-configs/templates ]]; then
-  sudo -u claude-code cp -r /opt/oculus-configs/templates/. /home/claude-code/Templates/
-else
-  warn "oculus-configs: templates/ not found, skipping"
-fi
-# Codex skills
-sudo -u claude-code mkdir -p /home/claude-code/.codex
-sudo -u claude-code cp /opt/oculus-configs/codex/AGENTS.md \
-  /home/claude-code/.codex/AGENTS.md 2>/dev/null \
-  || warn "oculus-configs: codex/AGENTS.md not found, skipping"
-# Gemini skills
-sudo -u claude-code mkdir -p /home/claude-code/.gemini
-sudo -u claude-code cp /opt/oculus-configs/gemini/GEMINI.md \
-  /home/claude-code/.gemini/GEMINI.md 2>/dev/null \
-  || warn "oculus-configs: gemini/GEMINI.md not found, skipping"
-sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
+step 18 "oculus-configs agent config"
+/usr/local/bin/ccc-sync-agent-configs
 
 # ── Statusline ────────────────────────────────────────────────────────────────
 step 19 "Statusline"
@@ -722,7 +810,7 @@ sudo -u claude-code mkdir -p /home/claude-code/projects
 
 # Welcome file — opens automatically in code-server on first load
 sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WELCOMEMD'
-# Welcome to Claude Code Commander
+# Welcome to Agent Workstation
 
 ## First Steps
 
@@ -730,10 +818,11 @@ sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WE
 |------|---------|-------|
 | 1 | `ccc-onboarding` | SSH terminal — git identity, SSH key, GitHub |
 | 2 | `claude` | SSH terminal — authenticate Claude Code |
-| 3 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
-| 4 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
-| 5 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
-| 6 | `ccc` | SSH terminal — full command reference |
+| 3 | `ccc-sync-agent-configs` | SSH terminal — update Claude/Codex/Gemini config from oculus-configs |
+| 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
+| 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
+| 6 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
+| 7 | `ccc` | SSH terminal — full command reference |
 
 ## This Interface (code-server)
 
@@ -763,8 +852,9 @@ For multi-terminal work, use this editor (port 8080) instead.
 
 ```bash
 ccc-onboarding     # first-login wizard
-ccc-update         # update CCC app tools from GitHub + Claude Code
-ccc-os-update      # manually update OS packages with apt
+ccc-update         # update Agent Workstation tooling + app CLIs
+ccc-os-update      # update OS packages with apt
+ccc-sync-agent-configs # update Claude/Codex/Gemini config
 ccc-fix-cockpit-updates  # fix Cockpit offline update cache error
 ccc-doctor         # health check
 ccc                # full help
@@ -821,7 +911,7 @@ systemctl restart ssh
 step 22 "Shell environment & aliases"
 cat >> /home/claude-code/.bashrc << 'BASHRC'
 
-# ── Claude Code Commander ─────────────────────────────────────────────────────
+# ── Agent Workstation ─────────────────────────────────────────────────────
 export EDITOR=nano
 export LANG=en_US.UTF-8
 export TZ=America/New_York
@@ -860,11 +950,13 @@ ccc() {
   local C='\033[0;36m' B='\033[1m' G='\033[0;32m' Y='\033[1;33m' N='\033[0m'
   echo ""
   echo -e "${B}╔══════════════════════════════════════════════════════════════════╗${N}"
-  echo -e "${B}║               Claude Code Commander (CCC) Help                  ║${N}"
+  echo -e "${B}║                    Agent Workstation Help                    ║${N}"
   echo -e "${B}╚══════════════════════════════════════════════════════════════════╝${N}"
   echo ""
-  echo -e "  ${B}CLAUDE CODE${N}"
+  echo -e "  ${B}AGENT CLIS${N}"
   echo -e "    ${C}claude${N}                   Start Claude Code session"
+  echo -e "    ${C}codex${N}                    Start Codex CLI (after ccc-install-codex)"
+  echo -e "    ${C}gemini${N}                   Start Gemini CLI (if installed)"
   echo -e "    ${C}claude --version${N}          Check version"
   echo -e "    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
   echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
@@ -877,9 +969,10 @@ ccc() {
   echo -e "    ${C}ccc-onboarding${N}            First-login wizard (git identity, SSH key, GitHub)"
   echo -e "    ${C}ccc-setup${N}                 Same wizard, safe to re-run"
   echo -e "    ${C}ccc-update-status${N}         Show installed vs GitHub provisioner version"
-  echo -e "    ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
-  echo -e "    ${C}ccc-update${N}                Update CCC app tools from GitHub + Claude Code"
-  echo -e "    ${C}ccc-os-update${N}             Manual OS package update (apt)"
+  echo -e "    ${C}ccc-self-update${N}           Update Agent Workstation tooling from GitHub"
+  echo -e "    ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs from oculus-configs"
+  echo -e "    ${C}ccc-update${N}                Update Agent Workstation tooling + app CLIs"
+  echo -e "    ${C}ccc-os-update${N}             OS package update (apt)"
   echo -e "    ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit 'cannot refresh cache whilst offline'"
   echo -e "    ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
@@ -931,7 +1024,7 @@ ccc() {
 if [[ $- == *i* && ! -f "$HOME/.ccc-onboarded" && -z "${CCC_ONBOARDING_SHOWN:-}" ]]; then
   export CCC_ONBOARDING_SHOWN=1
   echo ""
-  echo "CCC first-login onboarding is ready."
+  echo "Agent Workstation first-login onboarding is ready."
   read -rp "Run it now? [Y/n] " _ccc_run_onboarding
   if [[ -z "$_ccc_run_onboarding" || "$_ccc_run_onboarding" =~ ^[Yy]$ ]]; then
     ccc-onboarding
@@ -986,6 +1079,118 @@ rm -f /etc/systemd/system/ccc-kit-manager.service
 systemctl daemon-reload 2>/dev/null || true
 rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
 
+# ── Agent config sync command ────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-sync-agent-configs << 'AGENTCONFIGSYNCSCRIPT'
+#!/bin/bash
+set -euo pipefail
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"
+OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
+OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
+PULL=1
+[[ "${1:-}" == "--no-pull" ]] && PULL=0
+
+say()  { echo -e "  $*"; }
+ok()   { say "${G}✓${N} $*"; }
+warn2(){ say "${Y}!${N} $*"; }
+chown_if_root() { [[ "$(id -u)" -eq 0 ]] && chown "$@" || true; }
+
+run_as_user() {
+  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
+    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  else
+    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
+  fi
+}
+
+backup_file() {
+  local dest=$1
+  [[ -f "$dest" ]] || return 0
+  cp "$dest" "${dest}.bak.$(date +%Y%m%d%H%M%S)"
+}
+
+copy_managed_file() {
+  local src=$1 dest=$2 label=$3
+  if [[ ! -f "$src" ]]; then
+    warn2 "oculus-configs: $label not found, skipping"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  backup_file "$dest"
+  cp "$src" "$dest"
+  chown_if_root "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
+copy_optional_dir() {
+  local src=$1 dest=$2 label=$3
+  mkdir -p "$dest"
+  if [[ ! -d "$src" ]]; then
+    warn2 "oculus-configs: $label not found, skipping"
+    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    return 0
+  fi
+  cp -a "$src"/. "$dest"/
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
+echo ""
+echo -e "${B}Agent Config Sync${N}"
+echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
+echo ""
+
+mkdir -p "$CCC_HOME/projects" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
+chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates" "$CCC_HOME/projects"
+
+if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
+  rm -rf "$OCULUS_CONFIGS_DIR"
+  git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
+  ok "oculus-configs cloned"
+elif [[ "$PULL" -eq 1 ]]; then
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
+  run_as_user git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
+  run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
+  run_as_user git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
+  ok "oculus-configs updated"
+else
+  ok "oculus-configs checkout present"
+fi
+
+copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
+
+if [[ -f "$OCULUS_CONFIGS_DIR/claude/mcp.json" ]]; then
+  cp "$OCULUS_CONFIGS_DIR/claude/mcp.json" "$CCC_HOME/.claude/mcp.template.json"
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/mcp.template.json"
+  ok "Claude MCP template synced"
+  if [[ ! -f "$CCC_HOME/.claude/mcp.json" ]]; then
+    cp "$CCC_HOME/.claude/mcp.template.json" "$CCC_HOME/.claude/mcp.json"
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/mcp.json"
+    ok "Claude MCP config initialized"
+  else
+    warn2 "Claude MCP config exists, left untouched"
+  fi
+else
+  warn2 "oculus-configs: claude/mcp.json not found, skipping"
+fi
+
+copy_optional_dir "$OCULUS_CONFIGS_DIR/templates" "$CCC_HOME/Templates" "project templates"
+copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS.md" "Codex AGENTS.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
+copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
+
+echo ""
+echo -e "${G}${B}Agent config sync complete.${N}"
+echo ""
+AGENTCONFIGSYNCSCRIPT
+chmod +x /usr/local/bin/ccc-sync-agent-configs
+
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
 #!/bin/bash
@@ -998,11 +1203,11 @@ PATH="$CCC_HOME/.local/bin:$CCC_HOME/.claude/bin:$CCC_HOME/.cargo/bin:/usr/local
 export PATH
 
 echo ""
-echo -e "${B}CCC Application Update${N}"
-echo -e "${Y}Updates CCC tooling from GitHub and app CLIs only. OS packages are not upgraded.${N}"
+echo -e "${B}Agent Workstation Tooling Update${N}"
+echo -e "${Y}Updates Agent Workstation tooling from GitHub and app CLIs only. OS packages are not upgraded.${N}"
 echo ""
 
-echo -e "${C}[1/3]${N} CCC provisioner/tools from GitHub..."
+echo -e "${C}[1/3]${N} Agent Workstation provisioner/tools from GitHub..."
 if command -v ccc-self-update &>/dev/null; then
   ccc-self-update || true
 else
@@ -1027,7 +1232,8 @@ fi
 
 echo ""
 echo -e "${G}${B}Application update complete.${N}"
-echo -e "  Manual OS update, if desired: ${C}sudo ccc-os-update${N}"
+echo -e "  OS update:           ${C}sudo ccc-os-update${N}"
+echo -e "  Agent config update: ${C}sudo ccc-sync-agent-configs${N}"
 echo ""
 UPDATESCRIPT
 chmod +x /usr/local/bin/ccc-update
@@ -1038,7 +1244,7 @@ cat > /usr/local/bin/ccc-os-update << 'OSUPDATESCRIPT'
 set -euo pipefail
 B='\033[1m'; C='\033[0;36m'; G='\033[0;32m'; N='\033[0m'
 echo ""
-echo -e "${B}CCC Manual OS Update${N}"
+echo -e "${B}Agent Workstation OS Update${N}"
 echo -e "${C}[1/3]${N} apt update"
 apt-get update
 echo -e "${C}[2/3]${N} apt upgrade"
@@ -1056,7 +1262,7 @@ cat > /usr/local/bin/ccc-setup << 'SETUPSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
 echo ""
-echo -e "${B}CCC Post-Install Setup Wizard${N}"
+echo -e "${B}Agent Workstation Post-Install Setup Wizard${N}"
 echo ""
 
 # Git identity
@@ -1212,7 +1418,7 @@ ok()   { echo -e "  ${G}✓${N} $*"; }
 fail() { echo -e "  ${R}✗${N} $*"; }
 warn() { echo -e "  ${Y}!${N} $*"; }
 echo ""
-echo -e "${B}CCC Doctor — System Check${N}"
+echo -e "${B}Agent Workstation Doctor — System Check${N}"
 echo ""
 
 echo -e "${C}── Network ───────────────────────────────────${N}"
@@ -1426,7 +1632,7 @@ if [[ -r "$VERSION_FILE" ]]; then
 fi
 
 echo ""
-echo -e "${B}CCC Update Status${N}"
+echo -e "${B}Agent Workstation Update Status${N}"
 echo -e "  Repo:   ${C}${CCC_SELF_UPDATE_REPO}${N}"
 echo -e "  Ref:    ${C}${CCC_SELF_UPDATE_REF}${N}"
 echo -e "  Script: ${C}${CCC_SELF_UPDATE_SCRIPT}${N}"
@@ -1550,8 +1756,8 @@ resolve_latest_commit() {
 }
 
 echo ""
-echo -e "${B}CCC Self-Update${N}"
-echo -e "${Y}Downloads latest provisioner and re-applies ccc-* tools, MOTD, and Cockpit fixes.${N}"
+echo -e "${B}Agent Workstation Self-Update${N}"
+echo -e "${Y}Downloads latest provisioner and re-applies Agent Workstation tools, MOTD, and Cockpit plugin.${N}"
 echo -e "${Y}Does NOT re-run Node/Go/Rust, Claude install, or user creation.${N}"
 echo ""
 if command -v ccc-update-status &>/dev/null; then
@@ -1626,8 +1832,10 @@ cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
 G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; Y='\033[1;33m'; D='\033[2m'; N='\033[0m'
 echo ""
-echo -e "${G}${B}  Claude Code Commander${N}"
+echo -e "${G}${B}  Agent Workstation${N}"
 echo -e "  ${C}claude${N}                    Start Claude Code"
+echo -e "  ${C}codex${N}                     Start Codex CLI (if installed)"
+echo -e "  ${C}gemini${N}                    Start Gemini CLI (if installed)"
 echo -e "  ${C}ccc${N}                       Full help + command reference"
 echo -e "  ${C}tmux${N}                      Terminal multiplexer (tabs/splits in SSH)"
 echo ""
@@ -1635,9 +1843,10 @@ echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, GitHub)"
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
 echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
-echo -e "  ${C}ccc-self-update${N}           Pull latest ccc-* tools from GitHub (no reprovision)"
-echo -e "  ${C}ccc-update${N}                Update system packages + Claude Code"
-echo -e "  ${C}ccc-os-update${N}             Manual OS package update (apt)"
+echo -e "  ${C}ccc-self-update${N}           Update Agent Workstation tooling from GitHub"
+echo -e "  ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs"
+echo -e "  ${C}ccc-update${N}                Update Agent Workstation tooling + app CLIs"
+echo -e "  ${C}ccc-os-update${N}             OS package update (apt)"
 echo -e "  ${C}ccc-fix-cockpit-updates${N}   Fix Cockpit offline update cache error"
 echo -e "  ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
@@ -1647,8 +1856,8 @@ echo -e "  ${C}ccc-doctor${N}                System health check"
 echo ""
 echo -e "  ${Y}Web Interfaces${N}"
 IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
-echo -e "  ${C}http://\${IP}:8080${N}   Web VS Code — multi-terminal, file editor"
-echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — config, projects, MCP, updates"
+echo -e "  ${C}http://\${IP}:8080${N}   VS Code Web — multi-terminal, file editor"
+echo -e "  ${C}https://\${IP}:9090${N}  Cockpit — Agent Workstation controls"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
 MOTD
@@ -1667,7 +1876,7 @@ rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
 cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-# Weekly CCC application/tooling update from GitHub. Does not run apt upgrade.
+# Weekly Agent Workstation tooling update from GitHub. Does not run apt upgrade.
 0 3 * * 0 root /usr/local/bin/ccc-update >> /var/log/ccc-app-update.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/ccc-app-update
@@ -1767,14 +1976,14 @@ fi
 mkdir -p /etc/cockpit
 cat > /etc/cockpit/cockpit.conf << 'COCKPITCONF'
 [WebService]
-LoginTitle = Claude Code Commander
+LoginTitle = Agent Workstation
 LoginTo = false
 
 [Session]
 IdleTimeout = 0
 COCKPITCONF
 systemctl enable --now cockpit.socket
-# ── CCC Cockpit plugin ─────────────────────────────────────────────────────
+# ── Agent Workstation Cockpit plugin ───────────────────────────────────────
 mkdir -p /usr/share/cockpit/ccc
 cat > /usr/share/cockpit/ccc/manifest.json << 'MANIFEST'
 {
@@ -1783,7 +1992,7 @@ cat > /usr/share/cockpit/ccc/manifest.json << 'MANIFEST'
   "priority": 1,
   "menu": {
     "index": {
-      "label": "Claude Code Commander",
+      "label": "Agent Workstation",
       "order": 0
     }
   }
@@ -1794,12 +2003,11 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Claude Code Commander</title>
-  <!-- Load Cockpit's PatternFly CSS for native look and theme inheritance -->
+  <title>Agent Workstation</title>
+  <!-- In production Cockpit: loads PatternFly CSS for native theme inheritance.
+       In local dev (mock-cockpit.js): falls back to hardcoded dark vars below. -->
   <link rel="stylesheet" href="../base1/patternfly.css">
   <style>
-    /* Map our vars to PatternFly CSS custom properties with hardcoded dark fallbacks.
-       PF5 vars: --pf-v5-global--*   PF4 vars: --pf-global--*  */
     :root {
       --bg:      var(--pf-v5-global--BackgroundColor--100,      var(--pf-global--BackgroundColor--100,      #1b1d21));
       --surface: var(--pf-v5-global--BackgroundColor--200,      var(--pf-global--BackgroundColor--200,      #212427));
@@ -2010,7 +2218,7 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
 <body>
 
 <div class="ccc-header">
-  <span class="ccc-header-title">Claude Code Commander</span>
+  <span class="ccc-header-title">Agent Workstation</span>
   <span class="ccc-header-user" id="nav-user"></span>
 </div>
 
@@ -2029,20 +2237,20 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
   <section id="tab-overview" class="ccc-section active">
     <div class="ccc-grid ccc-grid-4">
       <div class="ccc-card">
-        <div class="ccc-card-title">CLAUDE.md</div>
+        <div class="ccc-card-title">Claude</div>
         <div class="ccc-card-value" id="s-claude">—</div>
       </div>
       <div class="ccc-card">
-        <div class="ccc-card-title">Rules</div>
-        <div class="ccc-card-value" id="s-rules">—</div>
+        <div class="ccc-card-title">Codex</div>
+        <div class="ccc-card-value" id="s-codex">—</div>
       </div>
       <div class="ccc-card">
-        <div class="ccc-card-title">MCP Servers</div>
-        <div class="ccc-card-value" id="s-mcp">—</div>
+        <div class="ccc-card-title">Gemini</div>
+        <div class="ccc-card-value" id="s-gemini">—</div>
       </div>
       <div class="ccc-card">
-        <div class="ccc-card-title">Plugins</div>
-        <div class="ccc-card-value" id="s-plugins">—</div>
+        <div class="ccc-card-title">Shared Config</div>
+        <div class="ccc-card-value" id="s-config">—</div>
       </div>
     </div>
 
@@ -2051,6 +2259,8 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
       <span class="ccc-pill"><span class="ccc-dot" id="dot-cs"></span>code-server :8080</span>
       <span class="ccc-pill"><span class="ccc-dot on"></span>cockpit :9090</span>
       <span class="ccc-pill"><span class="ccc-dot" id="dot-claude"></span>claude</span>
+      <span class="ccc-pill"><span class="ccc-dot" id="dot-codex"></span>codex</span>
+      <span class="ccc-pill"><span class="ccc-dot" id="dot-gemini"></span>gemini</span>
     </div>
 
     <div class="ccc-section-title">Quick Links</div>
@@ -2135,7 +2345,13 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
 
   <!-- ── Updates ───────────────────────────────────────────────────────── -->
   <section id="tab-updates" class="ccc-section">
-    <div class="ccc-section-title">CCC Provisioner</div>
+    <div class="ccc-section-title">OS Packages</div>
+    <div class="ccc-output" id="os-update-output">Run manually when you want apt package updates.</div>
+    <div class="action-row" style="margin-bottom:28px">
+      <button class="btn btn-primary btn-sm" onclick="runOSUpdate()">Run ccc-os-update</button>
+    </div>
+
+    <div class="ccc-section-title">Agent Workstation</div>
     <div class="ccc-output" id="ccc-update-output">Click refresh to check...</div>
     <div class="action-row" style="margin-bottom:28px">
       <button class="btn btn-secondary btn-sm" onclick="loadCCCStatus()">↺ Refresh</button>
@@ -2143,10 +2359,9 @@ cat > /usr/share/cockpit/ccc/index.html << 'COCKPITUI'
     </div>
 
     <div class="ccc-section-title">oculus-configs</div>
-    <div class="ccc-output" id="oculus-update-output">Click "Check for Updates" to fetch status...</div>
+    <div class="ccc-output" id="oculus-update-output">Run sync to pull shared Claude/Codex/Gemini configs.</div>
     <div class="action-row">
-      <button class="btn btn-secondary btn-sm" onclick="checkOculusUpdate()">Check for Updates</button>
-      <button class="btn btn-primary btn-sm" id="apply-btn" style="display:none" onclick="applyOculusUpdate()">Apply Update</button>
+      <button class="btn btn-primary btn-sm" onclick="runAgentConfigSync()">Run ccc-sync-agent-configs</button>
     </div>
   </section>
 
@@ -2216,20 +2431,21 @@ async function loadOverview() {
     document.getElementById('s-claude').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
   }
   try {
+    await cockpit.spawn(['test', '-f', `${_home}/.codex/AGENTS.md`], {err: 'ignore'});
+    document.getElementById('s-codex').textContent = '✓ Present';
+  } catch {
+    document.getElementById('s-codex').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+  }
+  try {
+    await cockpit.spawn(['test', '-f', `${_home}/.gemini/GEMINI.md`], {err: 'ignore'});
+    document.getElementById('s-gemini').textContent = '✓ Present';
+  } catch {
+    document.getElementById('s-gemini').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+  }
+  try {
     const n = await cockpit.spawn(['bash', '-c', `ls ${_home}/.claude/rules/ 2>/dev/null | wc -l`]);
-    document.getElementById('s-rules').textContent = n.trim() + ' files';
-  } catch { document.getElementById('s-rules').textContent = '0 files'; }
-  try {
-    const raw = await cockpit.file(`${_home}/.claude/mcp.json`).read();
-    document.getElementById('s-mcp').textContent =
-      Object.keys(JSON.parse(raw || '{"mcpServers":{}}').mcpServers || {}).length + ' servers';
-  } catch { document.getElementById('s-mcp').textContent = '0 servers'; }
-  try {
-    const raw = await cockpit.file(`${_home}/.claude/settings.json`).read();
-    const s = JSON.parse(raw || '{}');
-    document.getElementById('s-plugins').textContent =
-      (Array.isArray(s.plugins?.enabled) ? s.plugins.enabled.length : '?') + ' enabled';
-  } catch { document.getElementById('s-plugins').textContent = '? enabled'; }
+    document.getElementById('s-config').textContent = n.trim() + ' rules';
+  } catch { document.getElementById('s-config').textContent = '0 rules'; }
 
   cockpit.spawn(['systemctl', 'is-active', 'code-server'], {err: 'ignore'})
     .then(s => { document.getElementById('dot-cs').className = 'ccc-dot ' + (s.trim() === 'active' ? 'on' : 'off'); })
@@ -2237,6 +2453,12 @@ async function loadOverview() {
   cockpit.spawn(['bash', '-c', 'which claude 2>/dev/null'], {err: 'ignore'})
     .then(p => { document.getElementById('dot-claude').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
     .catch(() => { document.getElementById('dot-claude').className = 'ccc-dot off'; });
+  cockpit.spawn(['bash', '-c', 'which codex 2>/dev/null'], {err: 'ignore'})
+    .then(p => { document.getElementById('dot-codex').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
+    .catch(() => { document.getElementById('dot-codex').className = 'ccc-dot off'; });
+  cockpit.spawn(['bash', '-c', 'which gemini 2>/dev/null'], {err: 'ignore'})
+    .then(p => { document.getElementById('dot-gemini').className = 'ccc-dot ' + (p.trim() ? 'on' : 'off'); })
+    .catch(() => { document.getElementById('dot-gemini').className = 'ccc-dot off'; });
   getIP().then(ip => { document.getElementById('vscode-link').href = 'http://' + ip + ':8080'; });
 }
 tabLoaders.overview = loadOverview;
@@ -2246,8 +2468,7 @@ async function loadProjects() {
   const list = document.getElementById('project-list');
   try {
     const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/projects/ 2>/dev/null`]);
-    const projects = out.trim().split('
-').filter(p => p);
+    const projects = out.trim().split('\n').filter(p => p);
     const ip = await getIP();
     list.innerHTML = !projects.length
       ? '<p style="color:var(--muted)">No projects yet.</p>'
@@ -2288,8 +2509,7 @@ async function renderWizardStep() {
     let opts = '<option value="">— None (blank project) —</option>';
     try {
       const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/Templates/ 2>/dev/null`]);
-      out.trim().split('
-').filter(t => t).forEach(t => {
+      out.trim().split('\n').filter(t => t).forEach(t => {
         opts += `<option value="${t}" ${_wiz.template === t ? 'selected' : ''}>${t}</option>`;
       });
     } catch {}
@@ -2417,8 +2637,7 @@ async function persistMCP() {
 async function loadGHToken() {
   try {
     const m = (await cockpit.file(`${_home}/.bashrc`).read() || '')
-      .match(/export GITHUB_TOKEN="?([^"
-]+)"?/);
+      .match(/export GITHUB_TOKEN="?([^"\n]+)"?/);
     if (m) document.getElementById('gh-token').value = m[1];
   } catch {}
 }
@@ -2430,11 +2649,8 @@ async function saveGHToken() {
     const bashrc = await cockpit.file(`${_home}/.bashrc`).read() || '';
     await cockpit.file(`${_home}/.bashrc`).replace(
       bashrc.includes('GITHUB_TOKEN')
-        ? bashrc.replace(/export GITHUB_TOKEN="?[^"
-]+"?/, `export GITHUB_TOKEN="${token}"`)
-        : bashrc + `
-export GITHUB_TOKEN="${token}"
-`
+        ? bashrc.replace(/export GITHUB_TOKEN="?[^"\n]+"?/, `export GITHUB_TOKEN="${token}"`)
+        : bashrc + `\nexport GITHUB_TOKEN="${token}"\n`
     );
     showToast('GitHub token saved', 'success');
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
@@ -2492,9 +2708,22 @@ async function loadCCCStatus() {
 }
 tabLoaders.updates = loadCCCStatus;
 
+async function runOSUpdate() {
+  if (!await confirm('Run OS Update',
+    'Run apt update, apt upgrade, autoremove, and clean inside the container?',
+    'Update OS')) return;
+  const box = document.getElementById('os-update-output');
+  box.textContent = 'Running ccc-os-update...';
+  try {
+    box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-os-update'],
+      {err: 'message', superuser: 'try'});
+    showToast('OS update complete', 'success');
+  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('OS update failed', 'error'); }
+}
+
 async function runCCCSelfUpdate() {
   if (!await confirm('Run ccc-self-update',
-    'Pull latest CCC tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
+    'Pull latest Agent Workstation tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
     'Update')) return;
   const box = document.getElementById('ccc-update-output');
   box.textContent = 'Running ccc-self-update...';
@@ -2505,62 +2734,27 @@ async function runCCCSelfUpdate() {
   } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
 }
 
-async function checkOculusUpdate() {
+async function runAgentConfigSync() {
+  if (!await confirm('Sync oculus-configs',
+    'Pull latest shared agent configs and sync Claude, Codex, Gemini, and templates. Managed instruction files are backed up before replacement.',
+    'Sync')) return;
   const box = document.getElementById('oculus-update-output');
-  box.textContent = 'Fetching from origin...';
+  box.textContent = 'Running ccc-sync-agent-configs...';
   try {
-    await cockpit.spawn(['git', '-C', '/opt/oculus-configs', 'fetch', 'origin'], {err: 'message'});
-    const log = await cockpit.spawn(
-      ['git', '-C', '/opt/oculus-configs', 'log', 'HEAD..origin/main', '--oneline'], {err: 'message'});
-    const lines = log.trim().split('
-').filter(l => l);
-    if (!lines.length) {
-      box.textContent = '✓ Up to date';
-      document.getElementById('apply-btn').style.display = 'none';
-    } else {
-      box.textContent = lines.length + ' commit(s) behind:
-
-' + lines.join('
-');
-      document.getElementById('apply-btn').style.display = '';
-    }
-  } catch (err) { box.textContent = 'Error: ' + err.message; }
-}
-
-async function applyOculusUpdate() {
-  if (!await confirm('Apply oculus-configs Update',
-    'Pull latest and re-copy CLAUDE.md, rules, templates, Codex and Gemini skills. Local CLAUDE.md edits will be overwritten.',
-    'Update')) return;
-  const box = document.getElementById('oculus-update-output');
-  box.textContent = 'Applying update...';
-  const script = [
-    'git -C /opt/oculus-configs pull',
-    `cp /opt/oculus-configs/claude/CLAUDE.md ${_home}/.claude/CLAUDE.md`,
-    `cp -r /opt/oculus-configs/claude/rules/. ${_home}/.claude/rules/`,
-    `cp -r /opt/oculus-configs/templates/. ${_home}/Templates/`,
-    `mkdir -p ${_home}/.codex && cp /opt/oculus-configs/codex/AGENTS.md ${_home}/.codex/AGENTS.md 2>/dev/null || true`,
-    `mkdir -p ${_home}/.gemini && cp /opt/oculus-configs/gemini/GEMINI.md ${_home}/.gemini/GEMINI.md 2>/dev/null || true`,
-  ].join(' && ');
-  try {
-    const out = await cockpit.spawn(['bash', '-c', script], {err: 'message'});
-    box.textContent = 'Done.' + (out ? '
-' + out : '');
-    document.getElementById('apply-btn').style.display = 'none';
-    showToast('oculus-configs updated', 'success');
-  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Update failed', 'error'); }
+    box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-sync-agent-configs'],
+      {err: 'message', superuser: 'try'});
+    await loadOverview();
+    showToast('oculus-configs synced', 'success');
+  } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Sync failed', 'error'); }
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-// Sync Cockpit's PatternFly theme class into this iframe so PF CSS vars
-// (--pf-v5-global--BackgroundColor--100 etc.) resolve to the correct theme.
-// Plugin iframe is same-origin as Cockpit so parent frame is accessible.
 (function syncCockpitTheme() {
   try {
     const ph = window.parent.document.documentElement;
     ['pf-v5-theme-dark','pf-theme-dark','pf-v5-theme-light','pf-theme-light'].forEach(c => {
       if (ph.classList.contains(c)) document.documentElement.classList.add(c);
     });
-    // Watch for live theme switches in the parent frame
     new MutationObserver(() => syncCockpitTheme()).observe(ph, { attributes: true, attributeFilter: ['class'] });
   } catch {}
 })();
@@ -2576,7 +2770,6 @@ async function applyOculusUpdate() {
 </script>
 </body>
 </html>
-
 COCKPITUI
 echo "    Cockpit: https://<ip>:9090 (login as $CCC_USER)"
 
@@ -2673,7 +2866,7 @@ print_summary() {
 
   echo ""
   echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-  echo -e "${GREEN}${BOLD}║          Claude Code Commander — Ready!          ║${NC}"
+  echo -e "${GREEN}${BOLD}║          Agent Workstation — Ready!          ║${NC}"
   echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
   echo -e "  ${BOLD}Container:${NC}    $CT_ID ($CT_HOSTNAME) — $CT_OS"
@@ -2705,7 +2898,7 @@ print_summary() {
   echo -e "  ${BOLD}yq:${NC}           mikefarah Go binary at /usr/local/bin/yq"
   echo -e "  ${BOLD}Permissions:${NC}  All tools pre-approved (no prompts)"
   echo -e "  ${BOLD}SSH:${NC}          Root login disabled — use ${CC_USER}"
-  echo -e "  ${BOLD}Auto-updates:${NC} Sundays 3 AM ET"
+  echo -e "  ${BOLD}Auto-updates:${NC} Agent Workstation tooling Sundays 3 AM ET"
   echo ""
 }
 
