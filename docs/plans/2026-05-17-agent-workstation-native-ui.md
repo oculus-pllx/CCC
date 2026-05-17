@@ -79,7 +79,7 @@ git commit -m "feat(native-ui): add service foundation"
 - Modify: `agent-workstation/web/app.js`
 - Modify: `agent-workstation/web/index.html`
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Test parsing `/proc/meminfo`, `/proc/loadavg`, and disk command output into an overview DTO with uptime, CPU load, memory, disk, hostname, and IP fields.
 
@@ -91,15 +91,15 @@ cd agent-workstation && go test ./internal/system
 ```
 Expected: FAIL because the overview package does not exist.
 
-- [ ] **Step 3: Implement overview collector**
+- [x] **Step 3: Implement overview collector**
 
 Use file reads for `/proc` data and `os.Hostname`; keep command execution behind small functions so tests can inject sample data.
 
-- [ ] **Step 4: Wire `GET /api/overview`**
+- [x] **Step 4: Wire `GET /api/overview`**
 
 Expose overview through the server behind session auth.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run:
 ```bash
@@ -107,7 +107,7 @@ cd agent-workstation && go test ./...
 ```
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add agent-workstation

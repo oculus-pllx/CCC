@@ -65,3 +65,18 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   border-radius: 6px;
   padding: 16px;
 }
+
+.facts {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+}

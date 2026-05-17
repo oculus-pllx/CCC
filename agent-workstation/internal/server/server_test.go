@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/oculus-pllx/ccc/agent-workstation/internal/system"
 )
 
 func TestHealthReturnsAgentWorkstationStatus(t *testing.T) {
@@ -69,8 +71,17 @@ func TestProtectedAPIAllowsValidSessionCookie(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
 	}
+	if !strings.Contains(res.Body.String(), "test-host") {
+		t.Fatalf("expected overview body to contain hostname, got %q", res.Body.String())
+	}
 }
 
 func newTestServer() *Server {
-	return New(Config{SessionToken: "test-token", WebDir: "../../web"})
+	return New(Config{
+		SessionToken: "test-token",
+		WebDir:       "../../web",
+		Overview: func() (system.Overview, error) {
+			return system.Overview{Hostname: "test-host", IPs: []string{"192.0.2.10"}}, nil
+		},
+	})
 }

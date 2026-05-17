@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/oculus-pllx/ccc/agent-workstation/internal/system"
 )
 
 const SessionCookieName = "aw_session"
@@ -12,12 +14,14 @@ const SessionCookieName = "aw_session"
 type Config struct {
 	SessionToken string
 	WebDir       string
+	Overview     func() (system.Overview, error)
 }
 
 type Server struct {
 	mux          *http.ServeMux
 	sessionToken string
 	webDir       string
+	overview     func() (system.Overview, error)
 }
 
 func New(config Config) *Server {
@@ -25,6 +29,10 @@ func New(config Config) *Server {
 		mux:          http.NewServeMux(),
 		sessionToken: config.SessionToken,
 		webDir:       config.WebDir,
+		overview:     config.Overview,
+	}
+	if s.overview == nil {
+		s.overview = system.CollectOverview
 	}
 	s.routes()
 	return s
@@ -48,9 +56,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "ready",
-	})
+	overview, err := s.overview()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error": err.Error(),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, overview)
 }
 
 func (s *Server) requireSession(next http.Handler) http.Handler {
