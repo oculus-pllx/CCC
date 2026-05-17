@@ -14,6 +14,8 @@ const titles = {
 
 let currentSection = 'overview';
 let snapshot = null;
+let filePath = '';
+let currentFile = '';
 
 async function loadHealth() {
   const target = document.getElementById('health');
@@ -139,16 +141,22 @@ function renderOverview() {
 
 function renderServices() {
   return `
-    <div class="action-row">
-      <button class="small-button" data-action="restart-code-server">Restart VS Code Web</button>
-      <button class="small-button" data-action="restart-agent-workstation">Restart Agent Workstation</button>
+    <div class="service-list">
+      ${(snapshot.services || []).map(service => `
+        <section class="service-row">
+          <div>
+            <strong>${escapeHTML(service.name)}</strong>
+            <p>${escapeHTML(service.description || '')}</p>
+            <span>${escapeHTML(service.active || 'unknown')} / ${escapeHTML(service.sub || 'unknown')}</span>
+          </div>
+          <div class="action-row">
+            ${['start', 'stop', 'restart', 'enable', 'disable'].map(operation => `
+              <button class="small-button" data-service="${escapeAttribute(service.name)}" data-operation="${operation}">${operation}</button>
+            `).join('')}
+          </div>
+        </section>
+      `).join('')}
     </div>
-    ${table(['Service', 'Active', 'Enabled', 'Description'], (snapshot.services || []).map(service => [
-      service.name,
-      service.active || 'unknown',
-      service.sub || 'unknown',
-      service.description || '',
-    ]))}
     <pre id="action-output" class="output" hidden></pre>
   `;
 }
@@ -182,13 +190,31 @@ function renderAccounts() {
 }
 
 function renderFiles() {
-  return table(['Name', 'Type', 'Size', 'Modified', 'Path'], (snapshot.files || []).map(file => [
-    file.name,
-    file.type,
-    formatBytes(file.size),
-    file.mtime,
-    file.path,
-  ]));
+  if (!filePath) {
+    filePath = snapshot.projects?.[0]?.path || '/';
+  }
+  return `
+    <div class="file-toolbar">
+      <input id="file-path" type="text" value="${escapeAttribute(filePath)}">
+      <button id="browse-button" class="small-button">Open</button>
+      <button id="parent-button" class="small-button">Up</button>
+    </div>
+    <div class="file-browser">
+      <div>
+        <h3>Directory</h3>
+        <div id="file-list" class="file-list">Loading...</div>
+      </div>
+      <div>
+        <h3>Editor</h3>
+        <div class="file-toolbar">
+          <input id="current-file" type="text" value="${escapeAttribute(currentFile)}" placeholder="Select a file">
+          <button id="save-file-button" class="small-button">Save</button>
+        </div>
+        <textarea id="file-editor" spellcheck="false"></textarea>
+        <pre id="file-output" class="output" hidden></pre>
+      </div>
+    </div>
+  `;
 }
 
 function renderUpdates() {
@@ -264,8 +290,14 @@ function bindSectionActions(section) {
   document.querySelectorAll('[data-action]').forEach(button => {
     button.addEventListener('click', () => runAction(button.dataset.action));
   });
+  document.querySelectorAll('[data-service]').forEach(button => {
+    button.addEventListener('click', () => controlService(button.dataset.service, button.dataset.operation));
+  });
   if (section === 'terminal') {
     document.getElementById('terminal-form').addEventListener('submit', runTerminal);
+  }
+  if (section === 'files') {
+    bindFileBrowser();
   }
 }
 
@@ -277,6 +309,20 @@ async function runAction(action) {
     const result = await postJSON('/api/action', { action });
     output.textContent = result.output || `Exit code ${result.exitCode}`;
     await loadSnapshot();
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function controlService(service, operation) {
+  const output = document.getElementById('action-output');
+  output.hidden = false;
+  output.textContent = `Running ${operation} ${service}...`;
+  try {
+    const result = await postJSON('/api/service', { service, operation });
+    output.textContent = result.output || `Exit code ${result.exitCode}`;
+    await loadSnapshot();
+    renderSection('services');
   } catch (error) {
     output.textContent = error.message;
   }
@@ -296,9 +342,95 @@ async function runTerminal(event) {
   }
 }
 
-async function postJSON(url, body) {
+function bindFileBrowser() {
+  document.getElementById('browse-button').addEventListener('click', () => {
+    filePath = document.getElementById('file-path').value;
+    loadFiles(filePath);
+  });
+  document.getElementById('parent-button').addEventListener('click', () => {
+    const parts = filePath.split('/').filter(Boolean);
+    parts.pop();
+    filePath = `/${parts.join('/')}`;
+    if (filePath === '/') {
+      filePath = '/';
+    }
+    document.getElementById('file-path').value = filePath;
+    loadFiles(filePath);
+  });
+  document.getElementById('save-file-button').addEventListener('click', saveCurrentFile);
+  loadFiles(filePath);
+}
+
+async function loadFiles(path) {
+  const list = document.getElementById('file-list');
+  list.textContent = 'Loading...';
+  try {
+    const response = await fetch(`/api/files?path=${encodeURIComponent(path)}`, { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || `Request failed with ${response.status}`);
+    }
+    filePath = data.path;
+    document.getElementById('file-path').value = data.path;
+    list.innerHTML = (data.entries || []).map(entry => `
+      <button class="file-entry" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}">
+        <span>${entry.type === 'dir' ? 'dir' : 'file'}</span>
+        <strong>${escapeHTML(entry.name)}</strong>
+        <small>${escapeHTML(formatBytes(entry.size))}</small>
+      </button>
+    `).join('') || '<p>No files found.</p>';
+    list.querySelectorAll('.file-entry').forEach(button => {
+      button.addEventListener('click', () => {
+        if (button.dataset.type === 'dir') {
+          filePath = button.dataset.path;
+          loadFiles(filePath);
+        } else {
+          openFile(button.dataset.path);
+        }
+      });
+    });
+  } catch (error) {
+    list.textContent = error.message;
+  }
+}
+
+async function openFile(path) {
+  const output = document.getElementById('file-output');
+  output.hidden = true;
+  try {
+    const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`, { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || `Request failed with ${response.status}`);
+    }
+    currentFile = data.path;
+    document.getElementById('current-file').value = data.path;
+    document.getElementById('file-editor').value = data.content;
+  } catch (error) {
+    output.hidden = false;
+    output.textContent = error.message;
+  }
+}
+
+async function saveCurrentFile() {
+  const output = document.getElementById('file-output');
+  const path = document.getElementById('current-file').value;
+  const content = document.getElementById('file-editor').value;
+  output.hidden = false;
+  output.textContent = 'Saving...';
+  try {
+    const result = await postJSON('/api/file', { path, content }, 'PUT');
+    output.textContent = result.status || 'saved';
+    currentFile = path;
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function postJSON(url, body, method = 'POST') {
   const response = await fetch(url, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(body),

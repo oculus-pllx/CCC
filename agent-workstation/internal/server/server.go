@@ -12,39 +12,51 @@ import (
 const SessionCookieName = "aw_session"
 
 type Config struct {
-	SessionToken string
-	Username     string
-	Password     string
-	WebDir       string
-	Overview     func() (system.Overview, error)
-	Snapshot     func() (system.ManagementSnapshot, error)
-	RunCommand   func(command string, cwd string) (system.CommandResult, error)
-	RunAction    func(action string) (system.CommandResult, error)
+	SessionToken   string
+	Username       string
+	Password       string
+	WebDir         string
+	Overview       func() (system.Overview, error)
+	Snapshot       func() (system.ManagementSnapshot, error)
+	RunCommand     func(command string, cwd string) (system.CommandResult, error)
+	RunAction      func(action string) (system.CommandResult, error)
+	ListFiles      func(path string) (system.FileListing, error)
+	ReadFile       func(path string) (system.FileContent, error)
+	WriteFile      func(path string, content string) error
+	ControlService func(service string, operation string) (system.CommandResult, error)
 }
 
 type Server struct {
-	mux          *http.ServeMux
-	sessionToken string
-	username     string
-	password     string
-	webDir       string
-	overview     func() (system.Overview, error)
-	snapshot     func() (system.ManagementSnapshot, error)
-	runCommand   func(command string, cwd string) (system.CommandResult, error)
-	runAction    func(action string) (system.CommandResult, error)
+	mux            *http.ServeMux
+	sessionToken   string
+	username       string
+	password       string
+	webDir         string
+	overview       func() (system.Overview, error)
+	snapshot       func() (system.ManagementSnapshot, error)
+	runCommand     func(command string, cwd string) (system.CommandResult, error)
+	runAction      func(action string) (system.CommandResult, error)
+	listFiles      func(path string) (system.FileListing, error)
+	readFile       func(path string) (system.FileContent, error)
+	writeFile      func(path string, content string) error
+	controlService func(service string, operation string) (system.CommandResult, error)
 }
 
 func New(config Config) *Server {
 	s := &Server{
-		mux:          http.NewServeMux(),
-		sessionToken: config.SessionToken,
-		username:     config.Username,
-		password:     config.Password,
-		webDir:       config.WebDir,
-		overview:     config.Overview,
-		snapshot:     config.Snapshot,
-		runCommand:   config.RunCommand,
-		runAction:    config.RunAction,
+		mux:            http.NewServeMux(),
+		sessionToken:   config.SessionToken,
+		username:       config.Username,
+		password:       config.Password,
+		webDir:         config.WebDir,
+		overview:       config.Overview,
+		snapshot:       config.Snapshot,
+		runCommand:     config.RunCommand,
+		runAction:      config.RunAction,
+		listFiles:      config.ListFiles,
+		readFile:       config.ReadFile,
+		writeFile:      config.WriteFile,
+		controlService: config.ControlService,
 	}
 	if s.overview == nil {
 		s.overview = system.CollectOverview
@@ -57,6 +69,18 @@ func New(config Config) *Server {
 	}
 	if s.runAction == nil {
 		s.runAction = system.RunWorkstationAction
+	}
+	if s.listFiles == nil {
+		s.listFiles = system.BrowseFiles
+	}
+	if s.readFile == nil {
+		s.readFile = system.ReadTextFile
+	}
+	if s.writeFile == nil {
+		s.writeFile = system.WriteTextFile
+	}
+	if s.controlService == nil {
+		s.controlService = system.ControlService
 	}
 	s.routes()
 	return s
@@ -74,6 +98,9 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/workstation", s.requireSession(http.HandlerFunc(s.handleWorkstation)))
 	s.mux.Handle("/api/terminal", s.requireSession(http.HandlerFunc(s.handleTerminal)))
 	s.mux.Handle("/api/action", s.requireSession(http.HandlerFunc(s.handleAction)))
+	s.mux.Handle("/api/files", s.requireSession(http.HandlerFunc(s.handleFiles)))
+	s.mux.Handle("/api/file", s.requireSession(http.HandlerFunc(s.handleFile)))
+	s.mux.Handle("/api/service", s.requireSession(http.HandlerFunc(s.handleService)))
 	s.mux.Handle("/", s.staticHandler())
 }
 
@@ -150,6 +177,68 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": err.Error(),
 		})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	listing, err := s.listFiles(r.URL.Query().Get("path"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, listing)
+}
+
+func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		content, err := s.readFile(r.URL.Query().Get("path"))
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, content)
+	case http.MethodPut:
+		var body struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid file request", http.StatusBadRequest)
+			return
+		}
+		if err := s.writeFile(body.Path, body.Content); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "saved"})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Service   string `json:"service"`
+		Operation string `json:"operation"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid service request", http.StatusBadRequest)
+		return
+	}
+	result, err := s.controlService(body.Service, body.Operation)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, result)

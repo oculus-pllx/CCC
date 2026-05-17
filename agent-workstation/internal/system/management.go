@@ -60,6 +60,18 @@ type FileEntry struct {
 	MTime string `json:"mtime"`
 }
 
+type FileListing struct {
+	Path    string      `json:"path"`
+	Parent  string      `json:"parent"`
+	Entries []FileEntry `json:"entries"`
+}
+
+type FileContent struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+	Size    int64  `json:"size"`
+}
+
 type UpdateStatus struct {
 	AgentWorkstation string `json:"agentWorkstation"`
 	OS               string `json:"os"`
@@ -158,6 +170,78 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 	}
 }
 
+func ControlService(service string, operation string) (CommandResult, error) {
+	service = strings.TrimSpace(service)
+	operation = strings.TrimSpace(operation)
+	if service == "" {
+		return CommandResult{}, errors.New("service is required")
+	}
+	switch operation {
+	case "start", "stop", "restart", "enable", "disable":
+	default:
+		return CommandResult{}, fmt.Errorf("operation %q is not allowed", operation)
+	}
+	return RunShellCommand("sudo systemctl "+operation+" "+shellQuote(service), workstationHome())
+}
+
+func BrowseFiles(path string) (FileListing, error) {
+	if strings.TrimSpace(path) == "" {
+		path = filepath.Join(workstationHome(), "projects")
+	}
+	cleaned, err := filepath.Abs(path)
+	if err != nil {
+		return FileListing{}, err
+	}
+	return FileListing{
+		Path:    cleaned,
+		Parent:  filepath.Dir(cleaned),
+		Entries: listFiles(cleaned, 500),
+	}, nil
+}
+
+func ReadTextFile(path string) (FileContent, error) {
+	cleaned, err := filepath.Abs(path)
+	if err != nil {
+		return FileContent{}, err
+	}
+	info, err := os.Stat(cleaned)
+	if err != nil {
+		return FileContent{}, err
+	}
+	if info.IsDir() {
+		return FileContent{}, errors.New("cannot open a directory as a file")
+	}
+	if info.Size() > 2*1024*1024 {
+		return FileContent{}, errors.New("file is larger than 2 MiB")
+	}
+	content, err := os.ReadFile(cleaned)
+	if err != nil {
+		return FileContent{}, err
+	}
+	if strings.ContainsRune(string(content), '\x00') {
+		return FileContent{}, errors.New("binary files cannot be edited")
+	}
+	return FileContent{Path: cleaned, Content: string(content), Size: info.Size()}, nil
+}
+
+func WriteTextFile(path string, content string) error {
+	cleaned, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if len(content) > 2*1024*1024 {
+		return errors.New("file content is larger than 2 MiB")
+	}
+	info, err := os.Stat(cleaned)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return errors.New("cannot save content to a directory")
+	}
+	return os.WriteFile(cleaned, []byte(content), info.Mode().Perm())
+}
+
 func collectServices() []ServiceStatus {
 	names := []string{"agent-workstation.service", "code-server@" + currentUsername() + ".service", "ssh.service", "redis-server.service"}
 	services := make([]ServiceStatus, 0, len(names))
@@ -170,6 +254,10 @@ func collectServices() []ServiceStatus {
 		})
 	}
 	return services
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func collectLogs() []LogBlock {

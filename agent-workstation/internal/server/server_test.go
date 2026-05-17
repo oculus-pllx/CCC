@@ -212,6 +212,72 @@ func TestProtectedActionRunsAllowlistedAction(t *testing.T) {
 	}
 }
 
+func TestProtectedFileListReturnsDirectoryEntries(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/files?path=/home/oculus/projects", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "README.md") {
+		t.Fatalf("expected file listing, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedFileReadReturnsContent(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/file?path=/home/oculus/projects/README.md", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "hello file") {
+		t.Fatalf("expected file content, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedFileWriteSavesContent(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPut, "/api/file", strings.NewReader(`{"path":"/home/oculus/projects/README.md","content":"updated"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "saved") {
+		t.Fatalf("expected save response, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedServiceControlRunsConfiguredController(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/service", strings.NewReader(`{"service":"redis-server.service","operation":"restart"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "restart redis-server.service") {
+		t.Fatalf("expected service control output, got %q", res.Body.String())
+	}
+}
+
 func newTestServer() *Server {
 	return New(Config{
 		SessionToken: "test-token",
@@ -233,6 +299,18 @@ func newTestServer() *Server {
 		},
 		RunAction: func(action string) (system.CommandResult, error) {
 			return system.CommandResult{Command: action, Output: "sync ok"}, nil
+		},
+		ListFiles: func(path string) (system.FileListing, error) {
+			return system.FileListing{Path: path, Entries: []system.FileEntry{{Name: "README.md", Path: path + "/README.md", Type: "file"}}}, nil
+		},
+		ReadFile: func(path string) (system.FileContent, error) {
+			return system.FileContent{Path: path, Content: "hello file"}, nil
+		},
+		WriteFile: func(path string, content string) error {
+			return nil
+		},
+		ControlService: func(service string, operation string) (system.CommandResult, error) {
+			return system.CommandResult{Command: operation + " " + service, Output: operation + " " + service}, nil
 		},
 	})
 }
