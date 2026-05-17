@@ -51,6 +51,8 @@ require_file_contains claude-code-commander.sh "data-tab=\"terminal\""
 require_file_contains claude-code-commander.sh "data-tab=\"codex\""
 require_file_contains claude-code-commander.sh "data-tab=\"gemini\""
 require_file_contains claude-code-commander.sh "function loadOculusStatus"
+require_file_contains claude-code-commander.sh "systemctl disable --now ccc-dashboard"
+require_file_contains claude-code-commander.sh "fuser -k 9090/tcp"
 
 require_file_not_contains claude-code-commander.sh "/opt/ccc-dashboard"
 require_file_not_contains claude-code-commander.sh "node-pty"

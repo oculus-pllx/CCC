@@ -1072,10 +1072,15 @@ chown claude-code:claude-code /home/claude-code/.tmux.conf
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 
-# Remove the retired Cockpit kit UI and standalone helper.
+# Remove retired Cockpit kit and standalone dashboard helpers before Cockpit claims 9090.
 rm -f /usr/local/bin/ccc-kit
 systemctl disable --now ccc-kit-manager 2>/dev/null || true
 rm -f /etc/systemd/system/ccc-kit-manager.service
+systemctl disable --now ccc-dashboard 2>/dev/null || true
+rm -f /etc/systemd/system/ccc-dashboard.service
+if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; then
+  fuser -k 9090/tcp 2>/dev/null || true
+fi
 systemctl daemon-reload 2>/dev/null || true
 rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
 
@@ -1982,6 +1987,12 @@ LoginTo = false
 [Session]
 IdleTimeout = 0
 COCKPITCONF
+systemctl disable --now ccc-dashboard 2>/dev/null || true
+rm -f /etc/systemd/system/ccc-dashboard.service
+if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; then
+  fuser -k 9090/tcp 2>/dev/null || true
+fi
+systemctl daemon-reload
 systemctl enable --now cockpit.socket
 # ── Agent Workstation Cockpit plugin ───────────────────────────────────────
 mkdir -p /usr/share/cockpit/ccc

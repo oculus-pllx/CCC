@@ -305,7 +305,25 @@ ha-manager add ct:<CT_ID> --state started --group <group>
 pct exec <CT_ID> -- systemctl status cockpit.socket
 pct exec <CT_ID> -- systemctl restart cockpit.socket
 ```
+If `cockpit.socket` reports `Address already in use`, check what owns port 9090:
+```bash
+pct exec <CT_ID> -- ss -ltnp | grep ':9090'
+```
+Older CCC installers used a standalone Node dashboard on port 9090. Agent Workstation does not use that service. Remove the legacy service/process, then start Cockpit:
+```bash
+pct exec <CT_ID> -- systemctl disable --now ccc-dashboard
+pct exec <CT_ID> -- rm -f /etc/systemd/system/ccc-dashboard.service
+pct exec <CT_ID> -- systemctl daemon-reload
+pct exec <CT_ID> -- systemctl reset-failed cockpit.socket
+pct exec <CT_ID> -- systemctl enable --now cockpit.socket
+```
 Cockpit uses a self-signed cert — accept the browser security warning on first load. Login with `claude-code` user credentials.
+
+Until the latest local commits are pushed to GitHub, install fresh test containers from this local checkout instead of the GitHub curl command:
+```bash
+cd /home/peyton/repos/CCC
+sudo bash claude-code-commander.sh
+```
 
 ## Notes
 
