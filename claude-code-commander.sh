@@ -1993,7 +1993,7 @@ if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; t
   fuser -k 9090/tcp 2>/dev/null || true
 fi
 systemctl daemon-reload
-systemctl enable --now cockpit.socket
+systemctl enable cockpit.socket
 # ── Agent Workstation Cockpit plugin ───────────────────────────────────────
 mkdir -p /usr/share/cockpit/ccc
 cat > /usr/share/cockpit/ccc/manifest.json << 'MANIFEST'
@@ -3127,6 +3127,7 @@ async function loadOculusStatus() {
 </html>
 
 COCKPITUI
+systemctl restart cockpit.socket 2>/dev/null || systemctl start cockpit.socket
 echo "    Cockpit: https://<ip>:9090 (login as $CCC_USER)"
 
 # Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit.
