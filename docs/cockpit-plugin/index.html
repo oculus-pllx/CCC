@@ -68,7 +68,11 @@
     .ccc-main { padding: 24px; }
     .ccc-section { display: none; }
     .ccc-section.active { display: block; }
-    #tab-claude.active { display: flex; flex-direction: column; height: calc(100vh - 108px); }
+    #tab-claude.active,
+    #tab-codex.active,
+    #tab-gemini.active,
+    #tab-files.active,
+    #tab-terminal.active { display: flex; flex-direction: column; height: calc(100vh - 108px); }
 
     /* ── Cards ── */
     .ccc-grid { display: grid; gap: 16px; margin-bottom: 24px; }
@@ -125,6 +129,7 @@
     select.form-control { cursor: pointer; }
     textarea.form-control { resize: vertical; }
     .action-row { display: flex; gap: 8px; margin-top: 4px; }
+    .action-row.wrap { flex-wrap: wrap; }
 
     /* ── Table ── */
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
@@ -207,10 +212,26 @@
     }
     .data-name { font-size: 14px; font-weight: 500; }
 
-    /* ── CLAUDE.md textarea ── */
-    #claude-textarea {
+    /* ── Editors / explorer ── */
+    #claude-textarea,
+    #codex-textarea,
+    #gemini-textarea,
+    #file-textarea,
+    #terminal-output {
       flex: 1; resize: none; font-family: 'Courier New', monospace;
       font-size: 13px; line-height: 1.6;
+    }
+    .split-pane {
+      display: grid; grid-template-columns: minmax(240px, 32%) 1fr;
+      gap: 16px; flex: 1; min-height: 0;
+    }
+    .pane { min-height: 0; overflow: auto; }
+    .file-row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .file-row button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 760px) {
+      .ccc-grid-4, .ccc-grid-2, .split-pane { grid-template-columns: 1fr; }
+      .ccc-nav { overflow-x: auto; padding: 0 12px; }
+      .ccc-main { padding: 16px; }
     }
   </style>
 </head>
@@ -224,7 +245,11 @@
 <nav class="ccc-nav">
   <button class="active" data-tab="overview" onclick="showTab('overview')">Overview</button>
   <button data-tab="projects"  onclick="showTab('projects')">Projects</button>
+  <button data-tab="files"     onclick="showTab('files')">Files</button>
+  <button data-tab="terminal"  onclick="showTab('terminal')">Terminal</button>
   <button data-tab="claude"    onclick="showTab('claude')">CLAUDE.md</button>
+  <button data-tab="codex"     onclick="showTab('codex')">AGENTS.md</button>
+  <button data-tab="gemini"    onclick="showTab('gemini')">GEMINI.md</button>
   <button data-tab="mcp"       onclick="showTab('mcp')">MCP</button>
   <button data-tab="plugins"   onclick="showTab('plugins')">Plugins</button>
   <button data-tab="updates"   onclick="showTab('updates')">Updates</button>
@@ -275,6 +300,37 @@
     </div>
   </section>
 
+  <!-- ── Files ─────────────────────────────────────────────────────────── -->
+  <section id="tab-files" class="ccc-section">
+    <div class="action-row wrap" style="margin-bottom:12px">
+      <input id="file-path" class="form-control" style="max-width:620px" placeholder="/home/claude-code">
+      <button class="btn btn-secondary btn-sm" onclick="loadFiles()">Refresh</button>
+      <button class="btn btn-secondary btn-sm" onclick="fileUp()">Up</button>
+      <button class="btn btn-primary btn-sm" onclick="saveFile()">Save File</button>
+    </div>
+    <div class="split-pane">
+      <div class="pane">
+        <div class="ccc-section-title">Explorer</div>
+        <div id="file-list" class="ccc-card">Loading...</div>
+      </div>
+      <div class="pane" style="display:flex;flex-direction:column;min-height:0">
+        <div class="ccc-section-title" id="file-editor-title">File Preview</div>
+        <textarea id="file-textarea" class="form-control" placeholder="Select a text file to edit."></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Terminal ──────────────────────────────────────────────────────── -->
+  <section id="tab-terminal" class="ccc-section">
+    <div class="action-row wrap" style="margin-bottom:12px">
+      <input id="terminal-cwd" class="form-control" style="max-width:420px" placeholder="/home/claude-code">
+      <input id="terminal-command" class="form-control" placeholder="git status --short">
+      <button class="btn btn-primary btn-sm" onclick="runTerminalCommand()">Run</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearTerminal()">Clear</button>
+    </div>
+    <div class="ccc-output" id="terminal-output">Run a command through Cockpit. This is non-interactive; use code-server on port 8080 for full terminal tabs.</div>
+  </section>
+
   <!-- ── Projects ──────────────────────────────────────────────────────── -->
   <section id="tab-projects" class="ccc-section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -305,12 +361,36 @@
     <textarea id="claude-textarea" class="form-control" placeholder="Loading..."></textarea>
   </section>
 
+  <!-- ── AGENTS.md ──────────────────────────────────────────────────────── -->
+  <section id="tab-codex" class="ccc-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span class="ccc-section-title" style="margin:0">Codex AGENTS.md</span>
+      <div class="action-row">
+        <button class="btn btn-secondary btn-sm" onclick="reloadAgentDoc('codex')">↺ Reload from oculus-configs</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAgentDoc('codex')">Save</button>
+      </div>
+    </div>
+    <textarea id="codex-textarea" class="form-control" placeholder="Loading..."></textarea>
+  </section>
+
+  <!-- ── GEMINI.md ──────────────────────────────────────────────────────── -->
+  <section id="tab-gemini" class="ccc-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span class="ccc-section-title" style="margin:0">Gemini GEMINI.md</span>
+      <div class="action-row">
+        <button class="btn btn-secondary btn-sm" onclick="reloadAgentDoc('gemini')">↺ Reload from oculus-configs</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAgentDoc('gemini')">Save</button>
+      </div>
+    </div>
+    <textarea id="gemini-textarea" class="form-control" placeholder="Loading..."></textarea>
+  </section>
+
   <!-- ── MCP ────────────────────────────────────────────────────────────── -->
   <section id="tab-mcp" class="ccc-section">
     <div class="ccc-section-title">MCP Servers</div>
     <table>
-      <thead><tr><th>Name</th><th>Command</th><th style="width:80px"></th></tr></thead>
-      <tbody id="mcp-table-body"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody>
+      <thead><tr><th>Name</th><th>Status</th><th>Command</th><th style="width:80px"></th></tr></thead>
+      <tbody id="mcp-table-body"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
     </table>
 
     <div class="ccc-card" style="margin-bottom:20px">
@@ -326,6 +406,13 @@
       <button class="btn btn-primary btn-sm" onclick="addMCPServer()">Add Server</button>
     </div>
 
+    <div class="ccc-section-title">Raw MCP JSON</div>
+    <textarea id="mcp-raw" class="form-control" style="min-height:180px;font-family:'Courier New',monospace"></textarea>
+    <div class="action-row" style="margin-bottom:20px">
+      <button class="btn btn-primary btn-sm" onclick="saveRawMCP()">Save Raw JSON</button>
+      <button class="btn btn-secondary btn-sm" onclick="reloadMCPTemplate()">Reload Template</button>
+    </div>
+
     <div class="ccc-section-title">GitHub Token</div>
     <div class="action-row" style="max-width:600px">
       <input id="gh-token" type="password" class="form-control" placeholder="ghp_...">
@@ -337,6 +424,16 @@
   <section id="tab-plugins" class="ccc-section">
     <div class="ccc-section-title">Plugin State</div>
     <div id="plugin-list">Loading...</div>
+    <div class="ccc-grid ccc-grid-2" style="margin-top:20px">
+      <div>
+        <div class="ccc-section-title">Codex Skills</div>
+        <div id="codex-skills-list" class="ccc-card">Loading...</div>
+      </div>
+      <div>
+        <div class="ccc-section-title">Gemini Skills</div>
+        <div id="gemini-skills-list" class="ccc-card">Loading...</div>
+      </div>
+    </div>
     <p style="margin-top:14px;font-size:13px;color:var(--muted)">
       Changes take effect on next <code>claude</code> session.
     </p>
@@ -358,8 +455,9 @@
     </div>
 
     <div class="ccc-section-title">oculus-configs</div>
-    <div class="ccc-output" id="oculus-update-output">Run sync to pull shared Claude/Codex/Gemini configs.</div>
-    <div class="action-row">
+    <div class="ccc-output" id="oculus-update-output">Click refresh to inspect installed and upstream commits.</div>
+    <div class="action-row wrap">
+      <button class="btn btn-secondary btn-sm" onclick="loadOculusStatus()">↺ Refresh</button>
       <button class="btn btn-primary btn-sm" onclick="runAgentConfigSync()">Run ccc-sync-agent-configs</button>
     </div>
   </section>
@@ -403,6 +501,56 @@ function confirm(title, body, okLabel = 'Confirm') {
 }
 function modalResolve(r) { _modalResolve?.(r); }
 
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+function shellQuote(value) {
+  return "'" + String(value).replace(/'/g, "'\\''") + "'";
+}
+
+function jsString(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+}
+
+function splitLines(value) {
+  return String(value || '').trim().split('\n').map(v => v.trim()).filter(Boolean);
+}
+
+function safeProjectName(name) {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(name) && !name.includes('..');
+}
+
+function isSafeHomePath(path) {
+  return path === _home || path.startsWith(_home + '/');
+}
+
+function parseCommandLine(input) {
+  const parts = [];
+  let current = '', quote = '', escaped = false;
+  for (const ch of input.trim()) {
+    if (escaped) { current += ch; escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (quote) {
+      if (ch === quote) quote = '';
+      else current += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (/\s/.test(ch)) {
+      if (current) { parts.push(current); current = ''; }
+      continue;
+    }
+    current += ch;
+  }
+  if (quote) throw new Error('Unclosed quote in command');
+  if (escaped) current += '\\';
+  if (current) parts.push(current);
+  return parts;
+}
+
 const tabLoaders = {};
 function showTab(name) {
   document.querySelectorAll('.ccc-section').forEach(s => s.classList.remove('active'));
@@ -427,26 +575,29 @@ async function loadOverview() {
     await cockpit.spawn(['test', '-f', `${_home}/.claude/CLAUDE.md`], {err: 'ignore'});
     document.getElementById('s-claude').textContent = '✓ Present';
   } catch {
-    document.getElementById('s-claude').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+    const el = document.getElementById('s-claude');
+    el.textContent = '✗ Missing'; el.style.color = 'var(--danger)';
   }
   try {
     await cockpit.spawn(['test', '-f', `${_home}/.codex/AGENTS.md`], {err: 'ignore'});
     document.getElementById('s-codex').textContent = '✓ Present';
   } catch {
-    document.getElementById('s-codex').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+    const el = document.getElementById('s-codex');
+    el.textContent = '✗ Missing'; el.style.color = 'var(--danger)';
   }
   try {
     await cockpit.spawn(['test', '-f', `${_home}/.gemini/GEMINI.md`], {err: 'ignore'});
     document.getElementById('s-gemini').textContent = '✓ Present';
   } catch {
-    document.getElementById('s-gemini').innerHTML = '<span style="color:var(--danger)">✗ Missing</span>';
+    const el = document.getElementById('s-gemini');
+    el.textContent = '✗ Missing'; el.style.color = 'var(--danger)';
   }
   try {
-    const n = await cockpit.spawn(['bash', '-c', `ls ${_home}/.claude/rules/ 2>/dev/null | wc -l`]);
-    document.getElementById('s-config').textContent = n.trim() + ' rules';
+    const n = splitLines(await cockpit.spawn(['find', `${_home}/.claude/rules`, '-maxdepth', '1', '-type', 'f'], {err: 'ignore'})).length;
+    document.getElementById('s-config').textContent = n + ' rules';
   } catch { document.getElementById('s-config').textContent = '0 rules'; }
 
-  cockpit.spawn(['systemctl', 'is-active', 'code-server'], {err: 'ignore'})
+  cockpit.spawn(['systemctl', 'is-active', `code-server@${_home.split('/').pop()}`], {err: 'ignore'})
     .then(s => { document.getElementById('dot-cs').className = 'ccc-dot ' + (s.trim() === 'active' ? 'on' : 'off'); })
     .catch(() => { document.getElementById('dot-cs').className = 'ccc-dot off'; });
   cockpit.spawn(['bash', '-c', 'which claude 2>/dev/null'], {err: 'ignore'})
@@ -462,20 +613,116 @@ async function loadOverview() {
 }
 tabLoaders.overview = loadOverview;
 
+// ── Files ───────────────────────────────────────────────────────────────────
+let _currentFile = '';
+
+async function loadFiles() {
+  const pathInput = document.getElementById('file-path');
+  const list = document.getElementById('file-list');
+  const path = pathInput.value.trim() || _home;
+  if (!isSafeHomePath(path)) {
+    showToast('File explorer is limited to your home directory', 'error');
+    pathInput.value = _home; return loadFiles();
+  }
+  list.textContent = 'Loading...';
+  try {
+    const out = await cockpit.spawn(['find', path, '-maxdepth', '1', '-mindepth', '1', '-printf', '%y\\t%f\\n'], {err: 'message'});
+    const rows = splitLines(out).sort((a, b) => a.localeCompare(b));
+    if (!rows.length) { list.innerHTML = '<p style="color:var(--muted)">Empty directory.</p>'; return; }
+    list.innerHTML = '<ul class="data-list">' + rows.map(row => {
+      const [type, ...nameParts] = row.split('\t');
+      const name = nameParts.join('\t');
+      const full = path.replace(/\/+$/, '') + '/' + name;
+      const isDir = type === 'd';
+      return `<li class="data-item file-row">
+        <button class="btn-link" onclick="${isDir ? 'openDirectory' : 'openFile'}('${escapeHTML(jsString(full))}')">${isDir ? '📁' : '📄'} ${escapeHTML(name)}</button>
+        <span style="font-size:12px;color:var(--muted)">${isDir ? 'directory' : 'file'}</span>
+      </li>`;
+    }).join('') + '</ul>';
+  } catch (err) {
+    list.textContent = 'Error: ' + err.message;
+  }
+}
+tabLoaders.files = () => {
+  const pathInput = document.getElementById('file-path');
+  if (!pathInput.value) pathInput.value = _home;
+  loadFiles();
+};
+
+function openDirectory(path) {
+  document.getElementById('file-path').value = path;
+  _currentFile = '';
+  document.getElementById('file-editor-title').textContent = 'File Preview';
+  document.getElementById('file-textarea').value = '';
+  loadFiles();
+}
+
+function fileUp() {
+  const pathInput = document.getElementById('file-path');
+  const parts = (pathInput.value.trim() || _home).split('/').filter(Boolean);
+  if ('/' + parts.join('/') === _home || parts.length <= 2) return;
+  parts.pop();
+  pathInput.value = '/' + parts.join('/');
+  loadFiles();
+}
+
+async function openFile(path) {
+  if (!isSafeHomePath(path)) return showToast('Refusing to open outside home', 'error');
+  try {
+    _currentFile = path;
+    document.getElementById('file-editor-title').textContent = path;
+    document.getElementById('file-textarea').value = await cockpit.file(path).read() || '';
+  } catch (err) {
+    showToast('Error reading file: ' + err.message, 'error');
+  }
+}
+
+async function saveFile() {
+  if (!_currentFile) return showToast('Select a file first', 'error');
+  if (!isSafeHomePath(_currentFile)) return showToast('Refusing to save outside home', 'error');
+  try {
+    await cockpit.file(_currentFile).replace(document.getElementById('file-textarea').value);
+    showToast('File saved', 'success');
+  } catch (err) { showToast('Error saving file: ' + err.message, 'error'); }
+}
+
+// ── Terminal ────────────────────────────────────────────────────────────────
+async function runTerminalCommand() {
+  const cwd = document.getElementById('terminal-cwd').value.trim() || _home;
+  const cmd = document.getElementById('terminal-command').value.trim();
+  const out = document.getElementById('terminal-output');
+  if (!cmd) return;
+  if (!isSafeHomePath(cwd)) return showToast('Working directory must stay under your home directory', 'error');
+  try {
+    const args = parseCommandLine(cmd);
+    out.textContent += `\n$ ${cmd}\n`;
+    const result = await cockpit.spawn(args, {directory: cwd, err: 'message'});
+    out.textContent += result || '';
+  } catch (err) {
+    out.textContent += `\nError: ${err.message}\n`;
+  }
+  out.scrollTop = out.scrollHeight;
+}
+function clearTerminal() { document.getElementById('terminal-output').textContent = ''; }
+tabLoaders.terminal = () => {
+  const cwd = document.getElementById('terminal-cwd');
+  if (!cwd.value) cwd.value = _home;
+};
+
 // ── Projects ────────────────────────────────────────────────────────────────
 async function loadProjects() {
   const list = document.getElementById('project-list');
   try {
-    const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/projects/ 2>/dev/null`]);
-    const projects = out.trim().split('\n').filter(p => p);
+    const out = await cockpit.spawn(['find', `${_home}/projects`, '-maxdepth', '1', '-mindepth', '1', '-type', 'd', '-printf', '%f\\n'], {err: 'ignore'});
+    const projects = splitLines(out);
     const ip = await getIP();
     list.innerHTML = !projects.length
       ? '<p style="color:var(--muted)">No projects yet.</p>'
       : '<ul class="data-list">' + projects.map(p => `
           <li class="data-item">
-            <span class="data-name">${p}</span>
+            <span class="data-name">${escapeHTML(p)}</span>
             <a class="btn btn-secondary btn-sm"
-               href="http://${ip}:8080/?folder=${_home}/projects/${encodeURIComponent(p)}"
+               href="http://${ip}:8080/?folder=${encodeURIComponent(_home + '/projects/' + p)}"
                target="_blank">Open in VS Code ↗</a>
           </li>`).join('') + '</ul>';
   } catch {
@@ -500,23 +747,24 @@ async function renderWizardStep() {
   let html = `<div style="font-weight:600;margin-bottom:12px">Step ${s} of 4 — ${labels[s-1]}</div>`;
   if (s === 1) {
     html += `<div class="form-group"><label class="form-label">Project Name</label>
-      <input id="w-name" class="form-control" placeholder="my-project" value="${_wiz.name}"></div>`;
+      <input id="w-name" class="form-control" placeholder="my-project" value="${escapeHTML(_wiz.name)}"></div>`;
   } else if (s === 2) {
+    const loc = _wiz.location || _home + '/projects/' + _wiz.name;
     html += `<div class="form-group"><label class="form-label">Location</label>
-      <input id="w-loc" class="form-control" value="${_wiz.location || _home + '/projects/' + _wiz.name}"></div>`;
+      <input id="w-loc" class="form-control" value="${escapeHTML(loc)}"></div>`;
   } else if (s === 3) {
     let opts = '<option value="">— None (blank project) —</option>';
     try {
-      const out = await cockpit.spawn(['bash', '-c', `ls -1 ${_home}/Templates/ 2>/dev/null`]);
-      out.trim().split('\n').filter(t => t).forEach(t => {
-        opts += `<option value="${t}" ${_wiz.template === t ? 'selected' : ''}>${t}</option>`;
+      const out = await cockpit.spawn(['find', `${_home}/Templates`, '-maxdepth', '1', '-mindepth', '1', '-type', 'd', '-printf', '%f\\n'], {err: 'ignore'});
+      splitLines(out).forEach(t => {
+        opts += `<option value="${escapeHTML(t)}" ${_wiz.template === t ? 'selected' : ''}>${escapeHTML(t)}</option>`;
       });
     } catch {}
     html += `<div class="form-group"><label class="form-label">Starter Template</label>
       <select id="w-tpl" class="form-control">${opts}</select></div>`;
   } else {
     html += `<div class="form-group"><label class="form-label">GitHub Remote (optional)</label>
-      <input id="w-remote" class="form-control" placeholder="username/repo-name" value="${_wiz.remote}">
+      <input id="w-remote" class="form-control" placeholder="username/repo-name" value="${escapeHTML(_wiz.remote)}">
       <span class="form-helper">Runs: gh repo create &lt;name&gt; --private --source=. --push</span></div>`;
   }
   document.getElementById('wizard-content').innerHTML = html;
@@ -526,13 +774,14 @@ async function wizardNext() {
   const s = _wiz.step;
   if (s === 1) {
     const name = document.getElementById('w-name').value.trim();
-    if (!name || name.includes('/') || name.includes('..') || name.startsWith('.')) {
+    if (!safeProjectName(name)) {
       showToast('Invalid project name', 'error'); return;
     }
     _wiz.name = name; _wiz.step = 2; renderWizardStep();
   } else if (s === 2) {
     const loc = document.getElementById('w-loc').value.trim();
     if (!loc) { showToast('Location required', 'error'); return; }
+    if (!isSafeHomePath(loc)) { showToast('Location must stay under your home directory', 'error'); return; }
     _wiz.location = loc; _wiz.step = 3; renderWizardStep();
   } else if (s === 3) {
     _wiz.template = document.getElementById('w-tpl').value; _wiz.step = 4; renderWizardStep();
@@ -546,6 +795,7 @@ async function createProject() {
   const btn = document.getElementById('wizard-next-btn');
   btn.textContent = 'Creating...'; btn.disabled = true;
   try {
+    if (!safeProjectName(name) || !isSafeHomePath(location)) throw new Error('Unsafe project path');
     await cockpit.spawn(['mkdir', '-p', location]);
     await cockpit.spawn(['git', '-C', location, 'init']);
     if (template) await cockpit.spawn(['bash', '-c', 'cp -r "$1"/. "$2"/', '_',
@@ -560,31 +810,45 @@ async function createProject() {
 }
 
 // ── CLAUDE.md ───────────────────────────────────────────────────────────────
-async function loadClaude() {
-  try {
-    document.getElementById('claude-textarea').value =
-      await cockpit.file(`${_home}/.claude/CLAUDE.md`).read() || '';
-  } catch (err) { showToast('Error reading CLAUDE.md: ' + err.message, 'error'); }
-}
-tabLoaders.claude = loadClaude;
+const AGENT_DOCS = {
+  claude: { textarea: 'claude-textarea', local: '.claude/CLAUDE.md', upstream: '/opt/oculus-configs/claude/CLAUDE.md', label: 'CLAUDE.md' },
+  codex: { textarea: 'codex-textarea', local: '.codex/AGENTS.md', upstream: '/opt/oculus-configs/codex/AGENTS.md', label: 'AGENTS.md' },
+  gemini: { textarea: 'gemini-textarea', local: '.gemini/GEMINI.md', upstream: '/opt/oculus-configs/gemini/GEMINI.md', label: 'GEMINI.md' },
+};
 
-async function saveClaude() {
+async function loadAgentDoc(kind) {
+  const doc = AGENT_DOCS[kind];
   try {
-    await cockpit.file(`${_home}/.claude/CLAUDE.md`)
-      .replace(document.getElementById('claude-textarea').value);
-    showToast('CLAUDE.md saved', 'success');
+    document.getElementById(doc.textarea).value = await cockpit.file(`${_home}/${doc.local}`).read() || '';
+  } catch (err) { showToast(`Error reading ${doc.label}: ${err.message}`, 'error'); }
+}
+async function loadClaude() { await loadAgentDoc('claude'); }
+tabLoaders.claude = loadClaude;
+tabLoaders.codex = () => loadAgentDoc('codex');
+tabLoaders.gemini = () => loadAgentDoc('gemini');
+
+async function saveAgentDoc(kind) {
+  const doc = AGENT_DOCS[kind];
+  try {
+    await cockpit.spawn(['mkdir', '-p', `${_home}/${doc.local.split('/').slice(0, -1).join('/')}`]);
+    await cockpit.file(`${_home}/${doc.local}`).replace(document.getElementById(doc.textarea).value);
+    showToast(`${doc.label} saved`, 'success');
   } catch (err) { showToast('Error saving: ' + err.message, 'error'); }
 }
+async function saveClaude() { await saveAgentDoc('claude'); }
 
-async function reloadFromOculus() {
-  if (!await confirm('Reload CLAUDE.md',
-    'Overwrite your current CLAUDE.md with the version from oculus-configs? Your edits will be lost.',
+async function reloadAgentDoc(kind) {
+  const doc = AGENT_DOCS[kind];
+  if (!await confirm(`Reload ${doc.label}`,
+    `Overwrite your current ${doc.label} with the version from oculus-configs? Your edits will be lost.`,
     'Overwrite')) return;
   try {
-    await cockpit.spawn(['cp', '/opt/oculus-configs/claude/CLAUDE.md', `${_home}/.claude/CLAUDE.md`]);
-    await loadClaude(); showToast('Reloaded from oculus-configs', 'success');
+    await cockpit.spawn(['mkdir', '-p', `${_home}/${doc.local.split('/').slice(0, -1).join('/')}`]);
+    await cockpit.spawn(['cp', doc.upstream, `${_home}/${doc.local}`]);
+    await loadAgentDoc(kind); showToast('Reloaded from oculus-configs', 'success');
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
+async function reloadFromOculus() { await reloadAgentDoc('claude'); }
 
 // ── MCP ─────────────────────────────────────────────────────────────────────
 let _mcpData = { mcpServers: {} };
@@ -592,6 +856,7 @@ let _mcpData = { mcpServers: {} };
 async function loadMCP() {
   try { _mcpData = JSON.parse(await cockpit.file(`${_home}/.claude/mcp.json`).read() || '{"mcpServers":{}}'); }
   catch { _mcpData = { mcpServers: {} }; }
+  document.getElementById('mcp-raw').value = JSON.stringify(_mcpData, null, 2);
   renderMCPTable(); loadGHToken();
 }
 tabLoaders.mcp = loadMCP;
@@ -601,20 +866,24 @@ function renderMCPTable() {
   document.getElementById('mcp-table-body').innerHTML = entries.length
     ? entries.map(([name, cfg]) => {
         const cmd = [cfg.command, ...(cfg.args || [])].join(' ');
+        const status = cfg.command ? 'configured' : 'missing command';
         return `<tr>
-          <td><strong>${name}</strong></td>
-          <td><code style="font-size:12px">${cmd}</code></td>
-          <td><button class="btn btn-danger btn-sm" onclick="removeMCPServer('${name}')">Remove</button></td>
+          <td><strong>${escapeHTML(name)}</strong></td>
+          <td>${escapeHTML(status)}</td>
+          <td><code style="font-size:12px">${escapeHTML(cmd)}</code></td>
+          <td><button class="btn btn-danger btn-sm" onclick="removeMCPServer('${jsString(name)}')">Remove</button></td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="3" style="color:var(--muted)">No servers configured</td></tr>';
+    : '<tr><td colspan="4" style="color:var(--muted)">No servers configured</td></tr>';
 }
 
 async function addMCPServer() {
   const name = document.getElementById('mcp-new-name').value.trim();
   const cmdStr = document.getElementById('mcp-new-cmd').value.trim();
   if (!name || !cmdStr) { showToast('Name and command required', 'error'); return; }
-  const parts = cmdStr.split(' ');
+  let parts;
+  try { parts = parseCommandLine(cmdStr); }
+  catch (err) { showToast(err.message, 'error'); return; }
   _mcpData.mcpServers[name] = { command: parts[0], args: parts.slice(1) };
   await persistMCP();
   document.getElementById('mcp-new-name').value = '';
@@ -629,7 +898,29 @@ async function removeMCPServer(name) {
 async function persistMCP() {
   try {
     await cockpit.file(`${_home}/.claude/mcp.json`).replace(JSON.stringify(_mcpData, null, 2));
+    document.getElementById('mcp-raw').value = JSON.stringify(_mcpData, null, 2);
     renderMCPTable(); showToast('MCP config saved', 'success');
+  } catch (err) { showToast('Error: ' + err.message, 'error'); }
+}
+
+async function saveRawMCP() {
+  try {
+    const parsed = JSON.parse(document.getElementById('mcp-raw').value || '{"mcpServers":{}}');
+    if (!parsed.mcpServers || typeof parsed.mcpServers !== 'object') throw new Error('mcpServers object is required');
+    _mcpData = parsed;
+    await persistMCP();
+  } catch (err) { showToast('Invalid MCP JSON: ' + err.message, 'error'); }
+}
+
+async function reloadMCPTemplate() {
+  if (!await confirm('Reload MCP template',
+    'Overwrite ~/.claude/mcp.json with /opt/oculus-configs/claude/mcp.json?',
+    'Overwrite')) return;
+  try {
+    await cockpit.spawn(['mkdir', '-p', `${_home}/.claude`]);
+    await cockpit.spawn(['cp', '/opt/oculus-configs/claude/mcp.json', `${_home}/.claude/mcp.json`]);
+    await loadMCP();
+    showToast('MCP template reloaded', 'success');
   } catch (err) { showToast('Error: ' + err.message, 'error'); }
 }
 
@@ -666,22 +957,43 @@ async function loadPlugins() {
   let settings = {};
   try { settings = JSON.parse(await cockpit.file(`${_home}/.claude/settings.json`).read() || '{}'); }
   catch {}
-  const enabled = new Set(settings.plugins?.enabled || []);
+  const enabled = new Set(settings.plugins?.enabled || Object.entries(settings.enabledPlugins || {}).filter(([, v]) => v).map(([k]) => k));
   document.getElementById('plugin-list').innerHTML = KNOWN_PLUGINS.map(p => `
     <div class="toggle-row">
       <div>
-        <div class="toggle-label">${p.label}</div>
-        <div class="toggle-id">${p.id}</div>
-        <div class="toggle-desc">${p.desc}</div>
+        <div class="toggle-label">${escapeHTML(p.label)}</div>
+        <div class="toggle-id">${escapeHTML(p.id)}</div>
+        <div class="toggle-desc">${escapeHTML(p.desc)}</div>
       </div>
       <label class="toggle-switch">
-        <input type="checkbox" ${enabled.has(p.id) ? 'checked' : ''} onchange="togglePlugin('${p.id}',this)">
+        <input type="checkbox" ${enabled.has(p.id) ? 'checked' : ''} onchange="togglePlugin('${jsString(p.id)}',this)">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
     </div>`).join('');
+  loadSkillInventory('codex', `${_home}/.codex/skills`, 'codex-skills-list');
+  loadSkillInventory('gemini', `${_home}/.gemini/skills`, 'gemini-skills-list');
 }
 tabLoaders.plugins = loadPlugins;
+
+async function loadSkillInventory(kind, path, targetId) {
+  const target = document.getElementById(targetId);
+  try {
+    const local = splitLines(await cockpit.spawn(['find', path, '-mindepth', '2', '-maxdepth', '2', '-name', 'SKILL.md', '-printf', '%h\\n'], {err: 'ignore'}))
+      .map(p => p.split('/').pop()).sort();
+    const upstreamPath = `/opt/oculus-configs/${kind}/skills`;
+    const upstream = splitLines(await cockpit.spawn(['find', upstreamPath, '-mindepth', '2', '-maxdepth', '2', '-name', 'SKILL.md', '-printf', '%h\\n'], {err: 'ignore'}))
+      .map(p => p.split('/').pop()).sort();
+    const all = [...new Set([...local, ...upstream])].sort();
+    target.innerHTML = all.length ? '<ul class="data-list">' + all.map(name => {
+      const installed = local.includes(name);
+      const available = upstream.includes(name);
+      return `<li class="data-item"><span class="data-name">${escapeHTML(name)}</span><span style="font-size:12px;color:var(--muted)">${installed ? 'installed' : 'missing'}${available ? ' / upstream' : ''}</span></li>`;
+    }).join('') + '</ul>' : '<p style="color:var(--muted)">No skills found.</p>';
+  } catch (err) {
+    target.textContent = 'Error: ' + err.message;
+  }
+}
 
 async function togglePlugin(id, input) {
   let settings = {};
@@ -692,6 +1004,8 @@ async function togglePlugin(id, input) {
   const enabled = new Set(settings.plugins.enabled);
   input.checked ? enabled.add(id) : enabled.delete(id);
   settings.plugins.enabled = [...enabled];
+  if (!settings.enabledPlugins || typeof settings.enabledPlugins !== 'object') settings.enabledPlugins = {};
+  settings.enabledPlugins[id] = input.checked;
   try {
     await cockpit.file(`${_home}/.claude/settings.json`).replace(JSON.stringify(settings, null, 2));
     showToast('Plugin state updated', 'success');
@@ -704,6 +1018,7 @@ async function loadCCCStatus() {
   box.textContent = 'Running ccc-update-status...';
   try { box.textContent = await cockpit.spawn(['/usr/local/bin/ccc-update-status'], {err: 'message'}); }
   catch (err) { box.textContent = 'Error: ' + err.message; }
+  loadOculusStatus();
 }
 tabLoaders.updates = loadCCCStatus;
 
@@ -743,8 +1058,37 @@ async function runAgentConfigSync() {
     box.textContent = await cockpit.spawn(['sudo', '/usr/local/bin/ccc-sync-agent-configs'],
       {err: 'message', superuser: 'try'});
     await loadOverview();
+    await loadOculusStatus();
     showToast('oculus-configs synced', 'success');
   } catch (err) { box.textContent = 'Error: ' + err.message; showToast('Sync failed', 'error'); }
+}
+
+async function loadOculusStatus() {
+  const box = document.getElementById('oculus-update-output');
+  box.textContent = 'Checking oculus-configs...';
+  const dir = '/opt/oculus-configs';
+  try {
+    await cockpit.spawn(['test', '-d', `${dir}/.git`], {err: 'ignore'});
+  } catch {
+    box.textContent = 'oculus-configs is not cloned at /opt/oculus-configs. Run ccc-sync-agent-configs to clone and sync shared configs.';
+    return;
+  }
+  try {
+    await cockpit.spawn(['git', '-C', dir, 'fetch', '--quiet', 'origin'], {err: 'message'});
+    const installed = (await cockpit.spawn(['git', '-C', dir, 'log', '-1', '--format=%h %ci %s'])).trim();
+    let latest = '(unknown)';
+    try { latest = (await cockpit.spawn(['git', '-C', dir, 'log', '-1', '--format=%h %ci %s', 'origin/main'])).trim(); } catch {}
+    let pending = '';
+    try { pending = await cockpit.spawn(['git', '-C', dir, 'log', '--oneline', '--decorate', 'HEAD..origin/main', '--max-count=12']); } catch {}
+    const pendingLines = splitLines(pending);
+    box.textContent =
+      `Installed: ${installed || '(unknown)'}\n` +
+      `Latest:    ${latest || '(unknown)'}\n` +
+      `Pending commits: ${pendingLines.length}\n\n` +
+      (pendingLines.length ? pendingLines.join('\n') : 'No pending upstream commits.');
+  } catch (err) {
+    box.textContent = 'Error checking oculus-configs: ' + err.message;
+  }
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
