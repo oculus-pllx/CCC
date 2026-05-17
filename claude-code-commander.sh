@@ -1067,6 +1067,22 @@ chown claude-code:claude-code /home/claude-code/.tmux.conf
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+if ! id "$CCC_USER" &>/dev/null; then
+  if [[ -r /etc/agent-workstation/env ]]; then
+    # shellcheck disable=SC1091
+    source /etc/agent-workstation/env
+    CCC_USER="${AGENT_WORKSTATION_USERNAME:-$CCC_USER}"
+    CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+  fi
+fi
+if ! id "$CCC_USER" &>/dev/null; then
+  CCC_USER="$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1; exit}' /etc/passwd)"
+  CCC_HOME="/home/$CCC_USER"
+fi
+if ! id "$CCC_USER" &>/dev/null; then
+  echo "Could not determine Agent Workstation user. Set CCC_USER in /etc/ccc/config." >&2
+  exit 1
+fi
 
 # Remove retired Cockpit kit and standalone dashboard helpers before Cockpit claims 9090.
 rm -f /usr/local/bin/ccc-kit
@@ -1843,6 +1859,14 @@ rsync -a --delete "$AGENT_WORKSTATION_SRC/agent-workstation/web/" "$AGENT_WORKST
 if [[ -r "$AGENT_WORKSTATION_ENV" ]]; then
   # shellcheck disable=SC1090
   source "$AGENT_WORKSTATION_ENV"
+fi
+if ! id "$CCC_USER" &>/dev/null && [[ -n "${AGENT_WORKSTATION_USERNAME:-}" ]]; then
+  CCC_USER="$AGENT_WORKSTATION_USERNAME"
+  CCC_HOME="/home/$CCC_USER"
+fi
+if ! id "$CCC_USER" &>/dev/null; then
+  echo "Could not determine Agent Workstation user for systemd unit. Set CCC_USER in /etc/ccc/config." >&2
+  exit 1
 fi
 AGENT_WORKSTATION_SESSION_TOKEN="${AGENT_WORKSTATION_SESSION_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)}"
 AGENT_WORKSTATION_PASSWORD="${AGENT_WORKSTATION_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | head -c 24)}"

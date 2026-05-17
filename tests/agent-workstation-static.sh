@@ -43,6 +43,8 @@ require_file_contains claude-code-commander.sh "systemctl disable --now cockpit.
 require_file_contains claude-code-commander.sh "systemctl enable agent-workstation.service"
 require_file_contains claude-code-commander.sh "/var/log/ccc-self-update.log"
 require_file_contains claude-code-commander.sh "timeout 600 /usr/local/go/bin/go build"
+require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_USERNAME:-"
+require_file_contains claude-code-commander.sh "Set CCC_USER in /etc/ccc/config"
 require_file_contains agent-workstation/web/app.js "Apply Agent Workstation Update"
 require_file_contains agent-workstation/web/app.js "self-update"
 
