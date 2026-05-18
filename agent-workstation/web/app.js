@@ -169,7 +169,7 @@ function renderOverview() {
       <section class="dashboard-grid">
         <div class="dash-panel">
           <h3>Update Status</h3>
-          <span class="badge ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' ? 'warn' : ''}">${escapeHTML(updateBadge)}</span>
+          <button class="badge badge-link ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' ? 'warn' : ''}" data-nav-updates>${escapeHTML(updateBadge)}</button>
           <pre class="mini-output">${escapeHTML(firstUsefulLines(updatePanelText(updateText, updateLog), 8))}</pre>
         </div>
         <div class="dash-panel">
@@ -226,7 +226,11 @@ function renderNetwork() {
     <h3>Activity</h3>
     <div class="network-graph-wrap">
       <canvas id="network-graph" width="900" height="220"></canvas>
-      <div id="network-rate">Collecting network samples...</div>
+      <div class="network-legend">
+        <span class="network-legend-rx">&#9644; Download (RX)</span>
+        <span class="network-legend-tx">&#9644; Upload (TX)</span>
+        <span id="network-rate">Collecting samples...</span>
+      </div>
     </div>
     <h3>Addresses</h3>
     <pre class="output">${escapeHTML(snapshot.network?.addresses || 'No address data.')}</pre>
@@ -438,6 +442,9 @@ function bindSectionActions(section) {
   document.querySelectorAll('[data-action]').forEach(button => {
     button.addEventListener('click', () => runAction(button.dataset.action));
   });
+  document.querySelectorAll('[data-nav-updates]').forEach(button => {
+    button.addEventListener('click', () => selectSection('updates'));
+  });
   document.querySelectorAll('[data-service]').forEach(button => {
     button.addEventListener('click', () => controlService(button.dataset.service, button.dataset.operation));
   });
@@ -564,9 +571,16 @@ function bindAccounts() {
 }
 
 async function createAccount() {
+  const username = document.getElementById('account-username').value.trim();
+  const output = document.getElementById('account-output');
+  if (!username) {
+    output.hidden = false;
+    output.textContent = 'Error: username is required';
+    return;
+  }
   await runAccountOperation({
     operation: 'create',
-    username: document.getElementById('account-username').value.trim(),
+    username,
     password: document.getElementById('account-password').value,
     shell: document.getElementById('account-shell').value.trim() || '/bin/bash',
   });
@@ -602,6 +616,12 @@ async function runAccountOperation(payload) {
   try {
     const result = await postJSON('/api/account', payload);
     output.textContent = result.output || 'account updated';
+    if (payload.operation === 'create') {
+      const usernameEl = document.getElementById('account-username');
+      const passwordEl = document.getElementById('account-password');
+      if (usernameEl) usernameEl.value = '';
+      if (passwordEl) passwordEl.value = '';
+    }
     await loadSnapshot();
     renderSection('accounts');
   } catch (error) {
