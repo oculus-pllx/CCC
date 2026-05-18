@@ -152,4 +152,11 @@ require_file_not_contains agent-workstation/web/styles.css '#050608'
 require_file_contains agent-workstation/web/index.html 'IBM+Plex+Mono'
 require_file_contains agent-workstation/web/index.html 'data-section="settings"'
 
+# Task 3: JS theme engine
+require_file_contains agent-workstation/web/app.js 'const THEMES'
+require_file_contains agent-workstation/web/app.js 'applyTheme'
+require_file_contains agent-workstation/web/app.js 'loadTheme'
+require_file_contains agent-workstation/web/app.js 'aw-theme'
+require_file_contains agent-workstation/web/app.js 'hexToRgb'
+
 echo "agent-workstation static checks passed"

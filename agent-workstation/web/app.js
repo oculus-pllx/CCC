@@ -12,6 +12,18 @@ const titles = {
   oculus: 'oculus-configs',
 };
 
+const THEMES = {
+  green:  '#4ade80',
+  purple: '#a78bfa',
+  cyan:   '#22d3ee',
+  amber:  '#f59e0b',
+  red:    '#f87171',
+  pink:   '#f472b6',
+  white:  '#e2e8f0',
+};
+const DEFAULT_THEME = 'green';
+const THEME_STORAGE_KEY = 'aw-theme';
+
 let currentSection = 'overview';
 let snapshot = null;
 let filePath = '';
@@ -1278,6 +1290,28 @@ function lastLines(text, limit) {
     .trim();
 }
 
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+function applyTheme(name) {
+  const hex = THEMES[name] || THEMES[DEFAULT_THEME];
+  const rgb = hexToRgb(hex);
+  const root = document.documentElement;
+  root.style.setProperty('--accent', hex);
+  root.style.setProperty('--border', `rgba(${rgb}, 0.12)`);
+  root.style.setProperty('--accent-bg', `rgba(${rgb}, 0.10)`);
+  localStorage.setItem(THEME_STORAGE_KEY, name);
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY);
+  applyTheme(saved && THEMES[saved] ? saved : DEFAULT_THEME);
+}
+
 function stripANSI(value) {
   return String(value || '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
 }
@@ -1314,6 +1348,7 @@ function escapeAttribute(value) {
   return escapeHTML(value).replace(/`/g, '&#96;');
 }
 
+loadTheme();
 loadHealth();
 refresh();
 document.getElementById('login-panel').addEventListener('submit', login);
