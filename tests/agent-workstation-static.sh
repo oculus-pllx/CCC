@@ -50,6 +50,7 @@ require_file_contains claude-code-commander.sh "timeout 600 /usr/local/go/bin/go
 require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_USERNAME:-"
 require_file_contains claude-code-commander.sh "Set CCC_USER in /etc/ccc/config"
 require_file_contains claude-code-commander.sh 'NO_COLOR'
+require_file_contains claude-code-commander.sh 'if sudo bash -c "bash'
 require_file_contains claude-code-commander.sh "Update check: installed commit is not recorded"
 require_file_contains claude-code-commander.sh "Update available: installed commit differs"
 require_file_contains claude-code-commander.sh "Current: installed commit matches"
@@ -75,5 +76,8 @@ require_file_not_contains claude-code-commander.sh "oculus-configure"
 require_file_not_contains claude-code-commander.sh "configure.py"
 require_file_not_contains claude-code-commander.sh "localhost:4827"
 require_file_not_contains README.md "localhost:4827"
+
+awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax
+bash -n /tmp/ccc-self-update.syntax
 
 echo "agent-workstation static checks passed"

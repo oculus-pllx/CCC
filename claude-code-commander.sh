@@ -1747,11 +1747,8 @@ sudo mkdir -p "$(dirname "$LOG_FILE")"
 } > "$APPLY_SCRIPT"
 chmod +x "$APPLY_SCRIPT"
 echo -e "  Log: ${C}${LOG_FILE}${N}"
-sudo bash -c "bash '$APPLY_SCRIPT' 2>&1 | tee '$LOG_FILE'"
-STATUS=$?
-
-echo ""
-if [[ $STATUS -eq 0 ]]; then
+if sudo bash -c "bash '$APPLY_SCRIPT' 2>&1 | tee '$LOG_FILE'"; then
+  echo ""
   if [[ -n "$LATEST_COMMIT" ]]; then
     sudo mkdir -p /etc/ccc
     {
@@ -1759,11 +1756,14 @@ if [[ $STATUS -eq 0 ]]; then
       echo "CCC_INSTALLED_REF=\"$CCC_SELF_UPDATE_REF\""
       echo "CCC_INSTALLED_DATE=\"$(date '+%Y-%m-%d %H:%M:%S %z')\""
     } | sudo tee "$VERSION_FILE" >/dev/null
-	  fi
-	  echo -e "${G}${B}Self-update complete.${N}"
-	  echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')"
+  fi
+  echo -e "${G}${B}Self-update complete.${N}"
+  echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')"
 else
-  echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
+  status=$?
+  echo ""
+  echo -e "${R}Update script exited with errors: ${status}. Some steps may have partially applied.${N}"
+  exit "$status"
 fi
 echo ""
 SELFUPDATESCRIPT
