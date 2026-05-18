@@ -17,17 +17,29 @@
   </header>
   <main class="layout">
     <nav class="sidebar" aria-label="Sections">
-      <button class="active" data-section="overview">Overview</button>
-      <button data-section="logs">Logs</button>
-      <button data-section="network">Network</button>
-      <button data-section="accounts">Accounts</button>
-      <button data-section="services">Services</button>
-      <button data-section="files">Files</button>
-      <button data-section="updates">Updates</button>
-      <button data-section="terminal">Terminal</button>
-      <button data-section="projects">Projects</button>
-      <button data-section="configs">Agent Configs</button>
-      <button data-section="oculus">oculus-configs</button>
+      <div class="nav-group">
+        <div class="nav-heading">Dashboard</div>
+        <button class="active" data-section="overview">Overview</button>
+        <button data-section="updates">Updates</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-heading">Workstation</div>
+        <button data-section="terminal">Terminal</button>
+        <button data-section="files">Files</button>
+        <button data-section="projects">Projects</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-heading">System</div>
+        <button data-section="services">Services</button>
+        <button data-section="logs">Logs</button>
+        <button data-section="network">Network</button>
+        <button data-section="accounts">Accounts</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-heading">Agents</div>
+        <button data-section="configs">Agent Configs</button>
+        <button data-section="oculus">oculus-configs</button>
+      </div>
     </nav>
     <section class="content">
       <form id="login-panel" class="panel login-panel" hidden>

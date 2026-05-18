@@ -44,6 +44,23 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .sidebar {
   border-right: 1px solid var(--border);
   padding: 12px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.nav-group {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-heading {
+  padding: 8px 10px 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .sidebar button {
@@ -531,6 +548,12 @@ td {
     border-bottom: 1px solid var(--border);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .nav-heading {
+    padding-left: 4px;
+    padding-right: 4px;
   }
 
   .service-row,
