@@ -1,11 +1,16 @@
 :root {
   color-scheme: dark;
-  --bg: #17191c;
-  --panel: #24282d;
-  --border: #3f454d;
-  --text: #eef0f3;
-  --muted: #a7adb5;
-  --accent: #68a6f8;
+  --bg:        #060d16;
+  --topbar:    #020810;
+  --panel:     #0a1628;
+  --panel2:    #0d1f38;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --text-dim:  #94a3b8;
+  /* accent and derived vars — overridden by applyTheme() on load */
+  --accent:    #4ade80;
+  --border:    rgba(74, 222, 128, 0.12);
+  --accent-bg: rgba(74, 222, 128, 0.10);
 }
 
 * { box-sizing: border-box; }
@@ -13,8 +18,10 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 13px/1.5 'IBM Plex Mono', monospace;
 }
+
+input, select, textarea, button { font: inherit; }
 
 .topbar {
   height: 56px;
@@ -23,7 +30,7 @@ body {
   justify-content: space-between;
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
-  background: #111316;
+  background: var(--topbar);
 }
 
 .topbar-actions {
@@ -75,9 +82,14 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   cursor: pointer;
 }
 
-.sidebar button.active,
+.sidebar button.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .sidebar button:hover {
-  background: var(--panel);
+  background: var(--panel2);
   color: var(--text);
 }
 
@@ -131,7 +143,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .status-tile span {
@@ -160,7 +172,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .gauge {
@@ -170,8 +182,8 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(circle at center, #1b1e22 0 57%, transparent 58%),
-    conic-gradient(var(--accent) calc(var(--value) * 1%), #3f454d 0);
+    radial-gradient(circle at center, var(--panel2) 0 57%, transparent 58%),
+    conic-gradient(var(--accent) calc(var(--value) * 1%), rgba(255,255,255,0.07) 0);
 }
 
 .gauge-inner {
@@ -181,7 +193,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   place-items: center;
   align-content: center;
   border-radius: 50%;
-  background: #111316;
+  background: var(--topbar);
 }
 
 .gauge-inner strong {
@@ -210,7 +222,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .dash-panel h3 {
@@ -290,7 +302,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .login-row input {
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   padding: 8px 10px;
 }
@@ -339,7 +351,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .account-create input {
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   padding: 8px 10px;
 }
@@ -374,7 +386,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   max-height: 220px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
 }
 
 #network-rate {
@@ -389,7 +401,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .config-row p {
@@ -410,7 +422,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .account-row p {
@@ -431,7 +443,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .project-row p {
@@ -457,7 +469,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .service-row p {
@@ -485,7 +497,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .terminal-tab {
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--muted);
   padding: 7px 10px;
   cursor: pointer;
@@ -501,7 +513,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #050608;
+  background: var(--topbar);
 }
 
 #terminal-status {
@@ -525,7 +537,7 @@ h3 {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   white-space: pre-wrap;
 }
@@ -566,7 +578,7 @@ td {
 .file-toolbar input {
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   padding: 8px 10px;
 }
@@ -603,7 +615,7 @@ td {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   padding: 8px;
   text-align: left;
@@ -629,7 +641,7 @@ td {
   resize: vertical;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   padding: 12px;
   font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -687,7 +699,7 @@ td {
   align-items: center;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  background: #1b1e22;
+  background: var(--panel2);
 }
 
 .config-editor-textarea {
@@ -695,7 +707,7 @@ td {
   width: 100%;
   min-height: 320px;
   padding: 12px 14px;
-  background: #111316;
+  background: var(--topbar);
   color: var(--text);
   border: none;
   font: 13px/1.5 "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
@@ -737,3 +749,65 @@ td {
 
 .network-legend-rx { color: #68a6f8; }
 .network-legend-tx { color: #34d399; }
+
+.settings-section {
+  max-width: 480px;
+}
+
+.settings-swatch-grid {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.settings-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+.settings-swatch-row:hover {
+  border-color: var(--accent);
+}
+
+.settings-swatch-row.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.settings-swatch-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.15);
+}
+
+.settings-swatch-name {
+  font-weight: 600;
+  min-width: 64px;
+}
+
+.settings-swatch-hex {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.settings-swatch-default {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+}

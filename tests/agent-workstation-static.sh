@@ -9,7 +9,7 @@ fail() {
 require_file_contains() {
   local file=$1
   local pattern=$2
-  grep -Fq "$pattern" "$file" || fail "$file missing: $pattern"
+  grep -Fq -- "$pattern" "$file" || fail "$file missing: $pattern"
 }
 
 require_file_not_contains() {
@@ -132,5 +132,20 @@ require_ordered_patterns agent-workstation/web/index.html \
 
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
+
+# Task 1: CSS Prism palette
+require_file_contains agent-workstation/web/styles.css '--topbar'
+require_file_contains agent-workstation/web/styles.css '--panel2'
+require_file_contains agent-workstation/web/styles.css '--accent-bg'
+require_file_contains agent-workstation/web/styles.css '#060d16'
+require_file_contains agent-workstation/web/styles.css 'IBM Plex Mono'
+require_file_contains agent-workstation/web/styles.css 'settings-swatch-row'
+require_file_not_contains agent-workstation/web/styles.css '#17191c'
+require_file_not_contains agent-workstation/web/styles.css '#24282d'
+require_file_not_contains agent-workstation/web/styles.css '#3f454d'
+require_file_not_contains agent-workstation/web/styles.css '#a7adb5'
+require_file_not_contains agent-workstation/web/styles.css '#111316'
+require_file_not_contains agent-workstation/web/styles.css '#1b1e22'
+require_file_not_contains agent-workstation/web/styles.css '#050608'
 
 echo "agent-workstation static checks passed"
