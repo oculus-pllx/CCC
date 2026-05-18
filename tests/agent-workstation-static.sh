@@ -97,6 +97,27 @@ require_file_not_contains claude-code-commander.sh "configure.py"
 require_file_not_contains claude-code-commander.sh "localhost:4827"
 require_file_not_contains README.md "localhost:4827"
 
+require_ordered_patterns() {
+  local file=$1
+  shift
+  local previous=0
+  local pattern line
+  for pattern in "$@"; do
+    line=$(grep -nF "$pattern" "$file" | head -1 | cut -d: -f1)
+    [[ -n "$line" ]] || fail "$file missing ordered pattern: $pattern"
+    if (( line <= previous )); then
+      fail "$file has pattern out of order: $pattern"
+    fi
+    previous=$line
+  done
+}
+
+require_ordered_patterns agent-workstation/web/index.html \
+  '<div class="nav-heading">Dashboard</div>' 'data-section="overview"' 'data-section="updates"' \
+  '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="projects"' 'data-section="terminal"' \
+  '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
+  '<div class="nav-heading">Agents</div>' 'data-section="configs"' 'data-section="oculus"'
+
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
 
