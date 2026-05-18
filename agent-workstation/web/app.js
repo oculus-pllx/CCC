@@ -407,8 +407,8 @@ function monitorSelfUpdate(output) {
   }
   let attempts = 0;
   output.hidden = false;
-  output.textContent = 'Update started. Waiting for completion...';
-  updatePollTimer = setInterval(async () => {
+  output.textContent = formatSelfUpdateProgress('Update started. Waiting for completion...', attempts, '');
+  const pollSelfUpdate = async () => {
     attempts += 1;
     try {
       await loadSnapshot();
@@ -419,28 +419,35 @@ function monitorSelfUpdate(output) {
       if (logTarget) logTarget.textContent = logText || 'No self-update log yet.';
       if (statusTarget) statusTarget.textContent = statusText || 'No Agent Workstation update status.';
       if (logText.includes('Self-update successful')) {
-        output.textContent = 'Update finished successfully. Refreshing status...';
+        output.textContent = formatSelfUpdateProgress('Update finished successfully.', attempts, logText);
         clearInterval(updatePollTimer);
         updatePollTimer = null;
-        await refresh();
         return;
       }
       if (logText.includes('Update script exited with errors') || logText.includes('Download failed') || logText.includes('Could not find update markers')) {
-        output.textContent = 'Update failed. See Last Self-Update Log for details.';
+        output.textContent = formatSelfUpdateProgress('Update failed. See Last Self-Update Log for details.', attempts, logText);
         clearInterval(updatePollTimer);
         updatePollTimer = null;
         return;
       }
-      output.textContent = `Update still running... checked ${attempts} time${attempts === 1 ? '' : 's'}.`;
+      output.textContent = formatSelfUpdateProgress(`Update still running... checked ${attempts} time${attempts === 1 ? '' : 's'}.`, attempts, logText);
     } catch (error) {
-      output.textContent = `Update may be restarting Agent Workstation; reconnecting... checked ${attempts} time${attempts === 1 ? '' : 's'}.`;
+      output.textContent = formatSelfUpdateProgress(`Update may be restarting Agent Workstation; reconnecting... checked ${attempts} time${attempts === 1 ? '' : 's'}.`, attempts, '');
     }
     if (attempts >= 120) {
-      output.textContent = 'Update status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.';
+      output.textContent = `${output.textContent}\n\nUpdate status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.`;
       clearInterval(updatePollTimer);
       updatePollTimer = null;
     }
-  }, 5000);
+  };
+  pollSelfUpdate();
+  updatePollTimer = setInterval(pollSelfUpdate, 5000);
+}
+
+function formatSelfUpdateProgress(message, attempts, logText) {
+  const checked = attempts > 0 ? `Checked ${attempts} time${attempts === 1 ? '' : 's'}.` : 'Starting monitor.';
+  const log = lastLines(logText || 'Waiting for /var/log/ccc-self-update.log to receive update output.', 90);
+  return `${message}\n${checked}\n\nLatest self-update log:\n${log}`;
 }
 
 async function controlService(service, operation) {
@@ -825,6 +832,14 @@ function firstUsefulLines(text, limit) {
     .filter(Boolean)
     .slice(0, limit)
     .join('\n');
+}
+
+function lastLines(text, limit) {
+  return stripANSI(text)
+    .split('\n')
+    .slice(-limit)
+    .join('\n')
+    .trim();
 }
 
 function stripANSI(value) {
