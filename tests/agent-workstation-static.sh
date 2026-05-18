@@ -76,6 +76,7 @@ require_file_contains agent-workstation/web/app.js "removeEventListener('resize'
 require_file_contains agent-workstation/web/app.js "terminalTabs"
 require_file_contains agent-workstation/web/app.js "New Tab"
 require_file_contains agent-workstation/web/app.js "stopTerminalSessions"
+require_file_not_contains agent-workstation/web/app.js "section !== 'terminal') {"
 require_file_contains agent-workstation/web/app.js "/api/account"
 require_file_contains agent-workstation/web/app.js "/api/network-activity"
 require_file_contains agent-workstation/web/app.js "drawNetworkGraph"

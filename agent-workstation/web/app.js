@@ -114,12 +114,8 @@ function selectSection(section) {
 
 function renderSection(section) {
   const body = document.getElementById('section-body');
-  if (section !== 'network') {
-    stopNetworkGraph();
-  }
-  if (section !== 'terminal') {
-    stopTerminalSessions();
-  }
+  stopNetworkGraph();
+  stopTerminalSessions();
   if (!snapshot) {
     body.textContent = 'Sign in is required before management data is shown.';
     return;
