@@ -312,6 +312,39 @@ func TestProtectedProjectOperationRunsConfiguredOperator(t *testing.T) {
 	}
 }
 
+func TestProtectedAccountOperationRunsConfiguredOperator(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/account", strings.NewReader(`{"operation":"create","username":"newuser","shell":"/bin/bash"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "account create newuser") {
+		t.Fatalf("expected account operation response, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedNetworkActivityReturnsCounters(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/network-activity", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), "eth0") {
+		t.Fatalf("expected network interface counters, got %q", res.Body.String())
+	}
+}
+
 func newTestServer() *Server {
 	return New(Config{
 		SessionToken: "test-token",
@@ -351,6 +384,12 @@ func newTestServer() *Server {
 		},
 		ProjectOperation: func(operation system.ProjectOperation) (system.CommandResult, error) {
 			return system.CommandResult{Command: operation.Operation, Output: "created " + operation.Name}, nil
+		},
+		AccountOperation: func(operation system.AccountOperation) (system.CommandResult, error) {
+			return system.CommandResult{Command: operation.Operation, Output: "account " + operation.Operation + " " + operation.Username}, nil
+		},
+		NetworkActivity: func() (system.NetworkActivity, error) {
+			return system.NetworkActivity{Interfaces: []system.NetworkInterfaceActivity{{Name: "eth0", RXBytes: 1000, TXBytes: 500}}}, nil
 		},
 	})
 }

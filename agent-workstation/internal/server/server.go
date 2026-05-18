@@ -26,6 +26,8 @@ type Config struct {
 	ControlService   func(service string, operation string) (system.CommandResult, error)
 	FileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
+	AccountOperation func(operation system.AccountOperation) (system.CommandResult, error)
+	NetworkActivity  func() (system.NetworkActivity, error)
 }
 
 type Server struct {
@@ -44,6 +46,8 @@ type Server struct {
 	controlService   func(service string, operation string) (system.CommandResult, error)
 	fileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
+	accountOperation func(operation system.AccountOperation) (system.CommandResult, error)
+	networkActivity  func() (system.NetworkActivity, error)
 }
 
 func New(config Config) *Server {
@@ -63,6 +67,8 @@ func New(config Config) *Server {
 		controlService:   config.ControlService,
 		fileOperation:    config.FileOperation,
 		projectOperation: config.ProjectOperation,
+		accountOperation: config.AccountOperation,
+		networkActivity:  config.NetworkActivity,
 	}
 	if s.overview == nil {
 		s.overview = system.CollectOverview
@@ -94,6 +100,12 @@ func New(config Config) *Server {
 	if s.projectOperation == nil {
 		s.projectOperation = system.RunProjectOperation
 	}
+	if s.accountOperation == nil {
+		s.accountOperation = system.RunAccountOperation
+	}
+	if s.networkActivity == nil {
+		s.networkActivity = system.CollectNetworkActivity
+	}
 	s.routes()
 	return s
 }
@@ -115,6 +127,8 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/file-op", s.requireSession(http.HandlerFunc(s.handleFileOperation)))
 	s.mux.Handle("/api/service", s.requireSession(http.HandlerFunc(s.handleService)))
 	s.mux.Handle("/api/project", s.requireSession(http.HandlerFunc(s.handleProject)))
+	s.mux.Handle("/api/account", s.requireSession(http.HandlerFunc(s.handleAccount)))
+	s.mux.Handle("/api/network-activity", s.requireSession(http.HandlerFunc(s.handleNetworkActivity)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
 	s.mux.Handle("/", s.staticHandler())
 }
@@ -293,6 +307,37 @@ func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body system.AccountOperation
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid account request", http.StatusBadRequest)
+		return
+	}
+	result, err := s.accountOperation(body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleNetworkActivity(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activity, err := s.networkActivity()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, activity)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

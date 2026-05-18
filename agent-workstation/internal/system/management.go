@@ -44,6 +44,16 @@ type NetworkStatus struct {
 	Routes    string `json:"routes"`
 }
 
+type NetworkActivity struct {
+	Interfaces []NetworkInterfaceActivity `json:"interfaces"`
+}
+
+type NetworkInterfaceActivity struct {
+	Name    string `json:"name"`
+	RXBytes uint64 `json:"rxBytes"`
+	TXBytes uint64 `json:"txBytes"`
+}
+
 type AccountStatus struct {
 	Username string `json:"username"`
 	UID      string `json:"uid"`
@@ -122,6 +132,14 @@ type ProjectOperation struct {
 	NewName   string `json:"newName"`
 	Template  string `json:"template"`
 	Remote    string `json:"remote"`
+}
+
+type AccountOperation struct {
+	Operation string `json:"operation"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Shell     string `json:"shell"`
+	Groups    string `json:"groups"`
 }
 
 func CollectManagementSnapshot() (ManagementSnapshot, error) {
@@ -218,6 +236,48 @@ func ControlService(service string, operation string) (CommandResult, error) {
 		return CommandResult{}, fmt.Errorf("operation %q is not allowed", operation)
 	}
 	return RunShellCommand("sudo systemctl "+operation+" "+shellQuote(service), workstationHome())
+}
+
+func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
+	operation.Operation = strings.TrimSpace(operation.Operation)
+	operation.Username = strings.TrimSpace(operation.Username)
+	operation.Shell = strings.TrimSpace(operation.Shell)
+	operation.Groups = strings.TrimSpace(operation.Groups)
+	if !isSafeName(operation.Username) {
+		return CommandResult{}, errors.New("valid username is required")
+	}
+	switch operation.Operation {
+	case "create":
+		shell := operation.Shell
+		if shell == "" {
+			shell = "/bin/bash"
+		}
+		command := "sudo useradd -m -s " + shellQuote(shell)
+		if operation.Groups != "" {
+			command += " -G " + shellQuote(operation.Groups)
+		}
+		command += " " + shellQuote(operation.Username)
+		if operation.Password != "" {
+			command += " && printf '%s:%s\\n' " + shellQuote(operation.Username) + " " + shellQuote(operation.Password) + " | sudo chpasswd"
+		}
+		return RunShellCommand(command, workstationHome())
+	case "set-password":
+		if operation.Password == "" {
+			return CommandResult{}, errors.New("password is required")
+		}
+		return RunShellCommand("printf '%s:%s\\n' "+shellQuote(operation.Username)+" "+shellQuote(operation.Password)+" | sudo chpasswd", workstationHome())
+	case "set-shell":
+		if operation.Shell == "" {
+			return CommandResult{}, errors.New("shell is required")
+		}
+		return RunShellCommand("sudo chsh -s "+shellQuote(operation.Shell)+" "+shellQuote(operation.Username), workstationHome())
+	case "set-groups":
+		return RunShellCommand("sudo usermod -G "+shellQuote(operation.Groups)+" "+shellQuote(operation.Username), workstationHome())
+	case "delete":
+		return RunShellCommand("sudo userdel -r "+shellQuote(operation.Username), workstationHome())
+	default:
+		return CommandResult{}, fmt.Errorf("account operation %q is not allowed", operation.Operation)
+	}
 }
 
 func BrowseFiles(path string) (FileListing, error) {
@@ -435,6 +495,37 @@ func collectNetwork() NetworkStatus {
 		Addresses: runText("ip", "-brief", "addr"),
 		Routes:    runText("ip", "route"),
 	}
+}
+
+func CollectNetworkActivity() (NetworkActivity, error) {
+	raw, err := os.ReadFile("/proc/net/dev")
+	if err != nil {
+		return NetworkActivity{}, err
+	}
+	activity := NetworkActivity{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, ":") {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		name := strings.TrimSpace(parts[0])
+		fields := strings.Fields(parts[1])
+		if name == "lo" || len(fields) < 16 {
+			continue
+		}
+		rxBytes, rxErr := strconv.ParseUint(fields[0], 10, 64)
+		txBytes, txErr := strconv.ParseUint(fields[8], 10, 64)
+		if rxErr != nil || txErr != nil {
+			continue
+		}
+		activity.Interfaces = append(activity.Interfaces, NetworkInterfaceActivity{
+			Name:    name,
+			RXBytes: rxBytes,
+			TXBytes: txBytes,
+		})
+	}
+	return activity, nil
 }
 
 func collectAccounts() []AccountStatus {

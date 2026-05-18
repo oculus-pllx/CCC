@@ -19,7 +19,13 @@ let currentFile = '';
 let terminalSocket = null;
 let terminal = null;
 let rawTerminalBuffer = '';
+let terminalTabs = [];
+let activeTerminalTabId = null;
+let nextTerminalTabId = 1;
 let updatePollTimer = null;
+let networkPollTimer = null;
+let lastNetworkSample = null;
+let networkHistory = [];
 
 async function loadHealth() {
   const target = document.getElementById('health');
@@ -108,6 +114,12 @@ function selectSection(section) {
 
 function renderSection(section) {
   const body = document.getElementById('section-body');
+  if (section !== 'network') {
+    stopNetworkGraph();
+  }
+  if (section !== 'terminal') {
+    stopTerminalSessions();
+  }
   if (!snapshot) {
     body.textContent = 'Sign in is required before management data is shown.';
     return;
@@ -215,6 +227,11 @@ function renderLogs() {
 
 function renderNetwork() {
   return `
+    <h3>Activity</h3>
+    <div class="network-graph-wrap">
+      <canvas id="network-graph" width="900" height="220"></canvas>
+      <div id="network-rate">Collecting network samples...</div>
+    </div>
     <h3>Addresses</h3>
     <pre class="output">${escapeHTML(snapshot.network?.addresses || 'No address data.')}</pre>
     <h3>Routes</h3>
@@ -223,13 +240,33 @@ function renderNetwork() {
 }
 
 function renderAccounts() {
-  return table(['User', 'UID', 'Groups', 'Home', 'Shell'], (snapshot.accounts || []).map(account => [
-    account.username,
-    account.uid,
-    account.groups,
-    account.home,
-    account.shell,
-  ]));
+  const accounts = snapshot.accounts || [];
+  return `
+    <div class="account-create">
+      <input id="account-username" type="text" placeholder="username">
+      <input id="account-password" type="password" placeholder="initial password">
+      <input id="account-shell" type="text" value="/bin/bash" placeholder="/bin/bash">
+      <button id="create-account-button" class="small-button">Create Account</button>
+    </div>
+    <div class="account-list">
+      ${accounts.map(account => `
+        <section class="account-row">
+          <div>
+            <strong>${escapeHTML(account.username)}</strong>
+            <p>${escapeHTML(account.home)} · UID ${escapeHTML(account.uid)}</p>
+            <span>${escapeHTML(account.groups || 'no groups')} · ${escapeHTML(account.shell)}</span>
+          </div>
+          <div class="action-row">
+            <button class="small-button" data-account-password="${escapeAttribute(account.username)}">Password</button>
+            <button class="small-button" data-account-shell="${escapeAttribute(account.username)}" data-current-shell="${escapeAttribute(account.shell)}">Shell</button>
+            <button class="small-button" data-account-groups="${escapeAttribute(account.username)}" data-current-groups="${escapeAttribute(account.groups)}">Groups</button>
+            <button class="small-button danger-button" data-account-delete="${escapeAttribute(account.username)}">Delete</button>
+          </div>
+        </section>
+      `).join('') || '<p>No user accounts found.</p>'}
+    </div>
+    <pre id="account-output" class="output" hidden></pre>
+  `;
 }
 
 function renderFiles() {
@@ -288,14 +325,27 @@ function renderUpdates() {
 }
 
 function renderTerminal() {
+  ensureTerminalTab();
   return `
+    <div class="terminal-tabs">
+      <div id="terminal-tab-list" class="terminal-tab-list">
+        ${terminalTabs.map(tab => `
+          <button class="terminal-tab ${tab.id === activeTerminalTabId ? 'active' : ''}" data-terminal-tab="${tab.id}">
+            ${escapeHTML(tab.name)}
+          </button>
+        `).join('')}
+      </div>
+      <button id="terminal-new-tab" class="small-button">New Tab</button>
+    </div>
     <div class="action-row">
       <button id="terminal-connect" class="small-button">Connect</button>
       <button id="terminal-disconnect" class="small-button">Disconnect</button>
       <button id="terminal-tmux" class="small-button">tmux</button>
-      <span id="terminal-status">Disconnected</span>
+      <span id="terminal-status">${escapeHTML(activeTerminalTab()?.status || 'Disconnected')}</span>
     </div>
-    <div id="terminal-pane"></div>
+    <div id="terminal-panes">
+      ${terminalTabs.map(tab => `<div id="terminal-pane-${tab.id}" class="terminal-pane" ${tab.id === activeTerminalTabId ? '' : 'hidden'}></div>`).join('')}
+    </div>
     <div id="terminal-fallback" hidden>
       <pre id="terminal-raw-output" class="output">Raw terminal output will appear here.</pre>
       <div class="login-row">
@@ -395,6 +445,12 @@ function bindSectionActions(section) {
   if (section === 'configs') {
     bindConfigs();
   }
+  if (section === 'accounts') {
+    bindAccounts();
+  }
+  if (section === 'network') {
+    bindNetwork();
+  }
 }
 
 async function runAction(action) {
@@ -475,6 +531,144 @@ async function controlService(service, operation) {
   } catch (error) {
     output.textContent = error.message;
   }
+}
+
+function bindAccounts() {
+  document.getElementById('create-account-button').addEventListener('click', createAccount);
+  document.querySelectorAll('[data-account-password]').forEach(button => {
+    button.addEventListener('click', () => setAccountPassword(button.dataset.accountPassword));
+  });
+  document.querySelectorAll('[data-account-shell]').forEach(button => {
+    button.addEventListener('click', () => setAccountShell(button.dataset.accountShell, button.dataset.currentShell));
+  });
+  document.querySelectorAll('[data-account-groups]').forEach(button => {
+    button.addEventListener('click', () => setAccountGroups(button.dataset.accountGroups, button.dataset.currentGroups));
+  });
+  document.querySelectorAll('[data-account-delete]').forEach(button => {
+    button.addEventListener('click', () => deleteAccount(button.dataset.accountDelete));
+  });
+}
+
+async function createAccount() {
+  await runAccountOperation({
+    operation: 'create',
+    username: document.getElementById('account-username').value.trim(),
+    password: document.getElementById('account-password').value,
+    shell: document.getElementById('account-shell').value.trim() || '/bin/bash',
+  });
+}
+
+async function setAccountPassword(username) {
+  const password = prompt(`New password for ${username}`);
+  if (!password) return;
+  await runAccountOperation({ operation: 'set-password', username, password });
+}
+
+async function setAccountShell(username, currentShell) {
+  const shell = prompt(`Login shell for ${username}`, currentShell || '/bin/bash');
+  if (!shell) return;
+  await runAccountOperation({ operation: 'set-shell', username, shell });
+}
+
+async function setAccountGroups(username, currentGroups) {
+  const groups = prompt(`Supplementary groups for ${username}`, currentGroups || '');
+  if (groups === null) return;
+  await runAccountOperation({ operation: 'set-groups', username, groups });
+}
+
+async function deleteAccount(username) {
+  if (!confirm(`Delete account ${username} and its home directory?`)) return;
+  await runAccountOperation({ operation: 'delete', username });
+}
+
+async function runAccountOperation(payload) {
+  const output = document.getElementById('account-output');
+  output.hidden = false;
+  output.textContent = 'Running...';
+  try {
+    const result = await postJSON('/api/account', payload);
+    output.textContent = result.output || 'account updated';
+    await loadSnapshot();
+    renderSection('accounts');
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+function bindNetwork() {
+  stopNetworkGraph();
+  lastNetworkSample = null;
+  networkHistory = [];
+  pollNetworkActivity();
+  networkPollTimer = setInterval(pollNetworkActivity, 2000);
+}
+
+function stopNetworkGraph() {
+  if (networkPollTimer) {
+    clearInterval(networkPollTimer);
+    networkPollTimer = null;
+  }
+}
+
+async function pollNetworkActivity() {
+  const rate = document.getElementById('network-rate');
+  try {
+    const response = await fetch('/api/network-activity', { credentials: 'include' });
+    const sample = await response.json();
+    if (!response.ok) throw new Error(sample.error || `Request failed with ${response.status}`);
+    updateNetworkGraph(sample);
+  } catch (error) {
+    if (rate) rate.textContent = `Network activity unavailable: ${error.message}`;
+  }
+}
+
+function updateNetworkGraph(sample) {
+  const now = Date.now();
+  const interfaces = sample.interfaces || [];
+  const totals = interfaces.reduce((sum, item) => ({
+    rxBytes: sum.rxBytes + (item.rxBytes || 0),
+    txBytes: sum.txBytes + (item.txBytes || 0),
+  }), { rxBytes: 0, txBytes: 0 });
+  if (!lastNetworkSample) {
+    lastNetworkSample = { time: now, ...totals };
+    return;
+  }
+  const seconds = Math.max(1, (now - lastNetworkSample.time) / 1000);
+  const rxRate = Math.max(0, (totals.rxBytes - lastNetworkSample.rxBytes) / seconds);
+  const txRate = Math.max(0, (totals.txBytes - lastNetworkSample.txBytes) / seconds);
+  lastNetworkSample = { time: now, ...totals };
+  networkHistory.push({ rxRate, txRate });
+  networkHistory = networkHistory.slice(-60);
+  const rate = document.getElementById('network-rate');
+  if (rate) rate.textContent = `Down ${formatBytes(rxRate)}/s · Up ${formatBytes(txRate)}/s`;
+  drawNetworkGraph();
+}
+
+function drawNetworkGraph() {
+  const canvas = document.getElementById('network-graph');
+  if (!canvas?.getContext) return;
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#111316';
+  ctx.fillRect(0, 0, width, height);
+  const maxRate = Math.max(1, ...networkHistory.flatMap(point => [point.rxRate, point.txRate]));
+  drawNetworkSeries(ctx, width, height, maxRate, 'rxRate', '#68a6f8');
+  drawNetworkSeries(ctx, width, height, maxRate, 'txRate', '#34d399');
+}
+
+function drawNetworkSeries(ctx, width, height, maxRate, key, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  networkHistory.forEach((point, index) => {
+    const x = networkHistory.length <= 1 ? 0 : (index / (networkHistory.length - 1)) * width;
+    const y = height - ((point[key] || 0) / maxRate) * (height - 16) - 8;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
 }
 
 function bindFileBrowser() {
@@ -621,6 +815,10 @@ async function deleteCurrentFile() {
 }
 
 function bindTerminal() {
+  document.getElementById('terminal-new-tab').addEventListener('click', createTerminalTab);
+  document.querySelectorAll('[data-terminal-tab]').forEach(button => {
+    button.addEventListener('click', () => switchTerminalTab(Number(button.dataset.terminalTab)));
+  });
   document.getElementById('terminal-connect').addEventListener('click', connectTerminal);
   document.getElementById('terminal-disconnect').addEventListener('click', disconnectTerminal);
   document.getElementById('terminal-tmux').addEventListener('click', () => sendTerminalInput('tmux\n'));
@@ -633,86 +831,165 @@ function bindTerminal() {
 }
 
 function connectTerminal() {
-  if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) return;
-  if (terminalSocket && terminalSocket.readyState === WebSocket.CONNECTING) return;
-  resetTerminalConnection('Connecting...', false);
+  const tab = activeTerminalTab();
+  if (!tab) return;
+  if (tab.socket && tab.socket.readyState === WebSocket.OPEN) return;
+  if (tab.socket && tab.socket.readyState === WebSocket.CONNECTING) return;
+  resetTerminalConnection(tab, 'Connecting...', false);
   const status = document.getElementById('terminal-status');
   status.textContent = 'Connecting...';
+  tab.status = 'Connecting...';
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket = new WebSocket(`${scheme}://${location.host}/api/pty`);
+  tab.socket = socket;
   terminalSocket = socket;
   socket.addEventListener('open', () => {
-    if (terminalSocket !== socket) {
+    if (tab.socket !== socket) {
       socket.close();
       return;
     }
     status.textContent = 'Connected';
+    tab.status = 'Connected';
     if (window.Terminal) {
-      const pane = document.getElementById('terminal-pane');
+      const pane = activeTerminalPane();
       pane.innerHTML = '';
       document.getElementById('terminal-fallback').hidden = true;
-      terminal = new window.Terminal({ cursorBlink: true, fontSize: 13, convertEol: true });
-      terminal.open(pane);
-      terminal.focus();
-      terminal.onData(sendTerminalInput);
+      tab.terminal = new window.Terminal({ cursorBlink: true, fontSize: 13, convertEol: true });
+      terminal = tab.terminal;
+      tab.terminal.open(pane);
+      tab.terminal.focus();
+      tab.terminal.onData(sendTerminalInput);
       resizeTerminal();
       window.addEventListener('resize', resizeTerminal);
     } else {
       document.getElementById('terminal-fallback').hidden = false;
-      document.getElementById('terminal-pane').textContent = 'xterm.js unavailable; using raw terminal fallback.';
+      activeTerminalPane().textContent = 'xterm.js unavailable; using raw terminal fallback.';
     }
   });
   socket.addEventListener('message', event => {
-    if (terminalSocket !== socket) return;
-    if (terminal) {
-      terminal.write(event.data);
+    if (tab.socket !== socket) return;
+    if (tab.terminal) {
+      tab.terminal.write(event.data);
     } else {
-      rawTerminalBuffer += event.data;
+      tab.rawTerminalBuffer += event.data;
+      rawTerminalBuffer = tab.rawTerminalBuffer;
       const output = document.getElementById('terminal-raw-output');
-      output.textContent = rawTerminalBuffer;
+      output.textContent = tab.rawTerminalBuffer;
       output.scrollTop = output.scrollHeight;
     }
   });
   socket.addEventListener('error', () => {
-    if (terminalSocket === socket) status.textContent = 'Connection error';
+    if (tab.socket === socket) {
+      tab.status = 'Connection error';
+      status.textContent = 'Connection error';
+    }
   });
   socket.addEventListener('close', () => {
-    if (terminalSocket === socket) {
-      resetTerminalConnection('Disconnected', false);
+    if (tab.socket === socket) {
+      resetTerminalConnection(tab, 'Disconnected', false);
     }
   });
 }
 
 function disconnectTerminal() {
-  resetTerminalConnection('Disconnected', true);
+  const tab = activeTerminalTab();
+  if (tab) resetTerminalConnection(tab, 'Disconnected', true);
 }
 
-function resetTerminalConnection(message = 'Disconnected', closeSocket = true) {
-  const socket = terminalSocket;
-  terminalSocket = null;
+function stopTerminalSessions() {
+  terminalTabs.forEach(tab => resetTerminalConnection(tab, 'Disconnected', true));
+}
+
+function resetTerminalConnection(tab = activeTerminalTab(), message = 'Disconnected', closeSocket = true) {
+  if (!tab) return;
+  const socket = tab.socket;
+  tab.socket = null;
+  if (terminalSocket === socket) terminalSocket = null;
   if (closeSocket && socket && socket.readyState !== WebSocket.CLOSED) {
     socket.close();
   }
   window.removeEventListener('resize', resizeTerminal);
-  if (terminal) {
-    terminal.dispose();
-    terminal = null;
+  const disposedTerminal = tab.terminal;
+  if (tab.terminal) {
+    tab.terminal.dispose();
+    tab.terminal = null;
   }
-  rawTerminalBuffer = '';
-  const pane = document.getElementById('terminal-pane');
-  if (pane) pane.innerHTML = '';
+  tab.rawTerminalBuffer = '';
+  tab.status = message;
+  if (terminal === disposedTerminal) terminal = null;
+  const pane = document.getElementById(`terminal-pane-${tab.id}`);
+  if (pane && tab.id === activeTerminalTabId) pane.innerHTML = '';
   const status = document.getElementById('terminal-status');
-  if (status) status.textContent = message;
+  if (status && tab.id === activeTerminalTabId) status.textContent = message;
 }
 
 function sendTerminalInput(data) {
-  if (!terminalSocket || terminalSocket.readyState !== WebSocket.OPEN) return;
-  terminalSocket.send(JSON.stringify({ type: 'input', data }));
+  const tab = activeTerminalTab();
+  if (!tab?.socket || tab.socket.readyState !== WebSocket.OPEN) return;
+  tab.socket.send(JSON.stringify({ type: 'input', data }));
 }
 
 function resizeTerminal() {
-  if (!terminalSocket || terminalSocket.readyState !== WebSocket.OPEN || !terminal) return;
-  terminalSocket.send(JSON.stringify({ type: 'resize', cols: terminal.cols || 100, rows: terminal.rows || 30 }));
+  const tab = activeTerminalTab();
+  if (!tab?.socket || tab.socket.readyState !== WebSocket.OPEN || !tab.terminal) return;
+  tab.socket.send(JSON.stringify({ type: 'resize', cols: tab.terminal.cols || 100, rows: tab.terminal.rows || 30 }));
+}
+
+function ensureTerminalTab() {
+  if (!terminalTabs.length) {
+    terminalTabs.push(newTerminalTab());
+  }
+  if (!activeTerminalTabId) {
+    activeTerminalTabId = terminalTabs[0].id;
+  }
+}
+
+function newTerminalTab() {
+  const id = nextTerminalTabId++;
+  return { id, name: `Shell ${id}`, socket: null, terminal: null, rawTerminalBuffer: '', status: 'Disconnected' };
+}
+
+function activeTerminalTab() {
+  return terminalTabs.find(tab => tab.id === activeTerminalTabId) || null;
+}
+
+function activeTerminalPane() {
+  return document.getElementById(`terminal-pane-${activeTerminalTabId}`);
+}
+
+function createTerminalTab() {
+  const tab = newTerminalTab();
+  terminalTabs.push(tab);
+  const list = document.getElementById('terminal-tab-list');
+  const button = document.createElement('button');
+  button.className = 'terminal-tab';
+  button.dataset.terminalTab = String(tab.id);
+  button.textContent = tab.name;
+  button.addEventListener('click', () => switchTerminalTab(tab.id));
+  list.appendChild(button);
+  const panes = document.getElementById('terminal-panes');
+  const pane = document.createElement('div');
+  pane.id = `terminal-pane-${tab.id}`;
+  pane.className = 'terminal-pane';
+  pane.hidden = true;
+  panes.appendChild(pane);
+  switchTerminalTab(tab.id);
+  connectTerminal();
+}
+
+function switchTerminalTab(id) {
+  if (!terminalTabs.some(tab => tab.id === id)) return;
+  activeTerminalTabId = id;
+  document.querySelectorAll('.terminal-tab').forEach(button => {
+    button.classList.toggle('active', Number(button.dataset.terminalTab) === id);
+  });
+  document.querySelectorAll('.terminal-pane').forEach(pane => {
+    pane.hidden = pane.id !== `terminal-pane-${id}`;
+  });
+  const tab = activeTerminalTab();
+  const status = document.getElementById('terminal-status');
+  if (status) status.textContent = tab?.status || 'Disconnected';
+  if (tab?.terminal) tab.terminal.focus();
 }
 
 function bindConfigs() {
