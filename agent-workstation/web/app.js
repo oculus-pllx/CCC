@@ -382,10 +382,10 @@ async function runAction(action) {
   output.textContent = 'Running...';
   try {
     const result = await postJSON('/api/action', { action });
-    output.textContent = result.output || `Exit code ${result.exitCode}`;
+    output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
   } catch (error) {
-    output.textContent = error.message;
+    output.textContent = stripANSI(error.message);
   }
 }
 

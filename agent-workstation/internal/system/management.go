@@ -176,7 +176,7 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 	case "update-status":
 		return RunShellCommand("ccc-update-status", workstationHome())
 	case "self-update":
-		return RunShellCommand("sudo bash -lc 'touch /var/log/ccc-self-update.log && chmod 0644 /var/log/ccc-self-update.log && nohup ccc-self-update > /var/log/ccc-self-update.log 2>&1 &' && echo 'Agent Workstation self-update started in background. Watch /var/log/ccc-self-update.log for progress.'", workstationHome())
+		return StartSelfUpdate()
 	case "os-update":
 		return RunShellCommand("sudo ccc-os-update", workstationHome())
 	case "restart-code-server":
@@ -186,6 +186,24 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 	default:
 		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
 	}
+}
+
+func StartSelfUpdate() (CommandResult, error) {
+	command := "umask 022; touch /var/log/ccc-self-update.log; chmod 0644 /var/log/ccc-self-update.log; printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > /var/log/ccc-self-update.log; nohup env NO_COLOR=1 ccc-self-update >> /var/log/ccc-self-update.log 2>&1 < /dev/null &"
+	cmd := exec.Command("sudo", "bash", "-lc", command)
+	cmd.Dir = workstationHome()
+	if err := cmd.Start(); err != nil {
+		return CommandResult{Command: "ccc-self-update", Output: err.Error(), ExitCode: 1}, err
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
+	return CommandResult{
+		Command:  "ccc-self-update",
+		Cwd:      workstationHome(),
+		Output:   "Agent Workstation self-update started in background. Watch /var/log/ccc-self-update.log for progress.",
+		ExitCode: 0,
+	}, nil
 }
 
 func ControlService(service string, operation string) (CommandResult, error) {

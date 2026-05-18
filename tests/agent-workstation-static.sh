@@ -49,7 +49,8 @@ require_file_contains claude-code-commander.sh 'NO_COLOR'
 require_file_contains agent-workstation/web/app.js "Apply Agent Workstation Update"
 require_file_contains agent-workstation/web/app.js "self-update"
 require_file_contains agent-workstation/web/app.js 'stripANSI'
-require_file_contains agent-workstation/internal/system/management.go "sudo bash -lc"
+require_file_contains agent-workstation/internal/system/management.go "func StartSelfUpdate"
+require_file_contains agent-workstation/internal/system/management.go "env NO_COLOR=1 ccc-self-update"
 require_file_contains agent-workstation/internal/system/management.go "sudo tail -120 /var/log/ccc-self-update.log"
 
 require_file_not_contains claude-code-commander.sh "/opt/ccc-dashboard"
