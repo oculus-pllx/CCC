@@ -761,7 +761,7 @@ function firstUsefulLines(text, limit) {
 }
 
 function stripANSI(value) {
-  return String(value || '').replace(/\x1b\[[0-9;]*m/g, '').replace(/\[[0-9;]*m/g, '');
+  return String(value || '').replace(/(?:\x1b)?\[[0-9;]*m/g, '');
 }
 
 function formatPercent(value) {

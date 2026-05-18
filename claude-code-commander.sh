@@ -1522,6 +1522,9 @@ cat > /usr/local/bin/ccc-update-status << 'UPDATESTATUSSCRIPT'
 #!/bin/bash
 set -euo pipefail
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; D='\033[2m'; N='\033[0m'
+if [[ ! -t 1 || -n "${NO_COLOR:-}" ]]; then
+  B=''; G=''; C=''; Y=''; R=''; D=''; N=''
+fi
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
@@ -1621,6 +1624,9 @@ cat > /usr/local/bin/ccc-self-update << 'SELFUPDATESCRIPT'
 #!/bin/bash
 set -euo pipefail
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+if [[ ! -t 1 || -n "${NO_COLOR:-}" ]]; then
+  B=''; G=''; C=''; Y=''; R=''; N=''
+fi
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
