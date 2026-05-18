@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -342,6 +343,43 @@ func TestProtectedNetworkActivityReturnsCounters(t *testing.T) {
 	}
 	if !strings.Contains(res.Body.String(), "eth0") {
 		t.Fatalf("expected network interface counters, got %q", res.Body.String())
+	}
+}
+
+func TestSelfUpdateActionReturnsMonitorStartedMessage(t *testing.T) {
+	started := false
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		RunAction: func(action string) (system.CommandResult, error) {
+			if action == "self-update" {
+				started = true
+				return system.CommandResult{
+					Command:  "ccc-self-update",
+					Output:   "Agent Workstation self-update monitor started.",
+					ExitCode: 0,
+				}, nil
+			}
+			return system.CommandResult{}, fmt.Errorf("unknown action: %s", action)
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/action", strings.NewReader(`{"action":"self-update"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if !started {
+		t.Fatal("expected RunAction to be called with self-update")
+	}
+	if !strings.Contains(res.Body.String(), "monitor started") {
+		t.Fatalf("expected monitor started message, got %q", res.Body.String())
 	}
 }
 

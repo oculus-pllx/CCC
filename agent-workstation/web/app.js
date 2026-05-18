@@ -467,7 +467,6 @@ async function runAction(action) {
     await loadSnapshot();
   } catch (error) {
     if (selfUpdate) {
-      output.textContent = formatSelfUpdateProgress('Update request is reconnecting. Agent Workstation may be restarting...', 0, '');
       return;
     }
     output.textContent = stripANSI(error.message);

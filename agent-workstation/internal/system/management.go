@@ -207,7 +207,13 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 }
 
 func StartSelfUpdate() (CommandResult, error) {
-	command := "umask 022; touch /var/log/ccc-self-update.log; chmod 0644 /var/log/ccc-self-update.log; printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > /var/log/ccc-self-update.log; nohup env NO_COLOR=1 ccc-self-update >> /var/log/ccc-self-update.log 2>&1 < /dev/null &"
+	logPath := "/var/log/ccc-self-update.log"
+	command := "umask 022" +
+		" && mkdir -p /var/log" +
+		" && touch " + logPath +
+		" && chmod 0644 " + logPath +
+		" && printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
+		" && setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null &"
 	cmd := exec.Command("sudo", "bash", "-lc", command)
 	cmd.Dir = workstationHome()
 	if err := cmd.Start(); err != nil {
