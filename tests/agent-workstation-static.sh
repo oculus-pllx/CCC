@@ -148,4 +148,8 @@ require_file_not_contains agent-workstation/web/styles.css '#111316'
 require_file_not_contains agent-workstation/web/styles.css '#1b1e22'
 require_file_not_contains agent-workstation/web/styles.css '#050608'
 
+# Task 2: index.html
+require_file_contains agent-workstation/web/index.html 'IBM+Plex+Mono'
+require_file_contains agent-workstation/web/index.html 'data-section="settings"'
+
 echo "agent-workstation static checks passed"
