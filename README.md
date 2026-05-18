@@ -21,7 +21,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workst
 - **Three update paths** — OS packages, Agent Workstation tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Agent Workstation UI** on port 9090 — native headless management for system overview, services, logs, networking, files, terminal, projects, updates, and agent configs
+- **Agent Workstation UI** on port 9090 — native headless management for system overview, services, logs, networking, accounts, files, terminal, projects, updates, and agent configs
+- **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
 - **SSH hardened** — root login disabled, key auth ready
@@ -229,7 +230,9 @@ ccc-update                  # convenience: tooling + app CLI updates, no apt upg
 claude update               # Claude Code only
 ```
 
-`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning `git@github.com:oculus-pllx/CCC.git`. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning the configured repo. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+
+The native Updates page runs `ccc-self-update` in the background and polls `/var/log/ccc-self-update.log` so the browser can show progress through completion. A successful tooling update records `/etc/ccc/version`; a failed build exits non-zero and leaves the build error in the log.
 
 `ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
 
@@ -315,7 +318,19 @@ pct exec <CT_ID> -- systemctl restart agent-workstation.service
 ```
 Open `http://<container-ip>:9090` and sign in with the workstation username and the user password entered during install. The service stores those credentials in `/etc/agent-workstation/env` so the native UI and LXC user stay aligned.
 
-Until the latest local commits are pushed to GitHub, install fresh test containers from this local checkout instead of the GitHub curl command:
+**Self-update fails during "Building Agent Workstation binary"**
+The failing compiler output is the real error. Inspect the log:
+```bash
+sudo tail -160 /var/log/ccc-self-update.log
+```
+After the fix is pushed to `agent-workstation-native-ui`, rerun:
+```bash
+sudo ccc-self-update
+sudo systemctl restart agent-workstation.service
+ccc-update-status
+```
+
+For local branch testing before GitHub has the latest commit, provision from a local checkout on the Proxmox host instead of the GitHub curl command:
 ```bash
 cd /home/peyton/repos/CCC
 sudo bash claude-code-commander.sh

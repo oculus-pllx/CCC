@@ -52,6 +52,11 @@
 - [x] Bridge browser input/output to the PTY and support terminal resize messages.
 - [x] Update the Terminal panel to use local xterm.js assets when available and fall back to a raw terminal pane.
 - [ ] Verify `tmux` can run through the PTY path in a fresh LXC by using the browser terminal.
+- [x] Add reconnect cleanup so a disconnected PTY can reconnect without a full page refresh.
+- [x] Add browser-side terminal tabs with one PTY websocket per tab.
+- [x] Add Agent Configs edit buttons that open Claude/Codex/Gemini config files in the full file editor.
+- [x] Add account create/password/shell/groups/delete controls.
+- [x] Add a live Network activity graph backed by `/proc/net/dev` counters.
 
 ### Task 4: Verification and Push
 
@@ -63,4 +68,5 @@
 - [x] Run `cd agent-workstation && go test ./...`.
 - [x] Run `node --check agent-workstation/web/app.js`.
 - [x] Run `git diff --check`.
-- [ ] Commit and push `agent-workstation-native-ui`.
+- [x] Commit and push `agent-workstation-native-ui`.
+- [ ] Fresh LXC verification: run `sudo ccc-self-update`, verify `ccc-update-status` records `3b70ac2` or newer, then test Accounts, Network graph, Agent Config editing, and Terminal tabs in `http://<lxc-ip>:9090`.
