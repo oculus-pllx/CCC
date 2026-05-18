@@ -1747,7 +1747,11 @@ sudo mkdir -p "$(dirname "$LOG_FILE")"
 } > "$APPLY_SCRIPT"
 chmod +x "$APPLY_SCRIPT"
 echo -e "  Log: ${C}${LOG_FILE}${N}"
-if sudo bash -c "bash '$APPLY_SCRIPT' 2>&1 | tee '$LOG_FILE'"; then
+set +e
+sudo bash "$APPLY_SCRIPT" 2>&1 | sudo tee "$LOG_FILE"
+status=${PIPESTATUS[0]}
+set -e
+if [[ "$status" -eq 0 ]]; then
   echo ""
   if [[ -n "$LATEST_COMMIT" ]]; then
     sudo mkdir -p /etc/ccc
@@ -1760,7 +1764,6 @@ if sudo bash -c "bash '$APPLY_SCRIPT' 2>&1 | tee '$LOG_FILE'"; then
   echo -e "${G}${B}Self-update complete.${N}"
   echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')"
 else
-  status=$?
   echo ""
   echo -e "${R}Update script exited with errors: ${status}. Some steps may have partially applied.${N}"
   exit "$status"

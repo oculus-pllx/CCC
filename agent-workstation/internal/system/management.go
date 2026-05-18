@@ -243,7 +243,7 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 	operation.Username = strings.TrimSpace(operation.Username)
 	operation.Shell = strings.TrimSpace(operation.Shell)
 	operation.Groups = strings.TrimSpace(operation.Groups)
-	if !isSafeName(operation.Username) {
+	if !safeProjectName(operation.Username) {
 		return CommandResult{}, errors.New("valid username is required")
 	}
 	switch operation.Operation {
