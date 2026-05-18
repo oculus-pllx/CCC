@@ -159,4 +159,10 @@ require_file_contains agent-workstation/web/app.js 'loadTheme'
 require_file_contains agent-workstation/web/app.js 'aw-theme'
 require_file_contains agent-workstation/web/app.js 'hexToRgb'
 
+# Task 4: Settings page
+require_file_contains agent-workstation/web/app.js 'renderSettings'
+require_file_contains agent-workstation/web/app.js 'bindSettings'
+require_file_contains agent-workstation/web/app.js 'settings-swatch'
+require_file_contains agent-workstation/web/app.js "settings: 'Settings'"
+
 echo "agent-workstation static checks passed"

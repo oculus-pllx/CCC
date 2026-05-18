@@ -10,6 +10,7 @@ const titles = {
   projects: 'Projects',
   configs: 'Agent Configs',
   oculus: 'oculus-configs',
+  settings: 'Settings',
 };
 
 const THEMES = {
@@ -128,7 +129,7 @@ function renderSection(section) {
   const body = document.getElementById('section-body');
   stopNetworkGraph();
   stopTerminalSessions();
-  if (!snapshot) {
+  if (!snapshot && section !== 'settings') {
     body.textContent = 'Sign in is required before management data is shown.';
     return;
   }
@@ -144,6 +145,7 @@ function renderSection(section) {
     projects: renderProjects,
     configs: renderConfigs,
     oculus: renderOculus,
+    settings: renderSettings,
   };
   body.innerHTML = renderers[section]?.() || '<p>Section unavailable.</p>';
   bindSectionActions(section);
@@ -450,6 +452,34 @@ function renderOculus() {
   `;
 }
 
+function renderSettings() {
+  const current = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME;
+  return `
+    <div class="settings-section">
+      <h3>Theme</h3>
+      <div class="settings-swatch-grid">
+        ${Object.entries(THEMES).map(([name, hex]) => `
+          <button class="settings-swatch-row${name === current ? ' active' : ''}" data-theme="${escapeAttribute(name)}">
+            <span class="settings-swatch-circle" style="background:${hex};${name === current ? `box-shadow:0 0 0 2px #fff,0 0 0 4px ${hex};` : ''}"></span>
+            <span class="settings-swatch-name">${escapeHTML(name.charAt(0).toUpperCase() + name.slice(1))}</span>
+            <span class="settings-swatch-hex">${escapeHTML(hex)}</span>
+            ${name === DEFAULT_THEME ? '<span class="settings-swatch-default">default</span>' : ''}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function bindSettings() {
+  document.querySelectorAll('[data-theme]').forEach(button => {
+    button.addEventListener('click', () => {
+      applyTheme(button.dataset.theme);
+      renderSection('settings');
+    });
+  });
+}
+
 function bindSectionActions(section) {
   document.querySelectorAll('[data-action]').forEach(button => {
     button.addEventListener('click', () => runAction(button.dataset.action));
@@ -477,6 +507,9 @@ function bindSectionActions(section) {
   }
   if (section === 'network') {
     bindNetwork();
+  }
+  if (section === 'settings') {
+    bindSettings();
   }
 }
 
