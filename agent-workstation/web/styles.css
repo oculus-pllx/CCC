@@ -672,3 +672,37 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+.config-editor-panel {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.config-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #1b1e22;
+}
+
+.config-editor-textarea {
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  padding: 12px 14px;
+  background: #111316;
+  color: var(--text);
+  border: none;
+  font: 13px/1.5 "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+  resize: vertical;
+}
+
+.config-editor-textarea:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}

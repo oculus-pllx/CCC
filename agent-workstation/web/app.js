@@ -399,6 +399,17 @@ function renderConfigs() {
         </section>
       `).join('')}
     </div>
+    <div id="config-editor-panel" class="config-editor-panel" hidden>
+      <div class="config-editor-header">
+        <strong id="config-editor-title"></strong>
+        <div class="action-row">
+          <button id="config-editor-save" class="small-button">Save</button>
+          <button id="config-editor-cancel" class="small-button">Cancel</button>
+        </div>
+      </div>
+      <textarea id="config-editor-textarea" class="config-editor-textarea" spellcheck="false"></textarea>
+      <pre id="config-editor-output" class="output" hidden></pre>
+    </div>
   `;
 }
 
@@ -997,8 +1008,58 @@ function switchTerminalTab(id) {
 
 function bindConfigs() {
   document.querySelectorAll('[data-config-edit]').forEach(button => {
-    button.addEventListener('click', () => openAgentConfig(button.dataset.configEdit));
+    button.addEventListener('click', () => showConfigEditor(button.dataset.configEdit));
   });
+  const saveBtn = document.getElementById('config-editor-save');
+  const cancelBtn = document.getElementById('config-editor-cancel');
+  if (saveBtn) saveBtn.addEventListener('click', saveConfigFile);
+  if (cancelBtn) cancelBtn.addEventListener('click', hideConfigEditor);
+}
+
+async function showConfigEditor(path) {
+  const panel = document.getElementById('config-editor-panel');
+  const title = document.getElementById('config-editor-title');
+  const textarea = document.getElementById('config-editor-textarea');
+  const output = document.getElementById('config-editor-output');
+  if (!panel) return;
+  panel.hidden = false;
+  output.hidden = true;
+  textarea.value = '';
+  title.textContent = path;
+  textarea.dataset.path = path;
+  textarea.placeholder = 'Loading...';
+  try {
+    const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`, { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
+    textarea.value = data.content;
+    textarea.placeholder = '';
+    textarea.focus();
+  } catch (error) {
+    output.hidden = false;
+    output.textContent = error.message;
+  }
+}
+
+async function saveConfigFile() {
+  const textarea = document.getElementById('config-editor-textarea');
+  const output = document.getElementById('config-editor-output');
+  const path = textarea?.dataset.path;
+  if (!path) return;
+  output.hidden = false;
+  output.textContent = 'Saving...';
+  try {
+    await postJSON('/api/file', { path, content: textarea.value }, 'PUT');
+    output.textContent = 'Saved.';
+    await loadSnapshot();
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+function hideConfigEditor() {
+  const panel = document.getElementById('config-editor-panel');
+  if (panel) panel.hidden = true;
 }
 
 function openAgentConfig(path) {
