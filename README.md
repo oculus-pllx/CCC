@@ -232,7 +232,7 @@ claude update               # Claude Code only
 
 `ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning the configured repo. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
-The native Updates page runs `ccc-self-update` in the background and polls `/var/log/ccc-self-update.log` so the browser can show progress through completion. A successful tooling update records `/etc/ccc/version`; a failed build exits non-zero and leaves the build error in the log.
+`ccc-self-update` is the reliable update path today. The native Updates page has a button for Agent Workstation updates, but the current LXC test still reports `Failed to fetch` from the browser during the service restart/update cycle. Until that is fixed, use the CLI command and inspect `/var/log/ccc-self-update.log` for progress. A successful tooling update records `/etc/ccc/version`; a failed build exits non-zero and leaves the build error in the log.
 
 `ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
 
@@ -329,6 +329,15 @@ sudo ccc-self-update
 sudo systemctl restart agent-workstation.service
 ccc-update-status
 ```
+
+**Agent Workstation GUI update button shows `Failed to fetch`**
+This is a known blocker in the current native UI branch. Use the CLI updater while debugging the browser/service restart path:
+```bash
+sudo ccc-self-update
+sudo systemctl restart agent-workstation.service
+ccc-update-status
+```
+Then reload `http://<container-ip>:9090`.
 
 For local branch testing before GitHub has the latest commit, provision from a local checkout on the Proxmox host instead of the GitHub curl command:
 ```bash

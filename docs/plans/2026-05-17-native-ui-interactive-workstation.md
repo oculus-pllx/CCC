@@ -69,4 +69,5 @@
 - [x] Run `node --check agent-workstation/web/app.js`.
 - [x] Run `git diff --check`.
 - [x] Commit and push `agent-workstation-native-ui`.
-- [ ] Fresh LXC verification: run `sudo ccc-self-update`, verify `ccc-update-status` records `3b70ac2` or newer, then test Accounts, Network graph, Agent Config editing, and Terminal tabs in `http://<lxc-ip>:9090`.
+- [ ] Fresh LXC verification: run `sudo ccc-self-update`, verify `ccc-update-status` records `db4c0ce` or newer, then test Accounts, Network graph, Agent Config editing, and Terminal tabs in `http://<lxc-ip>:9090`.
+- [ ] Fix GUI update action: current deployed LXC still shows `Failed to fetch` when using the `Apply Agent Workstation Update` button. CLI `sudo ccc-self-update` remains the fallback. Debug the browser request, service restart timing, and `/api/action` behavior in the live LXC.
