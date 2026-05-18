@@ -1036,6 +1036,7 @@ async function showConfigEditor(path) {
     textarea.placeholder = '';
     textarea.focus();
   } catch (error) {
+    textarea.placeholder = '';
     output.hidden = false;
     output.textContent = error.message;
   }
@@ -1044,16 +1045,20 @@ async function showConfigEditor(path) {
 async function saveConfigFile() {
   const textarea = document.getElementById('config-editor-textarea');
   const output = document.getElementById('config-editor-output');
+  const saveBtn = document.getElementById('config-editor-save');
   const path = textarea?.dataset.path;
   if (!path) return;
   output.hidden = false;
   output.textContent = 'Saving...';
+  if (saveBtn) saveBtn.disabled = true;
   try {
     await postJSON('/api/file', { path, content: textarea.value }, 'PUT');
     output.textContent = 'Saved.';
     await loadSnapshot();
   } catch (error) {
     output.textContent = error.message;
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
 
