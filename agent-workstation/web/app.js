@@ -457,15 +457,22 @@ async function runAction(action) {
   const output = document.getElementById('action-output');
   output.hidden = false;
   output.textContent = 'Running...';
+  const selfUpdate = action === 'self-update';
+  if (selfUpdate) {
+    monitorSelfUpdate(output);
+  }
   try {
     const result = await postJSON('/api/action', { action });
-    output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
-    if (action === 'self-update') {
-      monitorSelfUpdate(output);
+    if (selfUpdate) {
       return;
     }
+    output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
   } catch (error) {
+    if (selfUpdate && updatePollTimer) {
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+    }
     output.textContent = stripANSI(error.message);
   }
 }

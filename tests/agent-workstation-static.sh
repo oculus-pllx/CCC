@@ -60,6 +60,7 @@ require_file_contains agent-workstation/web/app.js "self-update"
 require_file_contains agent-workstation/web/app.js 'stripANSI'
 require_file_contains agent-workstation/web/app.js "updateStatusBadge"
 require_file_contains agent-workstation/web/app.js "monitorSelfUpdate"
+require_file_contains agent-workstation/web/app.js "const selfUpdate = action === 'self-update'"
 require_file_contains agent-workstation/web/app.js "formatSelfUpdateProgress"
 require_file_contains agent-workstation/web/app.js "Latest self-update log"
 require_file_contains agent-workstation/web/app.js "Update finished successfully."
@@ -80,8 +81,10 @@ require_file_contains agent-workstation/internal/server/server.go "handleNetwork
 require_file_contains agent-workstation/internal/system/management.go "func RunAccountOperation"
 require_file_contains agent-workstation/internal/system/management.go "func CollectNetworkActivity"
 require_file_contains agent-workstation/internal/system/management.go "func StartSelfUpdate"
+require_file_contains agent-workstation/internal/system/management.go "Agent Workstation self-update monitor started."
 require_file_contains agent-workstation/internal/system/management.go "env NO_COLOR=1 ccc-self-update"
 require_file_contains agent-workstation/internal/system/management.go "sudo tail -120 /var/log/ccc-self-update.log"
+require_file_contains agent-workstation/internal/server/server.go "Cache-Control"
 
 require_file_not_contains claude-code-commander.sh "/opt/ccc-dashboard"
 require_file_not_contains claude-code-commander.sh "node-pty"

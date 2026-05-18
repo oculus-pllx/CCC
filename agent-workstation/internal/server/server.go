@@ -410,6 +410,7 @@ func (s *Server) staticHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		w.Header().Set("Cache-Control", "no-store")
 		if r.URL.Path == "/" {
 			http.ServeFile(w, r, webDir+"/index.html")
 			return

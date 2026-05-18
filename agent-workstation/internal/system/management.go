@@ -219,7 +219,7 @@ func StartSelfUpdate() (CommandResult, error) {
 	return CommandResult{
 		Command:  "ccc-self-update",
 		Cwd:      workstationHome(),
-		Output:   "Agent Workstation self-update started in background. Watch /var/log/ccc-self-update.log for progress.",
+		Output:   "Agent Workstation self-update monitor started.",
 		ExitCode: 0,
 	}, nil
 }
