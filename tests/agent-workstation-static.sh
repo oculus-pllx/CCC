@@ -165,4 +165,8 @@ require_file_contains agent-workstation/web/app.js 'bindSettings'
 require_file_contains agent-workstation/web/app.js 'settings-swatch'
 require_file_contains agent-workstation/web/app.js "settings: 'Settings'"
 
+# Task 5: Network graph accent
+require_file_not_contains agent-workstation/web/app.js "'#68a6f8'"
+require_file_not_contains agent-workstation/web/styles.css '#68a6f8'
+
 echo "agent-workstation static checks passed"

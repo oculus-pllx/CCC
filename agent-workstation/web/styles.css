@@ -744,7 +744,7 @@ td {
   color: var(--muted);
 }
 
-.network-legend-rx { color: #68a6f8; }
+.network-legend-rx { color: var(--accent); }
 .network-legend-tx { color: #34d399; }
 
 .settings-section {

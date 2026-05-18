@@ -732,13 +732,14 @@ function drawNetworkGraph() {
   const canvas = document.getElementById('network-graph');
   if (!canvas?.getContext) return;
   const ctx = canvas.getContext('2d');
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4ade80';
   const width = canvas.width;
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#111316';
+  ctx.fillStyle = '#020810';
   ctx.fillRect(0, 0, width, height);
   const maxRate = Math.max(1, ...networkHistory.flatMap(point => [point.rxRate, point.txRate]));
-  drawNetworkSeries(ctx, width, height, maxRate, 'rxRate', '#68a6f8');
+  drawNetworkSeries(ctx, width, height, maxRate, 'rxRate', accent);
   drawNetworkSeries(ctx, width, height, maxRate, 'txRate', '#34d399');
 }
 
