@@ -337,12 +337,22 @@ function renderProjects() {
 }
 
 function renderConfigs() {
-  return table(['Config', 'Exists', 'Size', 'Path'], (snapshot.agentConfigs || []).map(config => [
-    config.name,
-    config.exists ? 'yes' : 'no',
-    formatBytes(config.size),
-    config.path,
-  ]));
+  const configs = snapshot.agentConfigs || [];
+  if (!configs.length) return '<p>No agent config files found.</p>';
+  return `
+    <div class="config-list">
+      ${configs.map(config => `
+        <section class="config-row">
+          <div>
+            <strong>${escapeHTML(config.name)}</strong>
+            <p>${escapeHTML(config.path)}</p>
+            <span>${config.exists ? escapeHTML(formatBytes(config.size)) : 'missing'}</span>
+          </div>
+          <button class="small-button" data-config-edit="${escapeAttribute(config.path)}">Edit</button>
+        </section>
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderOculus() {
@@ -381,6 +391,9 @@ function bindSectionActions(section) {
   }
   if (section === 'projects') {
     bindProjects();
+  }
+  if (section === 'configs') {
+    bindConfigs();
   }
 }
 
@@ -621,16 +634,25 @@ function bindTerminal() {
 
 function connectTerminal() {
   if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) return;
+  if (terminalSocket && terminalSocket.readyState === WebSocket.CONNECTING) return;
+  resetTerminalConnection('Connecting...', false);
   const status = document.getElementById('terminal-status');
   status.textContent = 'Connecting...';
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-  terminalSocket = new WebSocket(`${scheme}://${location.host}/api/pty`);
-  terminalSocket.addEventListener('open', () => {
+  const socket = new WebSocket(`${scheme}://${location.host}/api/pty`);
+  terminalSocket = socket;
+  socket.addEventListener('open', () => {
+    if (terminalSocket !== socket) {
+      socket.close();
+      return;
+    }
     status.textContent = 'Connected';
     if (window.Terminal) {
+      const pane = document.getElementById('terminal-pane');
+      pane.innerHTML = '';
       document.getElementById('terminal-fallback').hidden = true;
       terminal = new window.Terminal({ cursorBlink: true, fontSize: 13, convertEol: true });
-      terminal.open(document.getElementById('terminal-pane'));
+      terminal.open(pane);
       terminal.focus();
       terminal.onData(sendTerminalInput);
       resizeTerminal();
@@ -640,7 +662,8 @@ function connectTerminal() {
       document.getElementById('terminal-pane').textContent = 'xterm.js unavailable; using raw terminal fallback.';
     }
   });
-  terminalSocket.addEventListener('message', event => {
+  socket.addEventListener('message', event => {
+    if (terminalSocket !== socket) return;
     if (terminal) {
       terminal.write(event.data);
     } else {
@@ -650,20 +673,36 @@ function connectTerminal() {
       output.scrollTop = output.scrollHeight;
     }
   });
-  terminalSocket.addEventListener('close', () => {
-    status.textContent = 'Disconnected';
+  socket.addEventListener('error', () => {
+    if (terminalSocket === socket) status.textContent = 'Connection error';
+  });
+  socket.addEventListener('close', () => {
+    if (terminalSocket === socket) {
+      resetTerminalConnection('Disconnected', false);
+    }
   });
 }
 
 function disconnectTerminal() {
-  if (terminalSocket) {
-    terminalSocket.close();
-    terminalSocket = null;
+  resetTerminalConnection('Disconnected', true);
+}
+
+function resetTerminalConnection(message = 'Disconnected', closeSocket = true) {
+  const socket = terminalSocket;
+  terminalSocket = null;
+  if (closeSocket && socket && socket.readyState !== WebSocket.CLOSED) {
+    socket.close();
   }
+  window.removeEventListener('resize', resizeTerminal);
   if (terminal) {
     terminal.dispose();
     terminal = null;
   }
+  rawTerminalBuffer = '';
+  const pane = document.getElementById('terminal-pane');
+  if (pane) pane.innerHTML = '';
+  const status = document.getElementById('terminal-status');
+  if (status) status.textContent = message;
 }
 
 function sendTerminalInput(data) {
@@ -674,6 +713,20 @@ function sendTerminalInput(data) {
 function resizeTerminal() {
   if (!terminalSocket || terminalSocket.readyState !== WebSocket.OPEN || !terminal) return;
   terminalSocket.send(JSON.stringify({ type: 'resize', cols: terminal.cols || 100, rows: terminal.rows || 30 }));
+}
+
+function bindConfigs() {
+  document.querySelectorAll('[data-config-edit]').forEach(button => {
+    button.addEventListener('click', () => openAgentConfig(button.dataset.configEdit));
+  });
+}
+
+function openAgentConfig(path) {
+  if (!path) return;
+  filePath = directoryName(path);
+  currentFile = path;
+  selectSection('files');
+  openFile(path);
 }
 
 function bindProjects() {
@@ -860,6 +913,12 @@ function formatBytes(value) {
     unit += 1;
   }
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function directoryName(path) {
+  const parts = String(path || '/').split('/').filter(Boolean);
+  parts.pop();
+  return `/${parts.join('/')}`;
 }
 
 function escapeHTML(value) {
