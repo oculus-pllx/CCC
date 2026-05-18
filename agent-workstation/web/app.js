@@ -39,6 +39,7 @@ let updatePollTimer = null;
 let networkPollTimer = null;
 let lastNetworkSample = null;
 let networkHistory = [];
+let terminalInitialized = false;
 
 async function loadHealth() {
   const target = document.getElementById('health');
@@ -117,13 +118,33 @@ async function logout() {
   await fetch('/api/logout', { method: 'POST', credentials: 'include' });
   snapshot = null;
   setSignedIn(false);
-  document.getElementById('section-body').textContent = 'Sign in is required before management data is shown.';
+  networkHistory = [];
+  lastNetworkSample = null;
+  stopTerminalSessions();
+  terminalTabs = [];
+  activeTerminalTabId = null;
+  nextTerminalTabId = 1;
+  terminalInitialized = false;
+  const termContainer = document.getElementById('terminal-container');
+  termContainer.hidden = true;
+  termContainer.innerHTML = '';
+  const body = document.getElementById('section-body');
+  body.hidden = false;
+  body.textContent = 'Sign in is required before management data is shown.';
 }
 
 function setSignedIn(signedIn) {
   document.getElementById('login-panel').hidden = signedIn;
   document.getElementById('logout-button').hidden = !signedIn;
   document.getElementById('refresh-button').hidden = !signedIn;
+  if (signedIn) startNetworkBackground();
+  else stopNetworkGraph();
+}
+
+function startNetworkBackground() {
+  if (networkPollTimer) return;
+  pollNetworkActivity();
+  networkPollTimer = setInterval(pollNetworkActivity, 2000);
 }
 
 function selectSection(section) {
@@ -137,8 +158,28 @@ function selectSection(section) {
 
 function renderSection(section) {
   const body = document.getElementById('section-body');
-  stopNetworkGraph();
-  stopTerminalSessions();
+  const termContainer = document.getElementById('terminal-container');
+
+  if (section === 'terminal') {
+    if (!snapshot) {
+      body.hidden = false;
+      termContainer.hidden = true;
+      body.textContent = 'Sign in is required before management data is shown.';
+      return;
+    }
+    body.hidden = true;
+    termContainer.hidden = false;
+    if (!terminalInitialized) {
+      termContainer.innerHTML = renderTerminal();
+      terminalInitialized = true;
+      bindTerminal();
+    }
+    return;
+  }
+
+  body.hidden = false;
+  termContainer.hidden = true;
+
   if (!snapshot && section !== 'settings') {
     body.textContent = 'Sign in is required before management data is shown.';
     return;
@@ -151,7 +192,6 @@ function renderSection(section) {
     services: renderServices,
     files: renderFiles,
     updates: renderUpdates,
-    terminal: renderTerminal,
     projects: renderProjects,
     configs: renderConfigs,
     oculus: renderOculus,
@@ -500,9 +540,6 @@ function bindSectionActions(section) {
   document.querySelectorAll('[data-service]').forEach(button => {
     button.addEventListener('click', () => controlService(button.dataset.service, button.dataset.operation));
   });
-  if (section === 'terminal') {
-    bindTerminal();
-  }
   if (section === 'files') {
     bindFileBrowser();
   }
@@ -700,11 +737,7 @@ async function runAccountOperation(payload) {
 }
 
 function bindNetwork() {
-  stopNetworkGraph();
-  lastNetworkSample = null;
-  networkHistory = [];
-  pollNetworkActivity();
-  networkPollTimer = setInterval(pollNetworkActivity, 2000);
+  drawNetworkGraph();
 }
 
 function stopNetworkGraph() {
