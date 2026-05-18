@@ -135,7 +135,8 @@ function renderOverview() {
   const totalServices = services.length;
   const cpuPercent = loadPercent(data.load?.one, data.cpu?.cores);
   const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
-  const updateBadge = updateText.includes('Up to date') ? 'Current' : updateText.includes('behind') ? 'Updates available' : 'Unknown';
+  const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
+  const updateBadge = updateStatusBadge(updateText, updateLog);
   const configs = snapshot.agentConfigs || [];
   const presentConfigs = configs.filter(config => config.exists).length;
   const logs = snapshot.logs || [];
@@ -160,7 +161,7 @@ function renderOverview() {
         <div class="dash-panel">
           <h3>Update Status</h3>
           <span class="badge ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' ? 'warn' : ''}">${escapeHTML(updateBadge)}</span>
-          <pre class="mini-output">${escapeHTML(firstUsefulLines(updateText, 6))}</pre>
+          <pre class="mini-output">${escapeHTML(firstUsefulLines(updatePanelText(updateText, updateLog), 8))}</pre>
         </div>
         <div class="dash-panel">
           <h3>Agent Configs</h3>
@@ -714,6 +715,19 @@ function statusTile(label, value) {
       <strong>${escapeHTML(value)}</strong>
     </div>
   `;
+}
+
+function updateStatusBadge(statusText, logText) {
+  if (logText.includes('Self-update successful') || statusText.includes('Up to date')) return 'Current';
+  if (logText.includes('Update script exited with errors') || logText.includes('Download failed')) return 'Update failed';
+  if (statusText.includes('commit(s) behind') || statusText.includes('Updates available')) return 'Updates available';
+  if (statusText.includes('Installed version not recorded')) return 'Not recorded';
+  return 'Unknown';
+}
+
+function updatePanelText(statusText, logText) {
+  const successLine = logText.split('\n').find(line => line.includes('Self-update successful'));
+  return [successLine, statusText].filter(Boolean).join('\n');
 }
 
 function gauge(label, value, detail) {

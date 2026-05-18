@@ -1596,7 +1596,12 @@ echo -e "  GitHub:    ${C}${latest_short}${N} — ${latest_date}"
 echo -e "             ${latest_subject}"
 echo ""
 
-if [[ -n "$installed_commit" ]] && run_as_user git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
+if [[ -z "$installed_commit" ]]; then
+  echo -e "  ${Y}Installed version not recorded yet.${N}"
+  echo -e "  ${D}Run a successful self-update once to create ${VERSION_FILE}.${N}"
+  echo -e "  ${D}Recent GitHub commits:${N}"
+  run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
+elif run_as_user git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
   behind=$(run_as_user git -C "$TMP_REPO" rev-list --count "${installed_commit}..HEAD")
   if [[ "$behind" -eq 0 ]]; then
     echo -e "  ${G}Up to date with origin/${CCC_SELF_UPDATE_REF}.${N}"
@@ -1605,7 +1610,7 @@ if [[ -n "$installed_commit" ]] && run_as_user git -C "$TMP_REPO" cat-file -e "$
     run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 "${installed_commit}..HEAD" | sed 's/^/  • /'
   fi
 else
-  echo -e "  ${Y}Behind count unknown.${N}"
+  echo -e "  ${Y}Installed commit is not present in the shallow GitHub checkout.${N}"
   echo -e "  ${D}Recent GitHub commits:${N}"
   run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
 fi
@@ -1750,8 +1755,9 @@ if [[ $STATUS -eq 0 ]]; then
       echo "CCC_INSTALLED_REF=\"$CCC_SELF_UPDATE_REF\""
       echo "CCC_INSTALLED_DATE=\"$(date '+%Y-%m-%d %H:%M:%S %z')\""
     } | sudo tee "$VERSION_FILE" >/dev/null
-  fi
-  echo -e "${G}${B}Self-update complete.${N}"
+	  fi
+	  echo -e "${G}${B}Self-update complete.${N}"
+	  echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')"
 else
   echo -e "${R}Update script exited with errors ($STATUS). Some steps may have partially applied.${N}"
 fi
