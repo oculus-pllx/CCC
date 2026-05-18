@@ -208,6 +208,17 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 
 func StartSelfUpdate() (CommandResult, error) {
 	logPath := "/var/log/ccc-self-update.log"
+
+	// Preflight: verify ccc-self-update is accessible via sudo
+	check := exec.Command("sudo", "-n", "bash", "-lc", "command -v ccc-self-update >/dev/null 2>&1 || { echo 'ccc-self-update not found in PATH'; exit 1; }")
+	if out, err := check.CombinedOutput(); err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return CommandResult{Command: "ccc-self-update", Output: "Cannot start update: " + msg, ExitCode: 1}, errors.New(msg)
+	}
+
 	command := "umask 022" +
 		" && mkdir -p /var/log" +
 		" && touch " + logPath +
@@ -216,16 +227,17 @@ func StartSelfUpdate() (CommandResult, error) {
 		" && setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null &"
 	cmd := exec.Command("sudo", "bash", "-lc", command)
 	cmd.Dir = workstationHome()
-	if err := cmd.Start(); err != nil {
-		return CommandResult{Command: "ccc-self-update", Output: err.Error(), ExitCode: 1}, err
+	if out, err := cmd.Output(); err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return CommandResult{Command: "ccc-self-update", Output: "Update launch failed: " + msg, ExitCode: 1}, errors.New(msg)
 	}
-	go func() {
-		_ = cmd.Wait()
-	}()
 	return CommandResult{
 		Command:  "ccc-self-update",
 		Cwd:      workstationHome(),
-		Output:   "Agent Workstation self-update monitor started.",
+		Output:   "Agent Workstation self-update started.",
 		ExitCode: 0,
 	}, nil
 }

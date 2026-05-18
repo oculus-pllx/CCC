@@ -565,20 +565,19 @@ async function runAction(action) {
   output.hidden = false;
   output.textContent = 'Running...';
   const selfUpdate = action === 'self-update';
-  if (selfUpdate) {
-    monitorSelfUpdate(output);
-  }
   try {
     const result = await postJSON('/api/action', { action });
     if (selfUpdate) {
+      if (result.exitCode !== 0) {
+        output.textContent = `Failed to start update:\n${stripANSI(result.output || 'unknown error')}`;
+        return;
+      }
+      monitorSelfUpdate(output);
       return;
     }
     output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
   } catch (error) {
-    if (selfUpdate) {
-      return;
-    }
     output.textContent = stripANSI(error.message);
   }
 }
