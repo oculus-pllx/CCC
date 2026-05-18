@@ -67,6 +67,16 @@ async function loadSnapshot() {
   return snapshot;
 }
 
+async function fetchWorkstationData() {
+  try {
+    const response = await fetch('/api/workstation', { credentials: 'include' });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 async function refresh() {
   const body = document.getElementById('section-body');
   try {
@@ -545,32 +555,42 @@ function monitorSelfUpdate(output) {
   output.textContent = formatSelfUpdateProgress('Update started. Waiting for completion...', attempts, '');
   const pollSelfUpdate = async () => {
     attempts += 1;
-    try {
-      await loadSnapshot();
-      const statusText = stripANSI(snapshot.updates?.agentWorkstation || '');
-      const logText = stripANSI(snapshot.updates?.selfUpdateLog || '');
-      const logTarget = document.getElementById('self-update-log-output');
-      const statusTarget = document.getElementById('update-status-output');
-      if (logTarget) logTarget.textContent = logText || 'No self-update log yet.';
-      if (statusTarget) statusTarget.textContent = statusText || 'No Agent Workstation update status.';
-      if (logText.includes('Self-update successful')) {
-        output.textContent = formatSelfUpdateProgress('Update finished successfully.', attempts, logText);
+    const data = await fetchWorkstationData();
+    if (!data) {
+      output.textContent = formatSelfUpdateProgress(
+        'Agent Workstation restarting — reconnecting...',
+        attempts, ''
+      );
+      if (attempts >= 120) {
+        output.textContent += '\n\nUpdate status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.';
         clearInterval(updatePollTimer);
         updatePollTimer = null;
-        return;
       }
-      if (logText.includes('Update script exited with errors') || logText.includes('Download failed') || logText.includes('Could not find update markers')) {
-        output.textContent = formatSelfUpdateProgress('Update failed. See Last Self-Update Log for details.', attempts, logText);
-        clearInterval(updatePollTimer);
-        updatePollTimer = null;
-        return;
-      }
-      output.textContent = formatSelfUpdateProgress(`Update still running... checked ${attempts} time${attempts === 1 ? '' : 's'}.`, attempts, logText);
-    } catch (error) {
-      output.textContent = formatSelfUpdateProgress(`Update may be restarting Agent Workstation; reconnecting... checked ${attempts} time${attempts === 1 ? '' : 's'}.`, attempts, '');
+      return;
     }
+    snapshot = data;
+    setSignedIn(true);
+    const statusText = stripANSI(data.updates?.agentWorkstation || '');
+    const logText = stripANSI(data.updates?.selfUpdateLog || '');
+    const logTarget = document.getElementById('self-update-log-output');
+    const statusTarget = document.getElementById('update-status-output');
+    if (logTarget) logTarget.textContent = logText || 'No self-update log yet.';
+    if (statusTarget) statusTarget.textContent = statusText || 'No Agent Workstation update status.';
+    if (logText.includes('Self-update successful')) {
+      output.textContent = formatSelfUpdateProgress('Update finished successfully.', attempts, logText);
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+      return;
+    }
+    if (logText.includes('Update script exited with errors') || logText.includes('Download failed') || logText.includes('Could not find update markers')) {
+      output.textContent = formatSelfUpdateProgress('Update failed. See Last Self-Update Log for details.', attempts, logText);
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+      return;
+    }
+    output.textContent = formatSelfUpdateProgress(`Update still running... checked ${attempts} time${attempts === 1 ? '' : 's'}.`, attempts, logText);
     if (attempts >= 120) {
-      output.textContent = `${output.textContent}\n\nUpdate status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.`;
+      output.textContent += '\n\nUpdate status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.';
       clearInterval(updatePollTimer);
       updatePollTimer = null;
     }
