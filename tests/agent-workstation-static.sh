@@ -89,6 +89,8 @@ require_file_contains agent-workstation/internal/system/management.go "env NO_CO
 require_file_contains agent-workstation/internal/system/management.go "sudo tail -120 /var/log/ccc-self-update.log"
 require_file_contains agent-workstation/internal/server/server.go "Cache-Control"
 
+require_file_contains claude-code-commander.sh 'CCC_SELF_UPDATE_REF="main"'
+require_file_not_contains claude-code-commander.sh 'agent-workstation-native-ui'
 require_file_not_contains claude-code-commander.sh "/opt/ccc-dashboard"
 require_file_not_contains claude-code-commander.sh "node-pty"
 require_file_not_contains claude-code-commander.sh "dashboard-token"
