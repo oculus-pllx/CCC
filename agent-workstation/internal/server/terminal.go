@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/creack/pty"
@@ -20,8 +19,7 @@ var ptyUpgrader = websocket.Upgrader{
 		if origin == "" {
 			return true
 		}
-		return strings.HasPrefix(origin, "http://"+r.Host) ||
-			strings.HasPrefix(origin, "https://"+r.Host)
+		return origin == "http://"+r.Host || origin == "https://"+r.Host
 	},
 }
 
