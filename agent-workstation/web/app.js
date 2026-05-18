@@ -578,11 +578,13 @@ async function createAccount() {
     output.textContent = 'Error: username is required';
     return;
   }
+  const passwordEl = document.getElementById('account-password');
+  const shellEl = document.getElementById('account-shell');
   await runAccountOperation({
     operation: 'create',
     username,
-    password: document.getElementById('account-password').value,
-    shell: document.getElementById('account-shell').value.trim() || '/bin/bash',
+    password: passwordEl ? passwordEl.value : '',
+    shell: shellEl ? shellEl.value.trim() || '/bin/bash' : '/bin/bash',
   });
 }
 
@@ -611,6 +613,7 @@ async function deleteAccount(username) {
 
 async function runAccountOperation(payload) {
   const output = document.getElementById('account-output');
+  if (!output) return;
   output.hidden = false;
   output.textContent = 'Running...';
   try {
@@ -619,8 +622,10 @@ async function runAccountOperation(payload) {
     if (payload.operation === 'create') {
       const usernameEl = document.getElementById('account-username');
       const passwordEl = document.getElementById('account-password');
+      const shellEl = document.getElementById('account-shell');
       if (usernameEl) usernameEl.value = '';
       if (passwordEl) passwordEl.value = '';
+      if (shellEl) shellEl.value = '/bin/bash';
     }
     await loadSnapshot();
     renderSection('accounts');
