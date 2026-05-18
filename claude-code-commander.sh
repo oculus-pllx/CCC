@@ -1590,15 +1590,15 @@ if [[ -n "$installed_commit" ]]; then
   installed_short=${installed_commit:0:7}
   echo -e "  Installed: ${C}${installed_short}${N}${installed_date:+ — $installed_date}"
 else
-  echo -e "  Installed: ${Y}unknown${N} ${D}(run ccc-self-update once to record it)${N}"
+  echo -e "  Installed: ${Y}not recorded${N} ${D}(manual install or pre-versioned update)${N}"
 fi
 echo -e "  GitHub:    ${C}${latest_short}${N} — ${latest_date}"
 echo -e "             ${latest_subject}"
 echo ""
 
 if [[ -z "$installed_commit" ]]; then
-  echo -e "  ${Y}Installed version not recorded yet.${N}"
-  echo -e "  ${D}Run a successful self-update once to create ${VERSION_FILE}.${N}"
+  echo -e "  ${Y}Update check: installed commit is not recorded.${N}"
+  echo -e "  ${D}Latest GitHub commit is shown above. Apply update to record this install.${N}"
   echo -e "  ${D}Recent GitHub commits:${N}"
   run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
 elif run_as_user git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
@@ -1610,9 +1610,13 @@ elif run_as_user git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/
     run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 "${installed_commit}..HEAD" | sed 's/^/  • /'
   fi
 else
-  echo -e "  ${Y}Installed commit is not present in the shallow GitHub checkout.${N}"
-  echo -e "  ${D}Recent GitHub commits:${N}"
-  run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
+  if [[ "${installed_commit:0:7}" == "$latest_short" ]]; then
+    echo -e "  ${G}Current: installed commit matches latest GitHub commit.${N}"
+  else
+    echo -e "  ${Y}Update available: installed commit differs from latest GitHub commit.${N}"
+    echo -e "  ${D}Recent GitHub commits:${N}"
+    run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
+  fi
 fi
 
 if [[ "$SHOW_ACTIONS" -eq 1 ]]; then
