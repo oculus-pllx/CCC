@@ -1,156 +1,198 @@
-# CCC Handoff / Status
+# Agent Workstation Handoff
 
 **Repo:** https://github.com/oculus-pllx/CCC  
-**Date:** 2026-05-15  
-**Status:** Active development — pending first clean end-to-end provision with latest script.
+**Branch:** `agent-workstation-native-ui`
+**Date:** 2026-05-18
+**Status:** Theme system complete. Prism dark base + 7-theme picker live.
+
+Do not commit this file unless explicitly requested.
 
 ---
 
-## What This Is
+## Current Product Direction
 
-Single-file Proxmox LXC provisioner. Run on a Proxmox host as root. Interactively collects config, creates an Ubuntu 26.04 (or Debian 13) container, and provisions it end-to-end in ~10–15 minutes. No Docker. No Ansible. No external state.
+CCC is now Agent Workstation: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
 
-Target audience: homelab operators running Proxmox who want a clean Claude Code environment without manual setup.
-
----
-
-## Current State
-
-| Area | Status |
-|---|---|
-| Script structure | Complete |
-| README | ✅ Synced |
-| Repo | ✅ `main` at `oculus-pllx/CCC` |
-| Live provision test | ⚠️ Pending first clean end-to-end pass with latest script |
-| Static IP / gateway / DNS validation | ✅ Re-prompt on bad format |
-| Storage auto-detection | ✅ `pvesm status --content rootdir`, defaults to `local-lvm` |
-| Network ping target | ✅ Uses `CT_GW` (static) or `CT_DNS` (DHCP) |
-| Progress indicators | ✅ `[N/28]` step labels + 30s elapsed ticker |
-| IPv6 disabled | ✅ sysctl + apt ForceIPv4 |
-| Ubuntu status pre-check | ✅ status.canonical.com + archive.ubuntu.com |
-| Debian 13 (Trixie) option | ✅ OS choice at provision start |
-| Proxmox HA support | ✅ Cluster-only, optional group, non-fatal |
-| Claude binary find | ✅ Searches all of `/home/claude-code`, matches symlinks, fatal on miss |
-| pip PATH warnings | ✅ `--no-warn-script-location` |
-| False "Ready!" on failure | ✅ Fatal on Claude miss — summary never prints |
-| npx install prompts | ✅ `npx --yes` everywhere |
-| Playwright | ✅ Skipped at provision — `ccc-install-playwright` on demand |
-| statusLine in settings.json | ✅ Wired to `~/.claude/bin/statusline-command.sh` |
-| Cockpit title | ✅ "Claude Code Commander" via `cockpit.conf` |
-| udisks2 noise | ✅ Purged after Cockpit install |
-| Cockpit "offline" update error | ✅ NM managed dummy connection + PackageKit `UseNetworkManager=false` |
-| code-server start failure | ✅ Removed invalid `socket-timeout` option from config.yaml |
-| code-server password special chars | ✅ `printf` + `tee` — no heredoc expansion |
-| chpasswd special chars | ✅ `printf '%s:%s'` piped via stdin |
-| ccc-self-update | ✅ Downloads latest script, re-runs tools/MOTD/plugin steps only |
-| ccc-update-status | ✅ Shows installed commit, latest GitHub commit, behind count |
-| ccc-onboarding / ccc-setup | ✅ First-login wizard: git identity, SSH keygen, GitHub known_hosts |
-| oculus-configs (step 18) | ✅ Clones repo, copies CLAUDE.md, rules/, templates/, AGENTS.md, GEMINI.md |
-| Cockpit CCC plugin (step 27) | ✅ Prism-dark 6-tab plugin: Overview, Projects, CLAUDE.md, MCP, Plugins, Updates |
-| MOTD | ✅ Shows :8080/:9090, all ccc-* commands |
+Hard constraints still in force:
+- Keep code-server / VS Code Web on port `8080`.
+- Agent Workstation native management UI owns port `9090`.
+- Do not use Cockpit as the primary UI for this branch.
+- Do not add a second standalone web GUI.
+- Do not use iframe wrappers.
+- Do not install or run `configure.py`.
+- Do not use `node-pty`.
+- Do not add port `4827`.
+- Do not reintroduce `/opt/ccc-dashboard`.
+- Keep plugin/service code self-contained in `claude-code-commander.sh` for install/self-update.
 
 ---
 
-## Known Risks / Assumptions
+## Latest Commits
 
-### Ubuntu 26.04 template
-Regex: `ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst`. Update if Proxmox changes naming scheme.
-
-### Storage detection
-Queries `pvesm status --content rootdir`. Defaults to `local-lvm`. Falls back to string `local-lvm` if query returns nothing.
-
-### Rust installed twice
-Root install (unused) + claude-code user install. Root install wastes ~2 min. Future cleanup candidate.
-
-### oculus-configs clone (step 18)
-Cloned to `/opt/oculus-configs`. Expects the following paths in that repo:
-- `claude/CLAUDE.md`
-- `claude/rules/` (directory)
-- `templates/` (directory)
-- `codex/skills/AGENTS.md`
-- `gemini/skills/GEMINI.md`
-
-Missing paths emit `warn` (yellow) and continue — not fatal.
-
-### Cockpit plugin (step 27)
-Written to `/usr/share/cockpit/ccc/`. Inside `CCC_UPDATEABLE_START/END` so `ccc-self-update` can push new plugin versions without reprovisioning. Dev scaffold in `docs/cockpit-plugin/` (uses `mock-cockpit.js` for local browser testing; production build uses `/cockpit/base1/cockpit.js`).
-
----
-
-## TODOs / Future Work
-
-- [ ] Complete first clean end-to-end provision with latest script
-- [ ] Test oculus-configs paths in live container
-- [ ] Test Cockpit plugin in live Cockpit session (all 6 tabs)
-- [ ] Remove redundant root Rust install (~2 min savings)
-- [ ] Add `--non-interactive` / config-file mode for automated provisioning
-- [ ] Test storage auto-detection on standard `local-lvm` Proxmox install
-- [ ] Test SSH key install with both RSA and ed25519
-
----
-
-## File Map
-
-```
-claude-code-commander.sh     Main provisioner (~2400 lines, bash)
-README.md                    User-facing docs
-HANDOFF.md                   This file — project status and context
-docs/cockpit-plugin/
-  manifest.json              Cockpit plugin manifest
-  mock-cockpit.js            Mock cockpit API for local browser dev
-  index.html                 Full Prism-dark CCC plugin (production: /cockpit/base1/cockpit.js)
-docs/superpowers/
-  specs/                     Design specs
-  plans/                     Implementation plans
+```text
+6180c12 feat(network): make graph accent-aware — RX line tracks active theme color
+6c7770a feat(settings): settings page with 7-theme swatch picker
+3e54e60 feat(theme): theme engine — THEMES map, applyTheme, loadTheme, hexToRgb helpers
+9a6f3f7 feat(ui): Google Fonts (IBM Plex Mono/Sans) + Settings nav item
+de1cc5c feat(styles): complete Prism dark CSS variable palette
+16a267e feat(styles): Prism dark base — navy backgrounds, accent green, custom properties
+427e06b fix(security): use exact origin comparison in WebSocket CheckOrigin to prevent subdomain bypass
+80607bf fix(security): method guard, WebSocket origin, cookie Secure flag, stripANSI, window.open protocol, remove formatPercent, ParseMemInfo tolerance
 ```
 
 ---
 
-## Key Script Sections (approximate — line numbers shift with edits)
+## Theme System (This Session)
 
-| Section | Notes |
-|---|---|
-| Colors / helpers | Top of file |
-| `preflight()` | root + pct/pveam/pvesh check |
-| `check_apt_connectivity()` | Canonical status API + mirror reachability |
-| `get_config()` | All interactive prompts incl. OS choice, HA detection |
-| `get_template()` | pveam download if needed |
-| `create_container()` | pct create |
-| `configure_ha()` | ha-manager add (cluster only) |
-| `start_container()` | pct start + gateway ping |
-| `provision_container()` | Heredoc push + pct exec, elapsed timer |
-| `print_summary()` | Final ready box (only prints on full success) |
-| `main()` | Wires all above in order |
+### Prism Dark Base (`16a267e`, `de1cc5c`)
+Full CSS custom-property palette applied: navy backgrounds (`--bg-primary: #0a0e1a`, `--bg-secondary: #0d1421`), IBM Plex Mono font, accent green default (`#00ff88`). All component colors wired to CSS variables.
 
-### Inside the provision heredoc (28 steps)
+### Google Fonts + Settings nav (`9a6f3f7`)
+IBM Plex Mono and IBM Plex Sans loaded via Google Fonts preconnect. "Settings" added to sidebar nav (gear icon).
 
-| Step | Block |
-|---|---|
-| 1 | Locale / timezone |
-| 2 | System update |
-| 3 | Core apt packages |
-| 4 | Build tools & dev libraries |
-| 5 | Search & productivity tools |
-| 6 | Database clients |
-| 7 | yq (mikefarah Go binary) |
-| 8 | Node.js 22 LTS |
-| 9 | Global npm packages (typescript, ts-node, tsx only) |
-| 10 | Go |
-| 11 | Rust (system) |
-| 12 | Create claude-code user |
-| 13 | Rust (claude-code user) |
-| 14 | Python ecosystem (pip available, no pre-installs) |
-| 15 | Claude Code install + symlink (fatal on miss) |
-| 16 | Playwright (skipped — ccc-install-playwright) |
-| 17 | settings.json (all perms, statusLine, agent teams, 64k) |
-| 18 | oculus-configs clone → CLAUDE.md, rules/, templates/, AGENTS.md, GEMINI.md |
-| 19 | Statusline script |
-| 20 | code-server + WELCOME.md + .vscode workspace |
-| 21 | SSH hardening |
-| 22 | Shell environment + aliases + ccc function |
-| 23 | ccc-install-playwright / ccc-install-codex / ccc-install-jcodemunch |
-| 24 | MOTD (live IPs, all ccc-* commands) |
-| 25 | Git defaults |
-| 26 | Auto-update cron (Sundays 3 AM ET) |
-| 27 | Cockpit + NM dummy connection + PackageKit offline fix + cockpit.conf + CCC plugin |
-| 28 | Cleanup |
+### Theme engine (`3e54e60`)
+`THEMES` map in `app.js` defines 7 palettes: Green (default), Cyan, Purple, Gold, Red, Blue, Orange. `applyTheme(name)` writes CSS variables + stores choice to `localStorage` key `aw-theme`. `loadTheme()` restores on page load. `hexToRgb()` utility used for network graph integration.
+
+### Settings page (`6c7770a`)
+`renderSettings()` / `bindSettings()` build a swatch picker grid. Active theme highlighted with checkmark overlay. Clicking a swatch applies and persists immediately.
+
+### Network graph accent-aware colors (`6180c12`)
+RX line color reads `--accent` via `getComputedStyle` at draw time. Switches automatically when theme changes without a page reload.
+
+---
+
+## What Was Fixed in the Previous Session
+
+All work is on `agent-workstation-native-ui`. The following bugs are fixed and code-reviewed:
+
+### Terminal reconnect (`a0d13e1`)
+`renderSection` now unconditionally calls `stopTerminalSessions()` before re-render. Previously the `if (section !== 'terminal')` guard left the xterm.js instance attached to detached DOM, causing a blank terminal that could not recover without a service restart.
+
+### Self-update GUI (`e87040f`)
+- Replaced `nohup` with `setsid` in `StartSelfUpdate` so the update process survives any PTY/session cleanup during the service restart.
+- Removed the `catch` branch that was overwriting the monitor's live progress display with a static message.
+
+### `CCC_SELF_UPDATE_REF` → `main` (`acd3bc4`)
+All three occurrences in `claude-code-commander.sh` (global constant, embedded `ccc-self-update`, embedded `ccc-update-status`) now point to `main`. After pushing to `origin/main`, deployed workstations will self-update from the correct branch.
+
+### Agent Configs inline editor (`4d6ab73`, `37d9206`)
+Edit buttons on the Configs page now open an inline editor panel instead of navigating to the Files section. Includes Save/Cancel, loading state, error display, and disabled-during-save guard.
+
+### Account management (`5768c86`, `4190d72`)
+`createAccount` validates username before submit. `runAccountOperation` clears username, password, and shell fields after successful create. Null guards added throughout.
+
+### Overview → Updates badge link (`5768c86`)
+"Updates available" badge is now a `<button class="badge badge-link">` that navigates to the Updates section when clicked.
+
+### Network graph legend (`5768c86`)
+RX/TX legend with color-coded labels added below the canvas. `.network-graph-wrap` is responsive (`overflow-x: auto`, `max-width: 100%`).
+
+### Security fixes (`80607bf`, `427e06b`)
+- `handleOverview`: rejects non-GET with 405
+- `stripANSI`: regex covers all ANSI escape sequences, not just color codes
+- `window.open`: uses `location.protocol` instead of hardcoded `http://`
+- Dead `formatPercent` function removed
+- WebSocket `CheckOrigin`: exact host comparison (prevents subdomain bypass)
+- `sessionCookie`: converted to `(s *Server)` method; `Config.SecureCookies bool` added for HTTPS deployments
+- `ParseMemInfo`: `continue` on non-numeric lines instead of returning an error
+
+---
+
+## Push to `origin/main` — Still Pending
+
+The user chose to push `agent-workstation-native-ui` as `main` to make deployed workstations self-update from the right branch. This has NOT been done yet. Confirm with the user before running:
+
+```bash
+git push origin agent-workstation-native-ui:main --force-with-lease
+git push origin agent-workstation-native-ui
+```
+
+---
+
+## Self-Update State
+
+The `setsid` fix and `CCC_SELF_UPDATE_REF=main` change are in code but not yet validated against a live LXC (requires the push to `origin/main` first, then a `sudo ccc-self-update` in the container).
+
+Relevant commands inside the LXC:
+
+```bash
+ccc-update-status
+sudo ccc-self-update
+sudo tail -160 /var/log/ccc-self-update.log
+sudo systemctl status agent-workstation.service --no-pager -l
+```
+
+---
+
+## Verification Run Locally (2026-05-18, post-theme)
+
+```
+cd agent-workstation && go test ./...          → all PASS (11 tests)
+go build ./cmd/server                          → OK
+bash tests/agent-workstation-static.sh         → passed
+node --check agent-workstation/web/app.js      → OK (syntax clean)
+bash -n claude-code-commander.sh               → OK
+```
+
+---
+
+## Next Steps
+
+1. **Push to `origin/main`** (confirm with user — already pushed to `origin/agent-workstation-native-ui`):
+   ```bash
+   git push origin agent-workstation-native-ui:main --force-with-lease
+   ```
+
+2. **Validate theme system in live LXC** — browser test `http://<lxc-ip>:9090`:
+   - Settings page: all 7 theme swatches visible; clicking each applies accent color site-wide
+   - Network graph: RX line color updates immediately when theme changes (no reload required)
+   - Theme persists across page reloads (localStorage key `aw-theme`)
+   - IBM Plex Mono / IBM Plex Sans fonts load (requires internet access in LXC, or bundle fonts)
+
+3. **Validate existing features** in live LXC after theme deployment:
+   - Updates page: click "Apply Agent Workstation Update", watch log, confirm no `Failed to fetch`
+   - Agent Configs: Edit opens inline, Save updates file, Cancel closes panel
+   - Accounts: create new user (validate username required), confirm form clears on success
+   - Overview: click update badge, confirm navigates to Updates tab
+   - Terminal: navigate away and back, confirm reconnects without blank screen
+
+4. **Font bundling** (optional) — if the LXC has no outbound internet, download IBM Plex Mono/Sans
+   and serve from `agent-workstation/web/fonts/` to avoid FOUT or missing fonts.
+
+---
+
+## Current Native UI Features
+
+Port `9090` native Agent Workstation service (Prism dark theme, 7 accent colors):
+- Overview dashboard with gauges/status tiles and clickable update badge.
+- Logs.
+- Network page with addresses/routes, live activity graph, and RX/TX legend.
+- Accounts page with create (validated), password, shell, groups, and delete controls.
+- Services page with service controls.
+- Full file browser/editor with create, rename, delete.
+- Updates page with update status, live self-update log/progress, OS update action.
+- Terminal with Go PTY websocket, xterm.js, reconnect cleanup, and browser-side tabs.
+- Projects page with create, rename, delete, browse files, open in VS Code Web.
+- Agent Configs page with inline editor (load, edit, save, cancel) for Claude `CLAUDE.md`, Codex `AGENTS.md`, Gemini `GEMINI.md`, and Claude MCP config.
+- `oculus-configs` status/sync page.
+- Settings page with 7-theme swatch picker (Green default, Cyan, Purple, Gold, Red, Blue, Orange); persists to `localStorage` key `aw-theme`.
+
+code-server remains on port `8080`.
+
+---
+
+## Theme System Files
+
+```text
+agent-workstation/web/styles.css       ← Prism dark CSS variables + full component palette
+agent-workstation/web/index.html       ← Google Fonts preconnect, Settings nav item
+agent-workstation/web/app.js           ← THEMES map, applyTheme, loadTheme, hexToRgb, renderSettings, bindSettings
+```
+
+---
+
+## Dirty/Untracked File Rules
+
+Do not touch unrelated untracked screenshots, `docs/reference/prism-brand.md`, `docs/reference/update.png`, or `.superpowers` unless explicitly asked.
+
+If `agent-workstation/server` appears untracked, it is a Go build artifact from `go build ./cmd/server`; remove or ignore it, do not commit it.
