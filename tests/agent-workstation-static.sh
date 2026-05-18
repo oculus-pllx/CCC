@@ -94,6 +94,10 @@ require_file_contains agent-workstation/internal/system/management.go "Agent Wor
 require_file_contains agent-workstation/internal/system/management.go "setsid env NO_COLOR=1 ccc-self-update"
 require_file_contains agent-workstation/internal/system/management.go "sudo tail -120 /var/log/ccc-self-update.log"
 require_file_contains agent-workstation/internal/server/server.go "Cache-Control"
+require_file_contains agent-workstation/web/app.js '\x1b\['
+require_file_not_contains agent-workstation/web/app.js '(?:\x1b)?'
+require_file_not_contains agent-workstation/web/app.js '`http://${location.hostname}'
+require_file_not_contains agent-workstation/web/app.js 'formatPercent'
 
 require_file_contains claude-code-commander.sh 'CCC_SELF_UPDATE_REF="main"'
 require_file_not_contains claude-code-commander.sh 'agent-workstation-native-ui'

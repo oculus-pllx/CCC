@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/creack/pty"
@@ -15,7 +16,12 @@ import (
 
 var ptyUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		return strings.HasPrefix(origin, "http://"+r.Host) ||
+			strings.HasPrefix(origin, "https://"+r.Host)
 	},
 }
 

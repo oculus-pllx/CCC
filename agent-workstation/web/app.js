@@ -1110,7 +1110,7 @@ function bindProjects() {
   });
   document.querySelectorAll('[data-project-open]').forEach(button => {
     button.addEventListener('click', () => {
-      window.open(`http://${location.hostname}:8080/?folder=${encodeURIComponent(button.dataset.projectOpen)}`, '_blank');
+      window.open(`${location.protocol}//${location.hostname}:8080/?folder=${encodeURIComponent(button.dataset.projectOpen)}`, '_blank');
     });
   });
   document.querySelectorAll('[data-project-rename]').forEach(button => {
@@ -1279,11 +1279,7 @@ function lastLines(text, limit) {
 }
 
 function stripANSI(value) {
-  return String(value || '').replace(/(?:\x1b)?\[[0-9;]*m/g, '');
-}
-
-function formatPercent(value) {
-  return typeof value === 'number' ? `${value.toFixed(1)}% used` : 'unknown';
+  return String(value || '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
 }
 
 function formatBytes(value) {

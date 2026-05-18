@@ -28,6 +28,7 @@ type Config struct {
 	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
 	AccountOperation func(operation system.AccountOperation) (system.CommandResult, error)
 	NetworkActivity  func() (system.NetworkActivity, error)
+	SecureCookies    bool // set true when serving behind HTTPS
 }
 
 type Server struct {
@@ -48,6 +49,7 @@ type Server struct {
 	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
 	accountOperation func(operation system.AccountOperation) (system.CommandResult, error)
 	networkActivity  func() (system.NetworkActivity, error)
+	secureCookies    bool
 }
 
 func New(config Config) *Server {
@@ -69,6 +71,7 @@ func New(config Config) *Server {
 		projectOperation: config.ProjectOperation,
 		accountOperation: config.AccountOperation,
 		networkActivity:  config.NetworkActivity,
+		secureCookies:    config.SecureCookies,
 	}
 	if s.overview == nil {
 		s.overview = system.CollectOverview
@@ -140,7 +143,11 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	overview, err := s.overview()
 	if err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
@@ -361,12 +368,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	http.SetCookie(w, sessionCookie(s.sessionToken, 0))
+	http.SetCookie(w, s.sessionCookie(s.sessionToken, 0))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
-	http.SetCookie(w, sessionCookie("", -1))
+	http.SetCookie(w, s.sessionCookie("", -1))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -385,13 +392,14 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 	})
 }
 
-func sessionCookie(value string, maxAge int) *http.Cookie {
+func (s *Server) sessionCookie(value string, maxAge int) *http.Cookie {
 	return &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		Secure:   s.secureCookies,
 		MaxAge:   maxAge,
 	}
 }

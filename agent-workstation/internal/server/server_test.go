@@ -346,6 +346,19 @@ func TestProtectedNetworkActivityReturnsCounters(t *testing.T) {
 	}
 }
 
+func TestOverviewRejectsNonGetMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/overview", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", res.Code)
+	}
+}
+
 func TestSelfUpdateActionReturnsMonitorStartedMessage(t *testing.T) {
 	started := false
 	srv := New(Config{

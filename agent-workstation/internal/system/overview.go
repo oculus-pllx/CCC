@@ -90,7 +90,7 @@ func ParseMemInfo(input string) (MemoryInfo, error) {
 		key := strings.TrimSuffix(fields[0], ":")
 		value, err := strconv.ParseUint(fields[1], 10, 64)
 		if err != nil {
-			return MemoryInfo{}, fmt.Errorf("parse %s: %w", key, err)
+			continue
 		}
 		values[key] = value * 1024
 	}
