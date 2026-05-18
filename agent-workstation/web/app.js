@@ -19,6 +19,7 @@ let currentFile = '';
 let terminalSocket = null;
 let terminal = null;
 let rawTerminalBuffer = '';
+let updatePollTimer = null;
 
 async function loadHealth() {
   const target = document.getElementById('health');
@@ -264,16 +265,22 @@ function renderFiles() {
 }
 
 function renderUpdates() {
+  const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
+  const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
+  const updateBadge = updateStatusBadge(updateText, updateLog);
   return `
     <div class="action-row">
       <button class="small-button" data-action="update-status">Refresh Agent Workstation Status</button>
       <button class="small-button" data-action="self-update">Apply Agent Workstation Update</button>
       <button class="small-button" data-action="os-update">Run OS Update</button>
     </div>
+    <div class="update-state">
+      <span class="badge ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' || updateBadge === 'Not recorded' ? 'warn' : updateBadge === 'Update failed' ? 'fail' : ''}">${escapeHTML(updateBadge)}</span>
+    </div>
     <h3>Agent Workstation</h3>
-    <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.agentWorkstation || 'No Agent Workstation update status.'))}</pre>
+    <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Agent Workstation update status.')}</pre>
     <h3>Last Self-Update Log</h3>
-    <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.selfUpdateLog || 'No self-update log yet.'))}</pre>
+    <pre id="self-update-log-output" class="output">${escapeHTML(updateLog || 'No self-update log yet.')}</pre>
     <h3>OS Packages</h3>
     <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.os || 'No package update data.'))}</pre>
     <pre id="action-output" class="output" hidden></pre>
@@ -384,10 +391,56 @@ async function runAction(action) {
   try {
     const result = await postJSON('/api/action', { action });
     output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
+    if (action === 'self-update') {
+      monitorSelfUpdate(output);
+      return;
+    }
     await loadSnapshot();
   } catch (error) {
     output.textContent = stripANSI(error.message);
   }
+}
+
+function monitorSelfUpdate(output) {
+  if (updatePollTimer) {
+    clearInterval(updatePollTimer);
+  }
+  let attempts = 0;
+  output.hidden = false;
+  output.textContent = 'Update started. Waiting for completion...';
+  updatePollTimer = setInterval(async () => {
+    attempts += 1;
+    try {
+      await loadSnapshot();
+      const statusText = stripANSI(snapshot.updates?.agentWorkstation || '');
+      const logText = stripANSI(snapshot.updates?.selfUpdateLog || '');
+      const logTarget = document.getElementById('self-update-log-output');
+      const statusTarget = document.getElementById('update-status-output');
+      if (logTarget) logTarget.textContent = logText || 'No self-update log yet.';
+      if (statusTarget) statusTarget.textContent = statusText || 'No Agent Workstation update status.';
+      if (logText.includes('Self-update successful')) {
+        output.textContent = 'Update finished successfully. Refreshing status...';
+        clearInterval(updatePollTimer);
+        updatePollTimer = null;
+        await refresh();
+        return;
+      }
+      if (logText.includes('Update script exited with errors') || logText.includes('Download failed') || logText.includes('Could not find update markers')) {
+        output.textContent = 'Update failed. See Last Self-Update Log for details.';
+        clearInterval(updatePollTimer);
+        updatePollTimer = null;
+        return;
+      }
+      output.textContent = `Update still running... checked ${attempts} time${attempts === 1 ? '' : 's'}.`;
+    } catch (error) {
+      output.textContent = `Update may be restarting Agent Workstation; reconnecting... checked ${attempts} time${attempts === 1 ? '' : 's'}.`;
+    }
+    if (attempts >= 120) {
+      output.textContent = 'Update status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.';
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+    }
+  }, 5000);
 }
 
 async function controlService(service, operation) {

@@ -220,6 +220,15 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   color: #fbbf24;
 }
 
+.badge.fail {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.update-state {
+  margin-bottom: 12px;
+}
+
 .mini-row {
   display: flex;
   justify-content: space-between;
