@@ -183,7 +183,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   border-radius: 50%;
   background:
     radial-gradient(circle at center, var(--panel2) 0 57%, transparent 58%),
-    conic-gradient(var(--accent) calc(var(--value) * 1%), rgba(255,255,255,0.07) 0);
+    conic-gradient(var(--accent) calc(var(--value) * 1%), rgba(255,255,255,0.15) 0);
 }
 
 .gauge-inner {
@@ -379,6 +379,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   display: grid;
   gap: 8px;
   margin-bottom: 16px;
+  overflow-x: auto;
 }
 
 #network-graph {
@@ -729,10 +730,6 @@ td {
   opacity: 0.85;
 }
 
-.network-graph-wrap {
-  overflow-x: auto;
-}
-
 .network-graph-wrap canvas {
   display: block;
   max-width: 100%;
@@ -777,6 +774,11 @@ td {
 
 .settings-swatch-row:hover {
   border-color: var(--accent);
+}
+
+.settings-swatch-row:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .settings-swatch-row.active {
