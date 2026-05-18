@@ -304,6 +304,7 @@ function renderFiles() {
 function renderUpdates() {
   const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
   const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
+  const osUpdateText = formatOSPackageStatus(snapshot.updates?.os || '');
   const updateBadge = updateStatusBadge(updateText, updateLog);
   return `
     <div class="action-row">
@@ -319,7 +320,7 @@ function renderUpdates() {
     <h3>Last Self-Update Log</h3>
     <pre id="self-update-log-output" class="output">${escapeHTML(updateLog || 'No self-update log yet.')}</pre>
     <h3>OS Packages</h3>
-    <pre class="output">${escapeHTML(stripANSI(snapshot.updates?.os || 'No package update data.'))}</pre>
+    <pre class="output">${escapeHTML(osUpdateText)}</pre>
     <pre id="action-output" class="output" hidden></pre>
   `;
 }
@@ -469,9 +470,9 @@ async function runAction(action) {
     output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
   } catch (error) {
-    if (selfUpdate && updatePollTimer) {
-      clearInterval(updatePollTimer);
-      updatePollTimer = null;
+    if (selfUpdate) {
+      output.textContent = formatSelfUpdateProgress('Update request is reconnecting. Agent Workstation may be restarting...', 0, '');
+      return;
     }
     output.textContent = stripANSI(error.message);
   }
@@ -1125,6 +1126,18 @@ function updateStatusBadge(statusText, logText) {
 function updatePanelText(statusText, logText) {
   const successLine = logText.split('\n').find(line => line.includes('Self-update successful'));
   return [successLine, statusText].filter(Boolean).join('\n');
+}
+
+function formatOSPackageStatus(text) {
+  const lines = stripANSI(text)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(line => line !== 'Listing...');
+  if (!lines.length) {
+    return 'No OS package updates available.';
+  }
+  return lines.join('\n');
 }
 
 function gauge(label, value, detail) {
