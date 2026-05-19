@@ -578,6 +578,12 @@ async function runAction(action) {
     output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
   } catch (error) {
+    if (selfUpdate) {
+      // Network error during self-update POST likely means the service restarted
+      // before it could send a response. The update probably started — monitor anyway.
+      monitorSelfUpdate(output);
+      return;
+    }
     output.textContent = stripANSI(error.message);
   }
 }

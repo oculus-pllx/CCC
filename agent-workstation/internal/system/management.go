@@ -1,6 +1,7 @@
 package system
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -225,10 +226,19 @@ func StartSelfUpdate() (CommandResult, error) {
 		" && chmod 0644 " + logPath +
 		" && printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
 		" && setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null &"
+	// Use Start+Wait instead of Output/Run so that no stdout/stderr pipe is
+	// inherited by the setsid child process. If Output() is used, the child
+	// inherits bash's stderr pipe and cmd.Output() blocks until ccc-self-update
+	// exits (minutes), causing the HTTP response to never be sent.
+	var launchErr bytes.Buffer
 	cmd := exec.Command("sudo", "bash", "-lc", command)
 	cmd.Dir = workstationHome()
-	if out, err := cmd.Output(); err != nil {
-		msg := strings.TrimSpace(string(out))
+	cmd.Stderr = &launchErr
+	if err := cmd.Start(); err != nil {
+		return CommandResult{Command: "ccc-self-update", Output: "Update launch failed: " + err.Error(), ExitCode: 1}, err
+	}
+	if err := cmd.Wait(); err != nil {
+		msg := strings.TrimSpace(launchErr.String())
 		if msg == "" {
 			msg = err.Error()
 		}
