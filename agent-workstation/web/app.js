@@ -1482,6 +1482,7 @@ function applyTheme(name) {
   const rgb = hexToRgb(hex);
   const root = document.documentElement;
   root.style.setProperty('--accent', hex);
+  root.style.setProperty('--accent-rgb', rgb);
   root.style.setProperty('--border', `rgba(${rgb}, 0.12)`);
   root.style.setProperty('--accent-bg', `rgba(${rgb}, 0.10)`);
   localStorage.setItem(THEME_STORAGE_KEY, name);

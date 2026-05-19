@@ -168,4 +168,15 @@ require_file_contains agent-workstation/web/app.js "settings: 'Settings'"
 require_file_not_contains agent-workstation/web/app.js "'#68a6f8'"
 require_file_not_contains agent-workstation/web/styles.css '#68a6f8'
 
+# Visual polish
+require_file_contains agent-workstation/web/styles.css 'pulse-dot'
+require_file_contains agent-workstation/web/styles.css 'section-fade'
+require_file_contains agent-workstation/web/styles.css 'section-enter'
+require_file_contains agent-workstation/web/styles.css 'drop-shadow'
+require_file_contains agent-workstation/web/styles.css 'scanlines'
+require_file_contains agent-workstation/web/app.js 'animateGauges'
+require_file_contains agent-workstation/web/app.js '--accent-rgb'
+require_file_contains agent-workstation/web/app.js 'section-enter'
+require_file_contains agent-workstation/web/app.js 'health.online'
+
 echo "agent-workstation static checks passed"
