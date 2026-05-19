@@ -877,3 +877,12 @@ td {
   font-size: 11px;
   color: var(--text);
 }
+
+@keyframes section-fade {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.section-enter {
+  animation: section-fade 0.28s ease-out;
+}

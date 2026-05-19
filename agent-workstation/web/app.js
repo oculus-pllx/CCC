@@ -200,6 +200,9 @@ function renderSection(section) {
     settings: renderSettings,
   };
   body.innerHTML = renderers[section]?.() || '<p>Section unavailable.</p>';
+  body.classList.remove('section-enter');
+  void body.offsetWidth;
+  body.classList.add('section-enter');
   bindSectionActions(section);
 }
 
