@@ -1,65 +1,70 @@
 # Agent Workstation Handoff
 
 **Repo:** https://github.com/oculus-pllx/CCC  
-**Branch:** `main` (dev branch `agent-workstation-native-ui` merged)  
+**Branch:** `main` (dev work on `agent-workstation-native-ui`, fully merged)  
 **Date:** 2026-05-19  
-**Status:** All features shipped to `main`. GUI self-update working end-to-end. Visual polish live.
+**Status:** All features shipped, tested, and on `main`. Ready for live LXC validation.
 
 Do not commit this file unless explicitly requested.
 
 ---
 
+## Resumption Prompt
+
+> "Continue Agent Workstation development. Everything is on `main` at `0ba7990`. Last session completed: SSE self-update, visual polish (9 cyberpunk-glow effects), panel color fix, GitHub SSH section, Debian compatibility audit, README update. Next priority: live LXC validation via `sudo ccc-self-update` — confirm GUI update, gauge animations, themes, section fade, pulsing dot."
+
+---
+
 ## Current Product Direction
 
-CCC is now Agent Workstation: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
+CCC is Agent Workstation: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
 
-Hard constraints still in force:
-- Keep code-server / VS Code Web on port `8080`.
-- Agent Workstation native management UI owns port `9090`.
-- Do not use Cockpit as the primary UI for this branch.
-- Do not add a second standalone web GUI.
-- Do not use iframe wrappers.
-- Do not install or run `configure.py`.
-- Do not use `node-pty`.
-- Do not add port `4827`.
-- Do not reintroduce `/opt/ccc-dashboard`.
-- Keep plugin/service code self-contained in `claude-code-commander.sh` for install/self-update.
+Hard constraints:
+- Agent Workstation native UI owns port `9090`; code-server on `8080`
+- No Cockpit, no iframe wrappers, no `configure.py`, no `node-pty`, no port `4827`
+- No `/opt/ccc-dashboard`; keep all plugin/service code in `claude-code-commander.sh`
+- `CCC_SELF_UPDATE_REF="main"` in all three places in `claude-code-commander.sh`
+- Panel colors must be theme-derived via `applyTheme()`, not hardcoded hex
+- Do not hardcode `agent-workstation-native-ui` branch name in `claude-code-commander.sh`
 
 ---
 
-## What Shipped in This Session
+## What Shipped (This Session)
 
-### Visual Polish — Cyberpunk Glow (9 effects, `faa325b`–`924004a`)
+### Self-Update — SSE Streaming (`8752ce2`)
+- **Problem:** Fire-and-forget `cmd.Output()` blocked the pipe; browser got `Failed to fetch`
+- **Fix:** `handleSelfUpdate` in `server.go` streams `ccc-self-update` stdout/stderr via `io.Pipe()` as SSE events. Client (`runSelfUpdateStream`) reads with `ReadableStream`; disconnect-after-output = service restarted = success. `monitorReconnect` polls `/api/workstation` every 5s until back up. Session token preserved across restarts.
 
-All effects use `--accent-rgb` (theme-aware) so they automatically match the active accent color.
+### GitHub Connections Section (`22cb0a1`)
+- Page at sidebar "Connections → GitHub"
+- Generates `~/.ssh/id_ed25519` + displays public key
+- Tests `ssh -T git@github.com` (exit code 1 = authenticated, as GitHub does)
+- Server: `handleGitHub` (GET status, POST action) in `server.go`; `CollectGitHubStatus`, `RunGitHubOperation` in `management.go`
 
-1. **`--accent-rgb`** — new CSS variable set in `applyTheme()`, enables `rgba(var(--accent-rgb), alpha)` in CSS
-2. **Topbar neon underglow** — 3-layer `box-shadow` on `.topbar`
-3. **Gauge halo glow** — `filter: drop-shadow` on `.gauge` with stronger hover
-4. **Scanlines overlay** — `body::after` fixed repeating-linear-gradient, `pointer-events: none`
-5. **Sidebar active left bar** — `inset 3px 0 0 var(--accent)` box-shadow on `.sidebar button.active`
-6. **Hover glows** — transition + lift on `.panel`, `.status-tile`, `.gauge-card`
-7. **Section fade-in** — `@keyframes section-fade` + `.section-enter` class toggled in `renderSection`
-8. **Pulsing health dot** — `@keyframes pulse-dot` + `#health.online::before` animated dot; `loadHealth()` toggles `.online`
-9. **Gauge sweep animation** — `animateGauges()` sweeps `--value` 0→target over 1100ms using RAF + cubic ease-out; triggered from `bindSectionActions` on overview
+### Visual Polish — 9 Cyberpunk-Glow Effects (`faa325b`–`924004a`)
+All effects use `rgba(var(--accent-rgb), alpha)` — theme-aware.
+1. `--accent-rgb` variable added to `applyTheme()`
+2. Topbar neon 3-layer `box-shadow`
+3. Gauge `filter: drop-shadow` + stronger on hover
+4. Scanlines: `body::after` repeating-linear-gradient, `pointer-events:none`
+5. Sidebar active left bar: `inset 3px 0 0 var(--accent)`
+6. Hover glows + lift on `.panel`, `.status-tile`, `.gauge-card`
+7. Section fade-in: `@keyframes section-fade` + `.section-enter` in `renderSection`
+8. Pulsing health dot: `@keyframes pulse-dot` + `#health.online::before`; `loadHealth` toggles `.online`
+9. Gauge sweep: `animateGauges()` sweeps `--value` 0→target over 1100ms via RAF + cubic ease-out
 
 ### Panel Color Fix (`924004a`)
-`--panel` and `--panel2` were hardcoded blue-tinted hex values. Now derived in `applyTheme()` as `rgba(${rgb}, 0.04)` and `rgba(${rgb}, 0.07)`. Panels match the active theme and neutral fallbacks in `:root` prevent blue flash before JS runs.
+`--panel`/`--panel2` were hardcoded blue. Now: `rgba(${rgb}, 0.04)` / `rgba(${rgb}, 0.07)` set in `applyTheme()`. Neutral dark fallbacks in `:root`.
 
-### GUI Self-Update — SSE Streaming (`8752ce2`)
-Replaced fire-and-forget+polling with SSE streaming:
-- Server: `handleSelfUpdate` streams `ccc-self-update` stdout/stderr via `io.Pipe()` as `data: {"line":"..."}` events
-- Client: `runSelfUpdateStream()` reads the stream with `ReadableStream` reader; any disconnect-after-output treats as service-restart-success, then `monitorReconnect()` polls `/api/workstation` every 5s until the service is back
-- Session token is preserved across restarts (env file), so the existing cookie stays valid
-
-### Push to `origin/main`
-`agent-workstation-native-ui` fast-forwarded to `origin/main` — deployed workstations now get all features on `sudo ccc-self-update`.
+### Pushed to `origin/main`
+Both `agent-workstation-native-ui` and `main` are at `0ba7990`. `ccc-self-update` deploys the full stack.
 
 ---
 
-## Latest Commits on `main`
+## Current `main` Tip
 
-```text
+```
+0ba7990 docs: update README and HANDOFF for main branch release
 924004a fix(polish): derive --panel and --panel2 from accent color in applyTheme
 269449c feat(polish): gauge sweep animation on overview load
 d27ccb8 feat(polish): pulsing accent dot on Online health indicator
@@ -73,64 +78,58 @@ faa325b feat(polish): add --accent-rgb CSS var + static test stubs for visual ef
 
 ---
 
-## Verified Locally
+## Verified
 
 ```
 bash tests/agent-workstation-static.sh    → agent-workstation static checks passed
 go build -C agent-workstation ./cmd/server → BUILD OK
-go test ./... (agent-workstation)          → all PASS
 node --check agent-workstation/web/app.js  → OK
+bash -n claude-code-commander.sh           → SYNTAX OK
+Debian 13 compatibility                    → all clear (no Ubuntu-only deps)
 ```
 
 ---
 
 ## Next Steps
 
-1. **Validate in live LXC** — run `sudo ccc-self-update` in the container, then test:
-   - Updates page: click "Apply Agent Workstation Update" → should stream output, restart, reconnect
-   - Overview: gauges sweep in on load, hover lifts on tiles/cards
+1. **Live LXC validation** — `sudo ccc-self-update` in the container, then smoke-test:
+   - Updates page: "Apply Agent Workstation Update" → streams output → reconnects
+   - Overview: gauges sweep in on load; hover lifts tiles/cards
    - Topbar: pulsing green dot when Online
-   - Settings: theme swatches change accent color site-wide (panels, glows, borders)
-   - Navigation: section fade-in on each click
-   - GitHub section: generate SSH key, test connection
+   - Settings: theme swatches change accent color site-wide
+   - Navigation: section fades in on each sidebar click
+   - GitHub section: generate SSH key, test connection to GitHub
 
-2. **Font bundling** (optional) — if the LXC has no outbound internet, IBM Plex Mono won't load from Google Fonts. Download and serve from `agent-workstation/web/fonts/`.
+2. **Font bundling** (optional) — if LXC has no outbound internet, IBM Plex Mono won't load from Google Fonts. Download and serve from `agent-workstation/web/fonts/`.
 
-3. **DECISIONS.md** — consider committing architecture decisions (theme system, SSE update pattern, port ownership) to a `DECISIONS.md` for long-term reference.
+3. **DECISIONS.md** (optional) — document architecture decisions: SSE update pattern, theme system, port ownership, session token design.
 
 ---
 
-## Relevant Commands in LXC
+## File Map
+
+```
+agent-workstation/
+  cmd/server/main.go
+  internal/server/server.go          ← HTTP routes, SSE self-update, GitHub, session
+  internal/system/
+    management.go                    ← StartSelfUpdate, GitHub ops, service/account cmds
+    overview.go                      ← /proc/* reads, df, CPU/mem/disk stats
+  web/
+    index.html                       ← shell, Google Fonts, sidebar nav
+    styles.css                       ← Prism dark palette + all 9 visual polish effects
+    app.js                           ← theme engine, SSE update, animateGauges, renderers
+tests/agent-workstation-static.sh    ← grep-based CI assertions
+```
+
+---
+
+## In-LXC Debug Commands
 
 ```bash
 sudo ccc-self-update
-sudo tail -160 /var/log/ccc-self-update.log
 ccc-update-status
+sudo tail -160 /var/log/ccc-self-update.log
 sudo systemctl status agent-workstation.service --no-pager -l
 sudo systemctl restart agent-workstation.service
 ```
-
----
-
-## Native UI File Map
-
-```text
-agent-workstation/
-  cmd/server/main.go                ← entrypoint
-  internal/
-    server/server.go                ← HTTP routes, SSE self-update, session handling
-    system/management.go            ← StartSelfUpdate, RunGitHubOperation, system calls
-  web/
-    index.html                      ← shell, Google Fonts, sidebar nav
-    styles.css                      ← Prism dark palette, all visual polish effects
-    app.js                          ← theme engine, renderers, SSE update, gauge animation
-tests/agent-workstation-static.sh   ← grep-based static assertions (CI)
-```
-
----
-
-## Hard Constraints Still Active
-
-- Do not push `agent-workstation-native-ui` branch name as a value into `claude-code-commander.sh` (static test: `require_file_not_contains`)
-- `CCC_SELF_UPDATE_REF` must stay `"main"` in all three places it appears in `claude-code-commander.sh`
-- Do not introduce hardcoded hex colors for panel backgrounds — derive from `--accent-rgb` in `applyTheme()`
