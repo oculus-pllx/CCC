@@ -886,3 +886,30 @@ td {
 .section-enter {
   animation: section-fade 0.28s ease-out;
 }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.75); }
+  50%       { opacity: 0.45; box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.20); }
+}
+
+#health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#health.online {
+  color: var(--accent);
+}
+
+#health.online::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.75);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+  flex-shrink: 0;
+}

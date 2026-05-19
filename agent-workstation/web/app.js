@@ -48,8 +48,10 @@ async function loadHealth() {
     const response = await fetch('/api/health');
     const data = await response.json();
     target.textContent = data.ok ? 'Online' : 'Unhealthy';
-  } catch (error) {
+    target.className = data.ok ? 'online' : '';
+  } catch {
     target.textContent = 'Offline';
+    target.className = '';
   }
 }
 
