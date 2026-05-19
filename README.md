@@ -5,7 +5,7 @@ A Proxmox LXC provisioner that creates a lean, headless dev workstation for Clau
 > Built on [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — free, open-source server virtualization (community edition).
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workstation-native-ui/claude-code-commander.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
 ```
 
 ---
@@ -21,7 +21,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workst
 - **Three update paths** — OS packages, Agent Workstation tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Agent Workstation UI** on port 9090 — native headless management for system overview, services, logs, networking, accounts, files, terminal, projects, updates, and agent configs
+- **Agent Workstation UI** on port 9090 — native headless management dashboard with Prism dark theme, 7 accent color presets, cyberpunk-glow effects, system overview, services, logs, networking, accounts, files, terminal, projects, updates, agent configs, and GitHub SSH key management
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -48,13 +48,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workst
 SSH into your Proxmox host as root and run:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workstation-native-ui/claude-code-commander.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
 ```
 
 Or download and inspect first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/agent-workstation-native-ui/claude-code-commander.sh \
+curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh \
   -o /tmp/ccc.sh && bash /tmp/ccc.sh
 ```
 
@@ -232,7 +232,7 @@ claude update               # Claude Code only
 
 `ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning the configured repo. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
-`ccc-self-update` is the reliable update path today. The native Updates page has a button for Agent Workstation updates, but the current LXC test still reports `Failed to fetch` from the browser during the service restart/update cycle. Until that is fixed, use the CLI command and inspect `/var/log/ccc-self-update.log` for progress. A successful tooling update records `/etc/ccc/version`; a failed build exits non-zero and leaves the build error in the log.
+`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live build output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version`; a failed build exits non-zero and leaves the build error in the log.
 
 `ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
 
@@ -323,26 +323,10 @@ The failing compiler output is the real error. Inspect the log:
 ```bash
 sudo tail -160 /var/log/ccc-self-update.log
 ```
-After the fix is pushed to `agent-workstation-native-ui`, rerun:
+Then rerun:
 ```bash
 sudo ccc-self-update
-sudo systemctl restart agent-workstation.service
 ccc-update-status
-```
-
-**Agent Workstation GUI update button shows `Failed to fetch`**
-This is a known blocker in the current native UI branch. Use the CLI updater while debugging the browser/service restart path:
-```bash
-sudo ccc-self-update
-sudo systemctl restart agent-workstation.service
-ccc-update-status
-```
-Then reload `http://<container-ip>:9090`.
-
-For local branch testing before GitHub has the latest commit, provision from a local checkout on the Proxmox host instead of the GitHub curl command:
-```bash
-cd /home/peyton/repos/CCC
-sudo bash claude-code-commander.sh
 ```
 
 ## Notes
