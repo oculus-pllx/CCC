@@ -813,3 +813,20 @@ td {
   border-radius: 3px;
   padding: 1px 6px;
 }
+
+.muted {
+  color: var(--muted);
+}
+
+.section-description {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.pubkey {
+  display: block;
+  word-break: break-all;
+  font-size: 11px;
+  color: var(--text);
+}

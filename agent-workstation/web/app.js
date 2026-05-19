@@ -10,6 +10,7 @@ const titles = {
   projects: 'Projects',
   configs: 'Agent Configs',
   oculus: 'oculus-configs',
+  github: 'GitHub',
   settings: 'Settings',
 };
 
@@ -180,7 +181,7 @@ function renderSection(section) {
   body.hidden = false;
   termContainer.hidden = true;
 
-  if (!snapshot && section !== 'settings') {
+  if (!snapshot && section !== 'settings' && section !== 'github') {
     body.textContent = 'Sign in is required before management data is shown.';
     return;
   }
@@ -195,6 +196,7 @@ function renderSection(section) {
     projects: renderProjects,
     configs: renderConfigs,
     oculus: renderOculus,
+    github: renderGitHub,
     settings: renderSettings,
   };
   body.innerHTML = renderers[section]?.() || '<p>Section unavailable.</p>';
@@ -502,6 +504,20 @@ function renderOculus() {
   `;
 }
 
+function renderGitHub() {
+  return `
+    <p class="section-description">Create an SSH key for this workstation and authorize it on GitHub to enable git operations over SSH.</p>
+    <div id="github-key-panel">
+      <p class="muted">Loading SSH key status...</p>
+    </div>
+    <div class="action-row">
+      <button class="small-button" id="github-generate-btn">Generate New SSH Key</button>
+      <button class="small-button" id="github-test-btn">Test GitHub Connection</button>
+    </div>
+    <pre id="github-output" class="output" hidden></pre>
+  `;
+}
+
 function renderSettings() {
   const current = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME;
   return `
@@ -551,6 +567,9 @@ function bindSectionActions(section) {
   }
   if (section === 'accounts') {
     bindAccounts();
+  }
+  if (section === 'github') {
+    bindGitHub();
   }
   if (section === 'network') {
     bindNetwork();
@@ -738,6 +757,66 @@ async function runAccountOperation(payload) {
     renderSection('accounts');
   } catch (error) {
     output.textContent = error.message;
+  }
+}
+
+function bindGitHub() {
+  loadGitHubStatus();
+  document.getElementById('github-generate-btn').addEventListener('click', generateGitHubKey);
+  document.getElementById('github-test-btn').addEventListener('click', testGitHubConnection);
+}
+
+async function loadGitHubStatus() {
+  const panel = document.getElementById('github-key-panel');
+  if (!panel) return;
+  try {
+    const response = await fetch('/api/github', { credentials: 'include' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const status = await response.json();
+    if (status.keyExists) {
+      panel.innerHTML = `
+        <dl class="facts">
+          <dt>Key path</dt><dd>${escapeHTML(status.keyPath)}</dd>
+          <dt>Public key</dt><dd><code class="pubkey">${escapeHTML(status.publicKey)}</code></dd>
+        </dl>
+        <p class="section-description">Copy the public key above, then <a href="https://github.com/settings/ssh/new" target="_blank" rel="noopener">add it to GitHub</a>.</p>
+        <button class="small-button" id="github-copy-btn">Copy Public Key</button>
+      `;
+      document.getElementById('github-copy-btn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(status.publicKey).catch(() => {});
+      });
+    } else {
+      panel.innerHTML = `<p class="muted">No SSH key found at <code>${escapeHTML(status.keyPath)}</code>. Generate one below.</p>`;
+    }
+  } catch (err) {
+    panel.innerHTML = `<p class="error-text">Failed to load SSH key status: ${escapeHTML(err.message)}</p>`;
+  }
+}
+
+async function generateGitHubKey() {
+  const output = document.getElementById('github-output');
+  output.hidden = false;
+  output.textContent = 'Generating SSH key...';
+  try {
+    const result = await postJSON('/api/github', { action: 'generate-key' });
+    output.textContent = result.exitCode === 0
+      ? `Key generated.\n\nPublic key:\n${result.output}`
+      : `Failed:\n${result.output}`;
+    loadGitHubStatus();
+  } catch (err) {
+    output.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function testGitHubConnection() {
+  const output = document.getElementById('github-output');
+  output.hidden = false;
+  output.textContent = 'Testing connection to github.com...';
+  try {
+    const result = await postJSON('/api/github', { action: 'test-connection' });
+    output.textContent = result.output || '(no output)';
+  } catch (err) {
+    output.textContent = `Error: ${err.message}`;
   }
 }
 

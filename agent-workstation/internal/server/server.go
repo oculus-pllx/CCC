@@ -131,6 +131,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/service", s.requireSession(http.HandlerFunc(s.handleService)))
 	s.mux.Handle("/api/project", s.requireSession(http.HandlerFunc(s.handleProject)))
 	s.mux.Handle("/api/account", s.requireSession(http.HandlerFunc(s.handleAccount)))
+	s.mux.Handle("/api/github", s.requireSession(http.HandlerFunc(s.handleGitHub)))
 	s.mux.Handle("/api/network-activity", s.requireSession(http.HandlerFunc(s.handleNetworkActivity)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
 	s.mux.Handle("/", s.staticHandler())
@@ -345,6 +346,34 @@ func (s *Server) handleNetworkActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, activity)
+}
+
+func (s *Server) handleGitHub(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		status, err := system.CollectGitHubStatus()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, status)
+	case http.MethodPost:
+		var body struct {
+			Action string `json:"action"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+		result, err := system.RunGitHubOperation(body.Action)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "output": result.Output})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

@@ -721,3 +721,75 @@ func fileSize(info os.FileInfo, err error) int64 {
 	}
 	return info.Size()
 }
+
+type GitHubStatus struct {
+	PublicKey  string `json:"publicKey"`
+	KeyExists  bool   `json:"keyExists"`
+	KeyPath    string `json:"keyPath"`
+	TestOutput string `json:"testOutput,omitempty"`
+}
+
+func CollectGitHubStatus() (GitHubStatus, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return GitHubStatus{}, err
+	}
+	keyPath := filepath.Join(home, ".ssh", "id_ed25519.pub")
+	pub, err := os.ReadFile(keyPath)
+	if err != nil {
+		return GitHubStatus{KeyExists: false, KeyPath: filepath.Join(home, ".ssh", "id_ed25519")}, nil
+	}
+	return GitHubStatus{
+		KeyExists: true,
+		KeyPath:   filepath.Join(home, ".ssh", "id_ed25519"),
+		PublicKey: strings.TrimSpace(string(pub)),
+	}, nil
+}
+
+func RunGitHubOperation(action string) (CommandResult, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return CommandResult{}, err
+	}
+	sshDir := filepath.Join(home, ".ssh")
+	keyPath := filepath.Join(sshDir, "id_ed25519")
+
+	switch action {
+	case "generate-key":
+		if err := os.MkdirAll(sshDir, 0700); err != nil {
+			return CommandResult{}, err
+		}
+		// Remove existing key pair so ssh-keygen doesn't prompt
+		os.Remove(keyPath)
+		os.Remove(keyPath + ".pub")
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", "", "-C", "agent-workstation")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return CommandResult{Command: "ssh-keygen", Output: strings.TrimSpace(string(out)), ExitCode: 1}, err
+		}
+		pub, err := os.ReadFile(keyPath + ".pub")
+		if err != nil {
+			return CommandResult{Command: "ssh-keygen", Output: "Key generated but cannot read public key: " + err.Error(), ExitCode: 1}, err
+		}
+		return CommandResult{Command: "ssh-keygen", Output: strings.TrimSpace(string(pub)), ExitCode: 0}, nil
+
+	case "test-connection":
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "ssh", "-T", "-o", "StrictHostKeyChecking=accept-new",
+			"-o", "BatchMode=yes", "-i", keyPath, "git@github.com")
+		out, _ := cmd.CombinedOutput()
+		text := strings.TrimSpace(string(out))
+		exitCode := 0
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
+			// GitHub returns exit 1 even on successful auth ("Hi username! You've authenticated...")
+			exitCode = 0
+		} else if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() > 1 {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		return CommandResult{Command: "ssh -T git@github.com", Output: text, ExitCode: exitCode}, nil
+
+	default:
+		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
+	}
+}
