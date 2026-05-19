@@ -369,13 +369,12 @@ function renderFiles() {
 
 function renderUpdates() {
   const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
-  const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
   const osUpdateText = formatOSPackageStatus(snapshot.updates?.os || '');
-  const updateBadge = updateStatusBadge(updateText, updateLog);
+  const updateBadge = updateStatusBadge(updateText, '');
   return `
     <div class="action-row">
       <button class="small-button" data-action="update-status">Refresh Agent Workstation Status</button>
-      <button class="small-button" data-action="self-update">Apply Agent Workstation Update</button>
+      <button class="small-button" id="self-update-btn">Apply Agent Workstation Update</button>
       <button class="small-button" data-action="os-update">Run OS Update</button>
     </div>
     <div class="update-state">
@@ -383,10 +382,9 @@ function renderUpdates() {
     </div>
     <h3>Agent Workstation</h3>
     <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Agent Workstation update status.')}</pre>
-    <h3>Last Self-Update Log</h3>
-    <pre id="self-update-log-output" class="output">${escapeHTML(updateLog || 'No self-update log yet.')}</pre>
     <h3>OS Packages</h3>
     <pre class="output">${escapeHTML(osUpdateText)}</pre>
+    <pre id="self-update-output" class="output" hidden></pre>
     <pre id="action-output" class="output" hidden></pre>
   `;
 }
@@ -565,6 +563,9 @@ function bindSectionActions(section) {
   if (section === 'configs') {
     bindConfigs();
   }
+  if (section === 'updates') {
+    bindUpdates();
+  }
   if (section === 'accounts') {
     bindAccounts();
   }
@@ -583,87 +584,91 @@ async function runAction(action) {
   const output = document.getElementById('action-output');
   output.hidden = false;
   output.textContent = 'Running...';
-  const selfUpdate = action === 'self-update';
   try {
     const result = await postJSON('/api/action', { action });
-    if (selfUpdate) {
-      if (result.exitCode !== 0) {
-        output.textContent = `Failed to start update:\n${stripANSI(result.output || 'unknown error')}`;
-        return;
-      }
-      monitorSelfUpdate(output);
-      return;
-    }
     output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
   } catch (error) {
-    if (selfUpdate) {
-      // Network error during self-update POST likely means the service restarted
-      // before it could send a response. The update probably started — monitor anyway.
-      monitorSelfUpdate(output);
-      return;
-    }
     output.textContent = stripANSI(error.message);
   }
 }
 
-function monitorSelfUpdate(output) {
-  if (updatePollTimer) {
-    clearInterval(updatePollTimer);
-  }
-  let attempts = 0;
+// Streams ccc-self-update output via SSE. The connection drops when systemctl
+// restarts the service; any disconnect-after-output is treated as success.
+async function runSelfUpdateStream() {
+  const output = document.getElementById('self-update-output');
   output.hidden = false;
-  output.textContent = formatSelfUpdateProgress('Update started. Waiting for completion...', attempts, '');
-  const pollSelfUpdate = async () => {
-    attempts += 1;
-    const data = await fetchWorkstationData();
-    if (!data) {
-      output.textContent = formatSelfUpdateProgress(
-        'Agent Workstation restarting — reconnecting...',
-        attempts, ''
-      );
-      if (attempts >= 120) {
-        output.textContent += '\n\nUpdate status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.';
-        clearInterval(updatePollTimer);
-        updatePollTimer = null;
+  output.textContent = 'Connecting...\n';
+  let gotLines = false;
+
+  try {
+    const response = await fetch('/api/self-update', { method: 'POST', credentials: 'include' });
+    if (!response.ok) {
+      output.textContent = `Update failed: HTTP ${response.status}`;
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        for (const raw of part.split('\n')) {
+          if (!raw.startsWith('data:')) continue;
+          let msg;
+          try { msg = JSON.parse(raw.slice(5).trim()); } catch { continue; }
+          if (msg.line) {
+            output.textContent += msg.line + '\n';
+            gotLines = true;
+          }
+          if (msg.status === 'done') { break outer; }
+          if (msg.status === 'error') {
+            output.textContent += `\nUpdate failed: ${msg.msg || 'unknown error'}`;
+            return;
+          }
+        }
       }
-      return;
     }
-    snapshot = data;
-    setSignedIn(true);
-    const statusText = stripANSI(data.updates?.agentWorkstation || '');
-    const logText = stripANSI(data.updates?.selfUpdateLog || '');
-    const logTarget = document.getElementById('self-update-log-output');
-    const statusTarget = document.getElementById('update-status-output');
-    if (logTarget) logTarget.textContent = logText || 'No self-update log yet.';
-    if (statusTarget) statusTarget.textContent = statusText || 'No Agent Workstation update status.';
-    if (logText.includes('Self-update successful')) {
-      output.textContent = formatSelfUpdateProgress('Update finished successfully.', attempts, logText);
-      clearInterval(updatePollTimer);
-      updatePollTimer = null;
-      return;
-    }
-    if (logText.includes('Update script exited with errors') || logText.includes('Download failed') || logText.includes('Could not find update markers')) {
-      output.textContent = formatSelfUpdateProgress('Update failed. See Last Self-Update Log for details.', attempts, logText);
-      clearInterval(updatePollTimer);
-      updatePollTimer = null;
-      return;
-    }
-    output.textContent = formatSelfUpdateProgress(`Update still running... checked ${attempts} time${attempts === 1 ? '' : 's'}.`, attempts, logText);
-    if (attempts >= 120) {
-      output.textContent += '\n\nUpdate status is still pending after 10 minutes. Check /var/log/ccc-self-update.log.';
-      clearInterval(updatePollTimer);
-      updatePollTimer = null;
-    }
-  };
-  pollSelfUpdate();
-  updatePollTimer = setInterval(pollSelfUpdate, 5000);
+  } catch {
+    // Connection dropped — service likely restarted mid-update
+  }
+
+  if (!gotLines) {
+    output.textContent = 'Failed to start update. Service may be unavailable.';
+    return;
+  }
+
+  output.textContent += '\nService restarting — reconnecting...';
+  monitorReconnect(output);
 }
 
-function formatSelfUpdateProgress(message, attempts, logText) {
-  const checked = attempts > 0 ? `Checked ${attempts} time${attempts === 1 ? '' : 's'}.` : 'Starting monitor.';
-  const log = lastLines(logText || 'Waiting for /var/log/ccc-self-update.log to receive update output.', 90);
-  return `${message}\n${checked}\n\nLatest self-update log:\n${log}`;
+function monitorReconnect(output) {
+  if (updatePollTimer) clearInterval(updatePollTimer);
+  let attempts = 0;
+  updatePollTimer = setInterval(async () => {
+    attempts++;
+    const data = await fetchWorkstationData();
+    if (data) {
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+      snapshot = data;
+      setSignedIn(true);
+      if (output.isConnected) {
+        output.textContent += '\nUpdate finished successfully. Reconnected.';
+      }
+    } else if (attempts >= 60) {
+      clearInterval(updatePollTimer);
+      updatePollTimer = null;
+      if (output.isConnected) {
+        output.textContent += '\nTimeout waiting for service restart. Check /var/log/ccc-self-update.log.';
+      }
+    }
+  }, 5000);
 }
 
 async function controlService(service, operation) {
@@ -678,6 +683,10 @@ async function controlService(service, operation) {
   } catch (error) {
     output.textContent = error.message;
   }
+}
+
+function bindUpdates() {
+  document.getElementById('self-update-btn')?.addEventListener('click', runSelfUpdateStream);
 }
 
 function bindAccounts() {

@@ -1,9 +1,13 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/oculus-pllx/ccc/agent-workstation/internal/system"
@@ -125,6 +129,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/workstation", s.requireSession(http.HandlerFunc(s.handleWorkstation)))
 	s.mux.Handle("/api/terminal", s.requireSession(http.HandlerFunc(s.handleTerminal)))
 	s.mux.Handle("/api/action", s.requireSession(http.HandlerFunc(s.handleAction)))
+	s.mux.Handle("/api/self-update", s.requireSession(http.HandlerFunc(s.handleSelfUpdate)))
 	s.mux.Handle("/api/files", s.requireSession(http.HandlerFunc(s.handleFiles)))
 	s.mux.Handle("/api/file", s.requireSession(http.HandlerFunc(s.handleFile)))
 	s.mux.Handle("/api/file-op", s.requireSession(http.HandlerFunc(s.handleFileOperation)))
@@ -217,6 +222,83 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// handleSelfUpdate streams ccc-self-update output as Server-Sent Events.
+// The connection drops when systemctl restarts the service; the browser treats
+// any disconnect-after-output as a successful update and polls for reconnect.
+func (s *Server) handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "close")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	sendEvent := func(v any) {
+		data, _ := json.Marshal(v)
+		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+	}
+
+	// Preflight: verify ccc-self-update is reachable via sudo
+	check := exec.Command("sudo", "-n", "bash", "-lc", "command -v ccc-self-update >/dev/null 2>&1")
+	if err := check.Run(); err != nil {
+		sendEvent(map[string]string{"status": "error", "msg": "ccc-self-update not found in PATH"})
+		return
+	}
+
+	sendEvent(map[string]string{"line": "Starting Agent Workstation self-update..."})
+
+	// Merge stdout+stderr into a single pipe so we can stream both.
+	pr, pw := io.Pipe()
+	cmd := exec.Command("sudo", "bash", "-lc", "env NO_COLOR=1 ccc-self-update 2>&1")
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+	devNull, _ := os.Open(os.DevNull)
+	if devNull != nil {
+		cmd.Stdin = devNull
+		defer devNull.Close()
+	}
+
+	if err := cmd.Start(); err != nil {
+		sendEvent(map[string]string{"status": "error", "msg": "failed to start: " + err.Error()})
+		return
+	}
+
+	exitCh := make(chan int, 1)
+	go func() {
+		cmd.Wait()
+		pw.Close()
+		code := -1
+		if cmd.ProcessState != nil {
+			code = cmd.ProcessState.ExitCode()
+		}
+		exitCh <- code
+	}()
+
+	scanner := bufio.NewScanner(pr)
+	for scanner.Scan() {
+		sendEvent(map[string]string{"line": scanner.Text()})
+	}
+
+	// Reached here only if the process exited without restarting the service.
+	exitCode := <-exitCh
+	if exitCode == 0 {
+		sendEvent(map[string]string{"status": "done", "line": "Self-update successful."})
+	} else if exitCode > 0 {
+		sendEvent(map[string]string{"status": "error",
+			"msg": fmt.Sprintf("ccc-self-update exited with code %d", exitCode)})
+	}
+	// exitCode == -1 means the process was killed (service restarted mid-run);
+	// connection is already dead, client handles it via the catch block.
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
