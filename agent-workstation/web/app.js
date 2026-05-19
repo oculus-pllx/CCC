@@ -1512,6 +1512,8 @@ function applyTheme(name) {
   root.style.setProperty('--accent-rgb', rgb);
   root.style.setProperty('--border', `rgba(${rgb}, 0.12)`);
   root.style.setProperty('--accent-bg', `rgba(${rgb}, 0.10)`);
+  root.style.setProperty('--panel', `rgba(${rgb}, 0.04)`);
+  root.style.setProperty('--panel2', `rgba(${rgb}, 0.07)`);
   localStorage.setItem(THEME_STORAGE_KEY, name);
 }
 
