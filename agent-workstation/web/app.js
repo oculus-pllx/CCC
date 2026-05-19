@@ -48,10 +48,11 @@ async function loadHealth() {
     const response = await fetch('/api/health');
     const data = await response.json();
     target.textContent = data.ok ? 'Online' : 'Unhealthy';
-    target.className = data.ok ? 'online' : '';
+    // #health.online activates the pulse-dot ::before animation
+    target.classList.toggle('online', !!data.ok);
   } catch {
     target.textContent = 'Offline';
-    target.className = '';
+    target.classList.remove('online');
   }
 }
 
@@ -579,6 +580,9 @@ function bindSectionActions(section) {
   }
   if (section === 'network') {
     bindNetwork();
+  }
+  if (section === 'overview') {
+    requestAnimationFrame(animateGauges);
   }
   if (section === 'settings') {
     bindSettings();
@@ -1436,6 +1440,24 @@ function gauge(label, value, detail) {
       <p>${escapeHTML(detail || '')}</p>
     </div>
   `;
+}
+
+function animateGauges() {
+  document.querySelectorAll('.gauge[style]').forEach(el => {
+    const match = el.getAttribute('style').match(/--value:\s*([\d.]+)/);
+    if (!match) return;
+    const target = parseFloat(match[1]);
+    const start = performance.now();
+    const duration = 1100;
+    const ease = t => 1 - Math.pow(1 - t, 3);
+    el.style.setProperty('--value', 0);
+    function step(now) {
+      const t = Math.min((now - start) / duration, 1);
+      el.style.setProperty('--value', target * ease(t));
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
 }
 
 function formatLoad(load) {
