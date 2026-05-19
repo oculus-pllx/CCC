@@ -21,6 +21,22 @@ body {
   font: 13px/1.5 'IBM Plex Mono', monospace;
 }
 
+/* scanlines */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.07) 3px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
 input, select, textarea, button { font: inherit; }
 
 .topbar {
@@ -31,6 +47,10 @@ input, select, textarea, button { font: inherit; }
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
   background: var(--topbar);
+  box-shadow:
+    0 1px 0 rgba(var(--accent-rgb), 0.40),
+    0 2px 28px rgba(var(--accent-rgb), 0.13),
+    0 6px 60px rgba(var(--accent-rgb), 0.05);
 }
 
 .topbar-actions {
@@ -86,6 +106,7 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   background: var(--accent-bg);
   color: var(--accent);
   font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 14px rgba(var(--accent-rgb), 0.08);
 }
 
 .sidebar button:hover {
@@ -184,6 +205,12 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   background:
     radial-gradient(circle at center, var(--panel2) 0 57%, transparent 58%),
     conic-gradient(var(--accent) calc(var(--value) * 1%), rgba(255,255,255,0.15) 0);
+  filter: drop-shadow(0 0 7px rgba(var(--accent-rgb), 0.45));
+  transition: filter 0.25s;
+}
+
+.gauge:hover {
+  filter: drop-shadow(0 0 16px rgba(var(--accent-rgb), 0.80));
 }
 
 .gauge-inner {
