@@ -131,6 +131,12 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   border-radius: 6px;
   padding: 16px;
   overflow: auto;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.panel:hover {
+  border-color: rgba(var(--accent-rgb), 0.28);
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.06);
 }
 
 .facts {
@@ -165,6 +171,13 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel2);
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+
+.status-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--accent-rgb), 0.35);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.12);
 }
 
 .status-tile span {
@@ -194,6 +207,13 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel2);
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+
+.gauge-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--accent-rgb), 0.28);
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.10);
 }
 
 .gauge {
