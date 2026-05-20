@@ -21,6 +21,15 @@ body {
   font: 13px/1.5 'IBM Plex Mono', monospace;
 }
 
+body.signed-out {
+  min-height: 100vh;
+}
+
+body.signed-out .topbar,
+body.signed-out .layout {
+  display: none;
+}
+
 body.effect-flicker::before {
   content: '';
   position: fixed;
@@ -131,6 +140,10 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   display: grid;
   grid-template-columns: 220px 1fr;
   min-height: calc(100vh - 112px);
+}
+
+.app-shell {
+  min-height: calc(100vh - 48px);
 }
 
 .brand-lockup {
@@ -497,9 +510,69 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   white-space: pre-wrap;
 }
 
+.login-shell {
+  min-height: calc(100vh - 48px);
+  display: grid;
+  place-items: center;
+  padding: 36px 20px;
+}
+
+.login-card {
+  width: min(100%, 440px);
+}
+
+.login-brand-lockup {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  margin-bottom: 24px;
+}
+
+.login-brand-mark {
+  width: 72px;
+  height: 72px;
+  filter: drop-shadow(0 0 22px rgba(var(--accent-rgb), 0.35));
+}
+
+.login-brand-text {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
+.login-brand-text strong {
+  font-family: 'Syne', 'IBM Plex Mono', monospace;
+  font-size: 38px;
+  letter-spacing: 0.08em;
+}
+
+.login-brand-text span {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.86;
+}
+
 .login-panel {
-  max-width: 520px;
-  margin-bottom: 20px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 1px rgba(var(--accent-rgb), 0.04),
+    0 20px 80px rgba(0, 0, 0, 0.36),
+    0 0 40px rgba(var(--accent-rgb), 0.08);
+}
+
+.login-panel h1 {
+  font-size: 20px;
+  margin-bottom: 18px;
+  color: var(--text);
+  text-align: center;
 }
 
 .login-panel label {
@@ -530,6 +603,10 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .login-row input {
   flex: 1;
   min-width: 0;
+}
+
+.login-panel .error-text {
+  text-align: center;
 }
 
 .login-row button,

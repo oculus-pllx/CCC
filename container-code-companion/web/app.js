@@ -177,7 +177,9 @@ async function logout() {
 }
 
 function setSignedIn(signedIn) {
-  document.getElementById('login-panel').hidden = signedIn;
+  document.body.classList.toggle('signed-out', !signedIn);
+  document.getElementById('app-shell').hidden = !signedIn;
+  document.getElementById('login-shell').hidden = signedIn;
   document.getElementById('logout-button').hidden = !signedIn;
   document.getElementById('refresh-button').hidden = !signedIn;
   if (signedIn) startNetworkBackground();

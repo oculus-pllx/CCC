@@ -10,9 +10,38 @@
   <link rel="stylesheet" href="/vendor/xterm.min.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand-lockup" href="https://pllx.group" target="_blank" rel="noopener" aria-label="Container Code Companion by Parallax Group">
+<body class="signed-out">
+  <main id="login-shell" class="login-shell">
+    <section class="login-card" aria-label="Container Code Companion sign in">
+      <a class="login-brand-lockup" href="https://pllx.group" target="_blank" rel="noopener" aria-label="Container Code Companion by Parallax Group">
+        <svg class="login-brand-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <line x1="11.2" y1="16.8" x2="20.8" y2="13.6" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
+          <line x1="11.2" y1="47.2" x2="20.8" y2="50.4" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
+          <line x1="32" y1="32" x2="44.8" y2="32" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
+          <polyline points="11.2,16.8 32,32 11.2,47.2" stroke="currentColor" stroke-opacity="0.30" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="20.8,13.6 44.8,32 20.8,50.4" stroke="currentColor" stroke-opacity="0.90" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="login-brand-text">
+          <strong>C.C.C</strong>
+          <span>by Parallax Group</span>
+        </span>
+      </a>
+      <form id="login-panel" class="login-panel">
+        <h1>Container Code Companion</h1>
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username">
+        <label for="password">Password</label>
+        <div class="login-row">
+          <input id="password" name="password" type="password" autocomplete="current-password">
+          <button type="submit">Sign In</button>
+        </div>
+        <p id="login-error" class="error-text"></p>
+      </form>
+    </section>
+  </main>
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="topbar">
+      <a class="brand-lockup" href="https://pllx.group" target="_blank" rel="noopener" aria-label="Container Code Companion by Parallax Group">
       <svg class="brand-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <line x1="11.2" y1="16.8" x2="20.8" y2="13.6" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
         <line x1="11.2" y1="47.2" x2="20.8" y2="50.4" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
@@ -29,8 +58,8 @@
       <span id="health">Checking...</span>
       <button id="logout-button" class="small-button" hidden>Log Out</button>
     </div>
-  </header>
-  <main class="layout">
+    </header>
+    <main class="layout">
     <nav class="sidebar" aria-label="Sections">
       <div class="nav-group">
         <div class="nav-heading">Dashboard</div>
@@ -66,17 +95,6 @@
       </div>
     </nav>
     <section class="content">
-      <form id="login-panel" class="panel login-panel" hidden>
-        <h2>Sign In</h2>
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" autocomplete="username">
-        <label for="password">Password</label>
-        <div class="login-row">
-          <input id="password" name="password" type="password" autocomplete="current-password">
-          <button type="submit">Sign In</button>
-        </div>
-        <p id="login-error" class="error-text"></p>
-      </form>
       <div class="content-heading">
         <h2 id="section-title">Overview</h2>
         <button id="refresh-button" class="small-button" hidden>Refresh</button>
@@ -85,7 +103,8 @@
       <div id="section-body" class="panel">Loading system overview...</div>
       <div id="terminal-container" class="panel" hidden></div>
     </section>
-  </main>
+    </main>
+  </div>
   <footer class="app-footer">
     <a class="footer-brand" href="https://pllx.group" target="_blank" rel="noopener">
       <span>C.C.C</span>
