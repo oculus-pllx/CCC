@@ -61,6 +61,8 @@ require_file_contains ccc-bootstrap.sh "/usr/local/bin/agent-workstation"
 require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_USERNAME"
 require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_PASSWORD"
 require_file_contains ccc-bootstrap.sh 'Container Code Companion uses the $CCC_USER user password'
+require_file_contains ccc-bootstrap.sh 'http://${_ccc_ui_ip}:9090'
+require_file_not_contains ccc-bootstrap.sh 'http://<ip>:9090'
 require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_ADDR=0.0.0.0:9090"
 require_file_contains ccc-bootstrap.sh "systemctl disable --now ccc-dashboard"
 require_file_contains ccc-bootstrap.sh "fuser -k 9090/tcp"

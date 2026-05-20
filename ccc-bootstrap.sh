@@ -1839,7 +1839,12 @@ echo "    Restarting Container Code Companion service..."
 setsid systemctl restart agent-workstation.service &
 disown $! 2>/dev/null || true
 
-echo "    Container Code Companion: http://<ip>:9090 (login as $CCC_USER)"
+_ccc_ui_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [[ -n "${_ccc_ui_ip:-}" ]]; then
+  echo "    Container Code Companion: http://${_ccc_ui_ip}:9090 (login as $CCC_USER)"
+else
+  echo "    Container Code Companion: port 9090 (login as $CCC_USER)"
+fi
 echo "    Container Code Companion uses the $CCC_USER user password after final setup."
 
 # Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit.
