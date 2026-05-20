@@ -1073,10 +1073,9 @@ CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 if ! id "$CCC_USER" &>/dev/null; then
   if [[ -r /etc/agent-workstation/env ]]; then
-    # shellcheck disable=SC1091
-    source /etc/agent-workstation/env
-    CCC_USER="${AGENT_WORKSTATION_USERNAME:-$CCC_USER}"
-    CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+    _aw_user=$(awk -F= '/^AGENT_WORKSTATION_USERNAME=/{print $2; exit}' /etc/agent-workstation/env)
+    CCC_USER="${_aw_user:-$CCC_USER}"
+    CCC_HOME="/home/$CCC_USER"
   fi
 fi
 if ! id "$CCC_USER" &>/dev/null; then
@@ -1546,7 +1545,7 @@ installed_date=""
 }
 
 # Use the persistent source clone if available; otherwise clone fresh via HTTPS.
-git config --global --add safe.directory "$SRC" 2>/dev/null || true
+git config --system --add safe.directory "$SRC" 2>/dev/null || git config --global --add safe.directory "$SRC" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
   git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null || true
   REPO="$SRC"
@@ -1614,7 +1613,7 @@ echo ""
 
 # [1/4] Sync source
 echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
-git config --global --add safe.directory "$SRC" 2>/dev/null || true
+git config --system --add safe.directory "$SRC" 2>/dev/null || git config --global --add safe.directory "$SRC" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
   git -C "$SRC" fetch origin "$REF" --quiet
   git -C "$SRC" reset --hard "origin/$REF" --quiet
@@ -1726,6 +1725,9 @@ LOGROTATE
 # ── Agent Workstation native web UI ───────────────────────────────────────────
 step 27 "Agent Workstation native web UI"
 
+# Ensure git trusts the source directory regardless of which user cloned it.
+git config --system --add safe.directory /opt/agent-workstation-src 2>/dev/null || true
+
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 systemctl disable --now cockpit.socket 2>/dev/null || true
 systemctl disable --now cockpit.service 2>/dev/null || true
@@ -1763,11 +1765,16 @@ echo "    Syncing Agent Workstation web assets..."
 rsync -a --delete "$AGENT_WORKSTATION_SRC/agent-workstation/web/" "$AGENT_WORKSTATION_ROOT/web/"
 
 if [[ -r "$AGENT_WORKSTATION_ENV" ]]; then
-  # shellcheck disable=SC1090
-  source "$AGENT_WORKSTATION_ENV"
+  _aw_user=$(awk -F= '/^AGENT_WORKSTATION_USERNAME=/{print $2; exit}' "$AGENT_WORKSTATION_ENV")
+  _aw_token=$(awk -F= '/^AGENT_WORKSTATION_SESSION_TOKEN=/{print $2; exit}' "$AGENT_WORKSTATION_ENV")
+  _aw_pass=$(awk -F= '/^AGENT_WORKSTATION_PASSWORD=/{print $2; exit}' "$AGENT_WORKSTATION_ENV")
+  [[ -n "${_aw_user:-}"  ]] && CCC_USER="$_aw_user"
+  [[ -n "${_aw_token:-}" ]] && AGENT_WORKSTATION_SESSION_TOKEN="$_aw_token"
+  [[ -n "${_aw_pass:-}"  ]] && AGENT_WORKSTATION_PASSWORD="$_aw_pass"
+  CCC_HOME="/home/$CCC_USER"
 fi
-if ! id "$CCC_USER" &>/dev/null && [[ -n "${AGENT_WORKSTATION_USERNAME:-}" ]]; then
-  CCC_USER="$AGENT_WORKSTATION_USERNAME"
+if ! id "$CCC_USER" &>/dev/null; then
+  CCC_USER="$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1; exit}' /etc/passwd)"
   CCC_HOME="/home/$CCC_USER"
 fi
 if ! id "$CCC_USER" &>/dev/null; then
