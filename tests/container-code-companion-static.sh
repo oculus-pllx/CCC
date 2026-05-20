@@ -55,6 +55,19 @@ require_file_contains README.md "ccc-sync-agent-configs"
 require_file_contains ccc-bootstrap.sh "codex/AGENTS.md"
 require_file_contains ccc-bootstrap.sh "gemini/GEMINI.md"
 require_file_contains ccc-bootstrap.sh "mcp.template.json"
+require_file_contains ccc-bootstrap.sh "CCC Statusline"
+require_file_contains ccc-bootstrap.sh 'sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"'
+require_file_contains ccc-bootstrap.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
+require_file_contains ccc-bootstrap.sh 'chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'
+require_file_not_contains ccc-bootstrap.sh 'cat > /home/claude-code/.claude/bin/statusline-command.sh'
+require_file_contains ccc-bootstrap.sh "claude statusline-command"
+require_file_contains ccc-bootstrap.sh 'jq -r '\''.model.id    // ""'\'''
+require_file_contains ccc-bootstrap.sh 'jq -r '\''.thinking.enabled // false'\'''
+require_file_contains ccc-bootstrap.sh 'jq -r '\''.context.used  // 0'\'''
+require_file_contains ccc-bootstrap.sh 'jq -r '\''.context.max   // 200000'\'''
+require_file_contains ccc-bootstrap.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
+require_file_contains ccc-bootstrap.sh 'CTX_WARN="!!"'
+require_file_contains ccc-bootstrap.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"
 require_file_contains container-code-companion/web/index.html "Projects"
 require_file_contains container-code-companion/web/index.html "oculus-configs"
@@ -174,6 +187,28 @@ require_ordered_patterns container-code-companion/web/index.html \
 
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
+
+awk '/^cat > .*statusline-command.sh.*STATUSLINE/{flag=1; next} /^STATUSLINE$/{flag=0} flag{print}' ccc-bootstrap.sh > /tmp/ccc-statusline.syntax
+bash -n /tmp/ccc-statusline.syntax
+statusline_test_bin=$(mktemp -d)
+cat > "$statusline_test_bin/jq" <<'FAKEJQ'
+#!/usr/bin/env bash
+case "$*" in
+  *".model.id"*) echo "claude-sonnet-4-20250514" ;;
+  *".thinking.enabled"*) echo "true" ;;
+  *".context.used"*) echo "120000" ;;
+  *".context.max"*) echo "200000" ;;
+  *) echo "" ;;
+esac
+FAKEJQ
+chmod +x "$statusline_test_bin/jq"
+statusline_output=$(
+  printf '%s\n' '{"model":{"id":"claude-sonnet-4-20250514"},"thinking":{"enabled":true},"context":{"used":120000,"max":200000}}' \
+    | PATH="$statusline_test_bin:$PATH" USER=test HOME="$PWD" bash /tmp/ccc-statusline.syntax
+)
+rm -rf "$statusline_test_bin"
+[[ "$statusline_output" == test@* ]] || fail "statusline output missing user/host prefix"
+[[ "$statusline_output" == *"[sonnet-4 | think] [ctx:60%!]"* ]] || fail "statusline output missing model/thinking/context warning: $statusline_output"
 
 # Task 1: CSS Prism palette
 require_file_contains container-code-companion/web/styles.css '--topbar'

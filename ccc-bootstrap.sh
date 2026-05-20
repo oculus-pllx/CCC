@@ -738,8 +738,8 @@ step 18 "oculus-configs agent config"
 
 # ── Statusline ────────────────────────────────────────────────────────────────
 step 19 "Statusline"
-sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
-cat > /home/claude-code/.claude/bin/statusline-command.sh << 'STATUSLINE'
+sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"
+cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'STATUSLINE'
 #!/bin/bash
 # CCC Statusline — Claude Code session prompt line
 # Receives JSON session context from Claude Code on stdin
@@ -796,8 +796,8 @@ TIME=$(date +"%I:%M%p" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
 echo "${USER}@$(hostname -s):${DIR}${GIT_BRANCH} [${MODEL}${THINK}] [ctx:${CTX_PCT}%${CTX_WARN}] ${TIME}"
 STATUSLINE
 
-chmod +x /home/claude-code/.claude/bin/statusline-command.sh
-chown claude-code:claude-code /home/claude-code/.claude/bin/statusline-command.sh
+chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
+chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
 echo "    Statusline: ~/.claude/bin/statusline-command.sh"
 
 # ── code-server (web VS Code) ─────────────────────────────────────────────────
