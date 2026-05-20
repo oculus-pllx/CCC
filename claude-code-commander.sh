@@ -1719,14 +1719,16 @@ download_latest() {
 }
 
 resolve_latest_commit() {
+  local _c
   if [[ -n "${CLONE_DIR:-}" && -d "$CLONE_DIR/.git" ]]; then
     run_as_user git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true
     return 0
   fi
-  git ls-remote "$CCC_SELF_UPDATE_REPO" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 && return 0
   local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
   https_repo="${https_repo%.git}.git"
-  git ls-remote "$https_repo" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 || true
+  _c=$(git ls-remote "$https_repo" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1)
+  [[ -n "$_c" ]] && { echo "$_c"; return 0; }
+  git ls-remote "$CCC_SELF_UPDATE_REPO" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 || true
 }
 
 echo ""
