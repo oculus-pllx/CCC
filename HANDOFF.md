@@ -22,10 +22,10 @@ CCC is Agent Workstation: a headless Proxmox LXC dev workstation for Claude Code
 Hard constraints:
 - Agent Workstation native UI owns port `9090`; code-server on `8080`
 - No Cockpit, no iframe wrappers, no `configure.py`, no `node-pty`, no port `4827`
-- No `/opt/ccc-dashboard`; keep all plugin/service code in `claude-code-commander.sh`
-- `CCC_SELF_UPDATE_REF="main"` in all three places in `claude-code-commander.sh`
+- No `/opt/ccc-dashboard`; keep all plugin/service code in `ccc-bootstrap.sh`
+- `CCC_SELF_UPDATE_REF="main"` in all three places in `ccc-bootstrap.sh`
 - Panel colors must be theme-derived via `applyTheme()`, not hardcoded hex
-- Do not hardcode `agent-workstation-native-ui` branch name in `claude-code-commander.sh`
+- Do not hardcode `agent-workstation-native-ui` branch name in `ccc-bootstrap.sh`
 
 ---
 
@@ -84,7 +84,7 @@ faa325b feat(polish): add --accent-rgb CSS var + static test stubs for visual ef
 bash tests/agent-workstation-static.sh    → agent-workstation static checks passed
 go build -C agent-workstation ./cmd/server → BUILD OK
 node --check agent-workstation/web/app.js  → OK
-bash -n claude-code-commander.sh           → SYNTAX OK
+bash -n ccc-bootstrap.sh           → SYNTAX OK
 Debian 13 compatibility                    → all clear (no Ubuntu-only deps)
 ```
 

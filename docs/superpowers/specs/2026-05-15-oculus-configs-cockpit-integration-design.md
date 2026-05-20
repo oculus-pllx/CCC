@@ -29,7 +29,7 @@ All Cockpit plugin file operations use `cockpit.file()` and `cockpit.spawn()`, r
 
 ---
 
-## Changes to claude-code-commander.sh
+## Changes to ccc-bootstrap.sh
 
 ### Step numbering
 

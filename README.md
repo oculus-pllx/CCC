@@ -7,7 +7,7 @@ Parallax Group: [pllx.group](https://pllx.group)
 > Built on [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — free, open-source server virtualization (community edition).
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-bootstrap.sh)
 ```
 
 ---
@@ -50,13 +50,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 SSH into your Proxmox host as root and run:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-bootstrap.sh)
 ```
 
 Or download and inspect first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-code-commander.sh \
+curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-bootstrap.sh \
   -o /tmp/ccc.sh && bash /tmp/ccc.sh
 ```
 

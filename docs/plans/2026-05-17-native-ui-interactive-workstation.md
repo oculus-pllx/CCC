@@ -64,7 +64,7 @@
 - Modify as needed from Tasks 1-3.
 
 - [x] Run `bash tests/agent-workstation-static.sh`.
-- [x] Run `bash -n claude-code-commander.sh`.
+- [x] Run `bash -n ccc-bootstrap.sh`.
 - [x] Run `cd agent-workstation && go test ./...`.
 - [x] Run `node --check agent-workstation/web/app.js`.
 - [x] Run `git diff --check`.

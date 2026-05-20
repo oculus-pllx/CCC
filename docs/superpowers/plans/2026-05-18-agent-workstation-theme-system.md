@@ -1075,7 +1075,7 @@ Expected: no errors.
 ```bash
 bash tests/agent-workstation-static.sh
 node --check agent-workstation/web/app.js
-bash -n claude-code-commander.sh
+bash -n ccc-bootstrap.sh
 ```
 Expected: all pass.
 

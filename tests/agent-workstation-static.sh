@@ -20,7 +20,14 @@ require_file_not_contains() {
   fi
 }
 
-require_file_contains claude-code-commander.sh "Container Code Companion"
+legacy_bootstrap='claude-code-''commander'
+if git grep -n "$legacy_bootstrap" -- . ':!agent-workstation/web/vendor/*'; then
+  fail "tracked files still reference the legacy bootstrap name"
+fi
+[[ -f ccc-bootstrap.sh ]] || fail "missing ccc-bootstrap.sh"
+[[ ! -e "${legacy_bootstrap}.sh" ]] || fail "legacy bootstrap file still exists"
+
+require_file_contains ccc-bootstrap.sh "Container Code Companion"
 require_file_contains README.md "Container Code Companion"
 require_file_contains LICENSE "MIT License"
 require_file_contains LICENSE "Copyright (c) 2026 Parallax Group"
@@ -37,11 +44,11 @@ require_file_contains agent-workstation/web/app.js "bindCustomTitle"
 require_file_contains agent-workstation/web/styles.css ".brand-lockup"
 require_file_contains agent-workstation/web/styles.css ".custom-title-input"
 require_file_contains agent-workstation/web/styles.css ".app-footer"
-require_file_contains claude-code-commander.sh "ccc-sync-agent-configs"
+require_file_contains ccc-bootstrap.sh "ccc-sync-agent-configs"
 require_file_contains README.md "ccc-sync-agent-configs"
-require_file_contains claude-code-commander.sh "codex/AGENTS.md"
-require_file_contains claude-code-commander.sh "gemini/GEMINI.md"
-require_file_contains claude-code-commander.sh "mcp.template.json"
+require_file_contains ccc-bootstrap.sh "codex/AGENTS.md"
+require_file_contains ccc-bootstrap.sh "gemini/GEMINI.md"
+require_file_contains ccc-bootstrap.sh "mcp.template.json"
 require_file_contains agent-workstation/web/index.html "Terminal"
 require_file_contains agent-workstation/web/index.html "Projects"
 require_file_contains agent-workstation/web/index.html "oculus-configs"
@@ -49,28 +56,28 @@ require_file_contains agent-workstation/web/index.html "Dashboard"
 require_file_contains agent-workstation/web/index.html "Workstation"
 require_file_contains agent-workstation/web/index.html "System"
 require_file_contains agent-workstation/web/index.html "Agents"
-require_file_contains claude-code-commander.sh "agent-workstation.service"
-require_file_contains claude-code-commander.sh "/usr/local/bin/agent-workstation"
-require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_USERNAME"
-require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_PASSWORD"
-require_file_contains claude-code-commander.sh 'Container Code Companion uses the $CCC_USER user password'
-require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_ADDR=0.0.0.0:9090"
-require_file_contains claude-code-commander.sh "systemctl disable --now ccc-dashboard"
-require_file_contains claude-code-commander.sh "fuser -k 9090/tcp"
-require_file_contains claude-code-commander.sh "systemctl disable --now cockpit.socket"
-require_file_contains claude-code-commander.sh "systemctl enable agent-workstation.service"
-require_file_contains claude-code-commander.sh "/var/log/ccc-self-update.log"
-require_file_contains claude-code-commander.sh "timeout 600 /usr/local/go/bin/go build"
-require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_USERNAME"
-require_file_contains claude-code-commander.sh "Set CCC_USER in /etc/ccc/config"
-require_file_contains claude-code-commander.sh 'NO_COLOR'
-require_file_contains claude-code-commander.sh 'setsid systemctl restart agent-workstation.service'
-require_file_contains claude-code-commander.sh 'CCC_INSTALLED_COMMIT'
-require_file_contains claude-code-commander.sh 'Update available'
-require_file_contains claude-code-commander.sh "Self-update successful"
-require_file_contains claude-code-commander.sh "-buildvcs=false"
-require_file_contains claude-code-commander.sh 'git config --system --add safe.directory "$AGENT_WORKSTATION_SRC"'
-require_file_contains claude-code-commander.sh 'git config --system --add safe.directory "$SRC"'
+require_file_contains ccc-bootstrap.sh "agent-workstation.service"
+require_file_contains ccc-bootstrap.sh "/usr/local/bin/agent-workstation"
+require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_USERNAME"
+require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_PASSWORD"
+require_file_contains ccc-bootstrap.sh 'Container Code Companion uses the $CCC_USER user password'
+require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_ADDR=0.0.0.0:9090"
+require_file_contains ccc-bootstrap.sh "systemctl disable --now ccc-dashboard"
+require_file_contains ccc-bootstrap.sh "fuser -k 9090/tcp"
+require_file_contains ccc-bootstrap.sh "systemctl disable --now cockpit.socket"
+require_file_contains ccc-bootstrap.sh "systemctl enable agent-workstation.service"
+require_file_contains ccc-bootstrap.sh "/var/log/ccc-self-update.log"
+require_file_contains ccc-bootstrap.sh "timeout 600 /usr/local/go/bin/go build"
+require_file_contains ccc-bootstrap.sh "AGENT_WORKSTATION_USERNAME"
+require_file_contains ccc-bootstrap.sh "Set CCC_USER in /etc/ccc/config"
+require_file_contains ccc-bootstrap.sh 'NO_COLOR'
+require_file_contains ccc-bootstrap.sh 'setsid systemctl restart agent-workstation.service'
+require_file_contains ccc-bootstrap.sh 'CCC_INSTALLED_COMMIT'
+require_file_contains ccc-bootstrap.sh 'Update available'
+require_file_contains ccc-bootstrap.sh "Self-update successful"
+require_file_contains ccc-bootstrap.sh "-buildvcs=false"
+require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$AGENT_WORKSTATION_SRC"'
+require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$SRC"'
 require_file_contains agent-workstation/web/app.js "let activeUpdateTab = 'app'"
 require_file_contains agent-workstation/web/app.js "data-update-tab=\"app\""
 require_file_contains agent-workstation/web/app.js "data-update-tab=\"os\""
@@ -124,14 +131,14 @@ require_file_not_contains agent-workstation/web/app.js '(?:\x1b)?'
 require_file_not_contains agent-workstation/web/app.js '`http://${location.hostname}'
 require_file_not_contains agent-workstation/web/app.js 'formatPercent'
 
-require_file_contains claude-code-commander.sh 'CCC_SELF_UPDATE_REF="main"'
-require_file_not_contains claude-code-commander.sh 'agent-workstation-native-ui'
-require_file_not_contains claude-code-commander.sh "/opt/ccc-dashboard"
-require_file_not_contains claude-code-commander.sh "node-pty"
-require_file_not_contains claude-code-commander.sh "dashboard-token"
-require_file_not_contains claude-code-commander.sh "oculus-configure"
-require_file_not_contains claude-code-commander.sh "configure.py"
-require_file_not_contains claude-code-commander.sh "localhost:4827"
+require_file_contains ccc-bootstrap.sh 'CCC_SELF_UPDATE_REF="main"'
+require_file_not_contains ccc-bootstrap.sh 'agent-workstation-native-ui'
+require_file_not_contains ccc-bootstrap.sh "/opt/ccc-dashboard"
+require_file_not_contains ccc-bootstrap.sh "node-pty"
+require_file_not_contains ccc-bootstrap.sh "dashboard-token"
+require_file_not_contains ccc-bootstrap.sh "oculus-configure"
+require_file_not_contains ccc-bootstrap.sh "configure.py"
+require_file_not_contains ccc-bootstrap.sh "localhost:4827"
 require_file_not_contains README.md "localhost:4827"
 
 require_ordered_patterns() {
@@ -155,7 +162,7 @@ require_ordered_patterns agent-workstation/web/index.html \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
   '<div class="nav-heading">Agents</div>' 'data-section="configs"' 'data-section="oculus"'
 
-awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax
+awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
 
 # Task 1: CSS Prism palette

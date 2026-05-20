@@ -5,7 +5,7 @@
 #  for Claude Code, OpenAI Codex, and Gemini CLI
 #
 #  Run on your Proxmox host:
-#    bash claude-code-commander.sh
+#    bash ccc-bootstrap.sh
 #
 #  Design values:
 #    • No Docker — pure native toolchain, minimal overhead
@@ -544,7 +544,7 @@ CCC_HOME="/home/claude-code"
 CCC_CODE_SERVER_SERVICE="code-server@claude-code"
 CCC_SELF_UPDATE_REPO="git@github.com:oculus-pllx/CCC.git"
 CCC_SELF_UPDATE_REF="main"
-CCC_SELF_UPDATE_SCRIPT="claude-code-commander.sh"
+CCC_SELF_UPDATE_SCRIPT="ccc-bootstrap.sh"
 OCULUS_CONFIGS_REPO="https://github.com/oculus-pllx/oculus-configs.git"
 OCULUS_CONFIGS_REF="main"
 OCULUS_CONFIGS_DIR="/opt/oculus-configs"
@@ -1065,9 +1065,9 @@ chown claude-code:claude-code /home/claude-code/.tmux.conf
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
-# Patch stale script name written by older provisioners (oculus-commander.sh → claude-code-commander.sh)
+# Patch stale script name written by older provisioners (oculus-commander.sh → ccc-bootstrap.sh)
 if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT=' /etc/ccc/config; then
-  sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="claude-code-commander.sh"|' /etc/ccc/config
+  sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="ccc-bootstrap.sh"|' /etc/ccc/config
 fi
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"

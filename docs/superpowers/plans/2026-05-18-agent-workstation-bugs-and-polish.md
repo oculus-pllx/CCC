@@ -14,7 +14,7 @@
 
 | File | Responsibility |
 |------|---------------|
-| `claude-code-commander.sh` | Self-update ref (×2 locations), static Cockpit cleanup |
+| `ccc-bootstrap.sh` | Self-update ref (×2 locations), static Cockpit cleanup |
 | `agent-workstation/internal/system/management.go` | `StartSelfUpdate` daemonization; `ParseMemInfo` tolerance |
 | `agent-workstation/internal/server/server.go` | `handleOverview` method guard; cookie `Secure` flag |
 | `agent-workstation/internal/server/terminal.go` | WebSocket `CheckOrigin` host validation |
@@ -28,15 +28,15 @@
 ## Task 1: Branch Sync — CCC_SELF_UPDATE_REF → main
 
 **Files:**
-- Modify: `claude-code-commander.sh:546` (global constant)
-- Modify: `claude-code-commander.sh:1643` (embedded `ccc-self-update` default)
+- Modify: `ccc-bootstrap.sh:546` (global constant)
+- Modify: `ccc-bootstrap.sh:1643` (embedded `ccc-self-update` default)
 - Modify: `tests/agent-workstation-static.sh`
 
 The self-update scripts reference branch `agent-workstation-native-ui` in two places. Changing both to `main` makes every deployed workstation pull from `main` after merge. The static test must assert `main` and forbid the old branch name.
 
 - [ ] **Step 1: Change global constant (line 546)**
 
-In `claude-code-commander.sh`, find:
+In `ccc-bootstrap.sh`, find:
 ```bash
 CCC_SELF_UPDATE_REF="agent-workstation-native-ui"
 ```
@@ -60,8 +60,8 @@ CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
 
 In `tests/agent-workstation-static.sh`, add after the existing `require_file_contains` block:
 ```bash
-require_file_contains claude-code-commander.sh 'CCC_SELF_UPDATE_REF="main"'
-require_file_not_contains claude-code-commander.sh 'agent-workstation-native-ui'
+require_file_contains ccc-bootstrap.sh 'CCC_SELF_UPDATE_REF="main"'
+require_file_not_contains ccc-bootstrap.sh 'agent-workstation-native-ui'
 ```
 
 - [ ] **Step 4: Run static checks**
@@ -74,15 +74,15 @@ Expected: `agent-workstation static checks passed`
 - [ ] **Step 5: Syntax checks**
 
 ```bash
-bash -n claude-code-commander.sh
-awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax && bash -n /tmp/ccc-self-update.syntax
+bash -n ccc-bootstrap.sh
+awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax && bash -n /tmp/ccc-self-update.syntax
 ```
 Expected: no output (no errors)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add claude-code-commander.sh tests/agent-workstation-static.sh
+git add ccc-bootstrap.sh tests/agent-workstation-static.sh
 git commit -m "fix(update): set CCC_SELF_UPDATE_REF to main for post-merge self-update"
 ```
 
@@ -1164,8 +1164,8 @@ Expected: no output
 - [ ] **Step 5: Shell syntax**
 
 ```bash
-bash -n claude-code-commander.sh
-awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax && bash -n /tmp/ccc-self-update.syntax
+bash -n ccc-bootstrap.sh
+awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax && bash -n /tmp/ccc-self-update.syntax
 ```
 Expected: no output
 

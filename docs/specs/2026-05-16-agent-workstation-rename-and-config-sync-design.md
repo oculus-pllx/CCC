@@ -134,7 +134,7 @@ The repository name and primary script filename can remain unchanged for now unl
 
 Minimum verification before committing implementation:
 
-- `bash -n claude-code-commander.sh`
+- `bash -n ccc-bootstrap.sh`
 - Extract embedded Cockpit plugin JavaScript and run `node --check`.
 - `git diff --check`
 - Grep checks:

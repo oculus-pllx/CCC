@@ -21,7 +21,7 @@
 - Create `agent-workstation/web/index.html`: first native UI shell.
 - Create `agent-workstation/web/app.js`: frontend API loading and rendering.
 - Create `agent-workstation/web/styles.css`: UI styling.
-- Modify `claude-code-commander.sh`: later installer task installs the binary and systemd unit instead of Cockpit.
+- Modify `ccc-bootstrap.sh`: later installer task installs the binary and systemd unit instead of Cockpit.
 - Modify `tests/agent-workstation-static.sh`: later static checks for no Cockpit dependency and no legacy dashboard.
 - Modify `README.md`: later docs for native UI and rollback.
 
@@ -117,7 +117,7 @@ git commit -m "feat(native-ui): add system overview"
 ## Task 3: Installer Switch From Cockpit to Native UI
 
 **Files:**
-- Modify: `claude-code-commander.sh`
+- Modify: `ccc-bootstrap.sh`
 - Modify: `tests/agent-workstation-static.sh`
 - Modify: `README.md`
 
@@ -148,7 +148,7 @@ Replace the Cockpit plugin install section with native UI installation:
 Run:
 ```bash
 bash tests/agent-workstation-static.sh
-bash -n claude-code-commander.sh
+bash -n ccc-bootstrap.sh
 git diff --check
 ```
 Expected: PASS, except unrelated pre-existing `HANDOFF.md` whitespace may remain outside the scoped diff.
@@ -156,7 +156,7 @@ Expected: PASS, except unrelated pre-existing `HANDOFF.md` whitespace may remain
 - [x] **Step 5: Commit**
 
 ```bash
-git add README.md claude-code-commander.sh tests/agent-workstation-static.sh
+git add README.md ccc-bootstrap.sh tests/agent-workstation-static.sh
 git commit -m "feat(native-ui): install Agent Workstation service"
 ```
 

@@ -4,7 +4,7 @@
 
 **Goal:** Integrate oculus-configs into CCC provisioning and replace the stock Cockpit UI with a native Prism-dark plugin covering all configure.py features.
 
-**Architecture:** oculus-configs is cloned to `/opt/oculus-configs` during provisioning; its CLAUDE.md, rules, templates, and Codex/Gemini skill files are copied into place. The Cockpit plugin (`/usr/share/cockpit/ccc/`) is a single self-contained `index.html` with Prism-dark CSS, six tabs backed by `cockpit.file()` and `cockpit.spawn()`, and no external port or Python service. The plugin is developed in `docs/cockpit-plugin/index.html` with a mock cockpit, then embedded as a heredoc in `claude-code-commander.sh`.
+**Architecture:** oculus-configs is cloned to `/opt/oculus-configs` during provisioning; its CLAUDE.md, rules, templates, and Codex/Gemini skill files are copied into place. The Cockpit plugin (`/usr/share/cockpit/ccc/`) is a single self-contained `index.html` with Prism-dark CSS, six tabs backed by `cockpit.file()` and `cockpit.spawn()`, and no external port or Python service. The plugin is developed in `docs/cockpit-plugin/index.html` with a mock cockpit, then embedded as a heredoc in `ccc-bootstrap.sh`.
 
 **Tech Stack:** Bash (provisioner), vanilla JS + cockpit.js (plugin), Prism-dark CSS (design tokens from spec)
 
@@ -14,7 +14,7 @@
 
 | File | Action | Purpose |
 |---|---|---|
-| `claude-code-commander.sh` | Modify | Four zones: step 18 (replace), step 24 MOTD (edit), step 27 Cockpit (add plugin block), step count comment |
+| `ccc-bootstrap.sh` | Modify | Four zones: step 18 (replace), step 24 MOTD (edit), step 27 Cockpit (add plugin block), step count comment |
 | `docs/cockpit-plugin/manifest.json` | Create | Cockpit plugin declaration — dev reference |
 | `docs/cockpit-plugin/mock-cockpit.js` | Create | Mock cockpit API for browser-based dev testing |
 | `docs/cockpit-plugin/index.html` | Create | The full plugin (built across Tasks 4–9), then embedded into bash script in Task 10 |
@@ -24,13 +24,13 @@
 ## Task 1: Replace step 18 in bash script (remove CLAUDE.md heredoc, add oculus-configs)
 
 **Files:**
-- Modify: `claude-code-commander.sh` lines 618–677
+- Modify: `ccc-bootstrap.sh` lines 618–677
 
 - [ ] **Step 1: Verify current state — syntax check and baseline grep**
 
 ```bash
-bash -n claude-code-commander.sh && echo "syntax OK"
-grep -n 'step 18\|CLAUDEMD\|Claude Code Workspace' claude-code-commander.sh
+bash -n ccc-bootstrap.sh && echo "syntax OK"
+grep -n 'step 18\|CLAUDEMD\|Claude Code Workspace' ccc-bootstrap.sh
 ```
 
 Expected: `step 18 "CLAUDE.md"` at line 619, `CLAUDEMD` heredoc delimiter visible.
@@ -77,19 +77,19 @@ sudo -u claude-code mkdir -p /home/claude-code/.claude/skills
 - [ ] **Step 3: Verify replacement**
 
 ```bash
-bash -n claude-code-commander.sh && echo "syntax OK"
-grep -n 'step 18' claude-code-commander.sh
+bash -n ccc-bootstrap.sh && echo "syntax OK"
+grep -n 'step 18' ccc-bootstrap.sh
 # Expected: step 18 "oculus-configs"
-grep -n 'Claude Code Workspace\|CLAUDEMD' claude-code-commander.sh
+grep -n 'Claude Code Workspace\|CLAUDEMD' ccc-bootstrap.sh
 # Expected: no output (heredoc gone)
-grep -n 'oculus-configs' claude-code-commander.sh | head -5
+grep -n 'oculus-configs' ccc-bootstrap.sh | head -5
 # Expected: clone command visible
 ```
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add claude-code-commander.sh
+git add ccc-bootstrap.sh
 git commit -m "feat: replace CLAUDE.md heredoc with oculus-configs provisioning step"
 ```
 
@@ -98,12 +98,12 @@ git commit -m "feat: replace CLAUDE.md heredoc with oculus-configs provisioning 
 ## Task 2: Update MOTD (step 24)
 
 **Files:**
-- Modify: `claude-code-commander.sh` around line 1648 (step 24 MOTD block)
+- Modify: `ccc-bootstrap.sh` around line 1648 (step 24 MOTD block)
 
 - [ ] **Step 1: Find the Cockpit MOTD line**
 
 ```bash
-grep -n 'Cockpit\|9090' claude-code-commander.sh | grep echo
+grep -n 'Cockpit\|9090' ccc-bootstrap.sh | grep echo
 ```
 
 Note the exact line(s) that reference Cockpit in the MOTD heredoc.
@@ -132,9 +132,9 @@ echo -e "  ${C}ccc-verify-cockpit-updates${N} Check Cockpit GUI update readiness
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-bash -n claude-code-commander.sh && echo "syntax OK"
-grep -A1 -B1 '9090' claude-code-commander.sh | grep -A1 -B1 'echo'
-git add claude-code-commander.sh
+bash -n ccc-bootstrap.sh && echo "syntax OK"
+grep -A1 -B1 '9090' ccc-bootstrap.sh | grep -A1 -B1 'echo'
+git add ccc-bootstrap.sh
 git commit -m "feat: update MOTD to reflect Prism CCC Cockpit plugin"
 ```
 
@@ -1126,7 +1126,7 @@ git commit -m "feat: Cockpit plugin — Updates tab (CCC + oculus-configs)"
 
 **Files:**
 - Modify: `docs/cockpit-plugin/index.html` — swap mock script src for real cockpit.js
-- Modify: `claude-code-commander.sh` — add plugin block inside step 27
+- Modify: `ccc-bootstrap.sh` — add plugin block inside step 27
 
 - [ ] **Step 1: Swap mock script tag in index.html**
 
@@ -1155,7 +1155,7 @@ grep -n '^MANIFEST$' docs/cockpit-plugin/index.html
 - [ ] **Step 3: Locate insertion point in bash script**
 
 ```bash
-grep -n 'systemctl enable --now cockpit.socket\|CCC_UPDATEABLE_END' claude-code-commander.sh
+grep -n 'systemctl enable --now cockpit.socket\|CCC_UPDATEABLE_END' ccc-bootstrap.sh
 ```
 
 Note the line number of `systemctl enable --now cockpit.socket`. The plugin block goes immediately after it.
@@ -1187,20 +1187,20 @@ Then paste the **complete contents** of `docs/cockpit-plugin/index.html`, then c
 COCKPITUI
 ```
 
-> **Tip:** Use your editor's "insert file" feature, or: `sed -i '/systemctl enable --now cockpit.socket/r docs/cockpit-plugin/index.html' claude-code-commander.sh` (then manually add the heredoc open/close lines around the inserted content).
+> **Tip:** Use your editor's "insert file" feature, or: `sed -i '/systemctl enable --now cockpit.socket/r docs/cockpit-plugin/index.html' ccc-bootstrap.sh` (then manually add the heredoc open/close lines around the inserted content).
 
 - [ ] **Step 5: Syntax check and verify plugin block**
 
 ```bash
-bash -n claude-code-commander.sh && echo "syntax OK"
-grep -n 'COCKPITUI\|manifest.json\|usr/share/cockpit/ccc' claude-code-commander.sh
+bash -n ccc-bootstrap.sh && echo "syntax OK"
+grep -n 'COCKPITUI\|manifest.json\|usr/share/cockpit/ccc' ccc-bootstrap.sh
 # Expected: COCKPITUI open + close visible, manifest.json write visible
 ```
 
 - [ ] **Step 6: Commit both files**
 
 ```bash
-git add claude-code-commander.sh docs/cockpit-plugin/index.html
+git add ccc-bootstrap.sh docs/cockpit-plugin/index.html
 git commit -m "feat: embed Prism CCC Cockpit plugin into provisioner (step 27)"
 ```
 
@@ -1209,12 +1209,12 @@ git commit -m "feat: embed Prism CCC Cockpit plugin into provisioner (step 27)"
 ## Task 11: Final validation
 
 **Files:**
-- Read: `claude-code-commander.sh`
+- Read: `ccc-bootstrap.sh`
 
 - [ ] **Step 1: Syntax check**
 
 ```bash
-bash -n claude-code-commander.sh && echo "syntax OK"
+bash -n ccc-bootstrap.sh && echo "syntax OK"
 ```
 
 Expected: `syntax OK` with no output before it.
@@ -1222,7 +1222,7 @@ Expected: `syntax OK` with no output before it.
 - [ ] **Step 2: Step count**
 
 ```bash
-grep -c '^step [0-9]' claude-code-commander.sh
+grep -c '^step [0-9]' ccc-bootstrap.sh
 ```
 
 Expected: `28` (step 18 replaced, net count unchanged).
@@ -1231,36 +1231,36 @@ Expected: `28` (step 18 replaced, net count unchanged).
 
 ```bash
 # Old CLAUDE.md heredoc gone
-grep -c 'Claude Code Workspace' claude-code-commander.sh
+grep -c 'Claude Code Workspace' ccc-bootstrap.sh
 # Expected: 0
 
 # New step 18 present
-grep 'step 18' claude-code-commander.sh
+grep 'step 18' ccc-bootstrap.sh
 # Expected: step 18 "oculus-configs"
 
 # oculus-configs clone present
-grep 'git clone.*oculus-configs' claude-code-commander.sh
+grep 'git clone.*oculus-configs' ccc-bootstrap.sh
 # Expected: line visible
 
 # Codex and Gemini skill copy present
-grep 'AGENTS.md\|GEMINI.md' claude-code-commander.sh
+grep 'AGENTS.md\|GEMINI.md' ccc-bootstrap.sh
 # Expected: two lines visible
 
 # Cockpit plugin block present
-grep 'usr/share/cockpit/ccc' claude-code-commander.sh
+grep 'usr/share/cockpit/ccc' ccc-bootstrap.sh
 # Expected: mkdir line + write lines visible
 
 # manifest.json valid JSON (extract and validate)
-awk '/cat > \/usr\/share\/cockpit\/ccc\/manifest.json/,/^MANIFEST$/' claude-code-commander.sh \
+awk '/cat > \/usr\/share\/cockpit\/ccc\/manifest.json/,/^MANIFEST$/' ccc-bootstrap.sh \
   | grep -v 'cat >\|MANIFEST' | python3 -m json.tool > /dev/null && echo "manifest JSON valid"
 # Expected: manifest JSON valid
 
 # MOTD updated
-grep '9090' claude-code-commander.sh | grep echo
+grep '9090' ccc-bootstrap.sh | grep echo
 # Expected: "config, projects, MCP, updates" (not "system monitoring")
 
 # CCC_UPDATEABLE_END still present and plugin is before it
-grep -n 'CCC_UPDATEABLE_END\|usr/share/cockpit/ccc' claude-code-commander.sh
+grep -n 'CCC_UPDATEABLE_END\|usr/share/cockpit/ccc' ccc-bootstrap.sh
 # Expected: cockpit/ccc line number < CCC_UPDATEABLE_END line number
 ```
 

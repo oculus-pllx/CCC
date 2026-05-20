@@ -29,9 +29,9 @@ require_file_contains agent-workstation/web/app.js "renderUpdateConsole"
 require_file_not_contains agent-workstation/web/app.js "Refresh Agent Workstation Status"
 require_file_contains agent-workstation/web/styles.css ".update-tabs"
 require_file_contains agent-workstation/web/styles.css ".update-console"
-require_file_contains claude-code-commander.sh "-buildvcs=false"
-require_file_contains claude-code-commander.sh "git config --system --add safe.directory \"$AGENT_WORKSTATION_SRC\""
-require_file_contains claude-code-commander.sh "git config --system --add safe.directory \"$SRC\""
+require_file_contains ccc-bootstrap.sh "-buildvcs=false"
+require_file_contains ccc-bootstrap.sh "git config --system --add safe.directory \"$AGENT_WORKSTATION_SRC\""
+require_file_contains ccc-bootstrap.sh "git config --system --add safe.directory \"$SRC\""
 ```
 
 - [ ] **Step 2: Run static test and verify failure**
@@ -45,7 +45,7 @@ Expected: FAIL on one of the new missing update-console assertions.
 Run:
 
 ```bash
-git add tests/agent-workstation-static.sh agent-workstation/web/app.js agent-workstation/web/styles.css claude-code-commander.sh
+git add tests/agent-workstation-static.sh agent-workstation/web/app.js agent-workstation/web/styles.css ccc-bootstrap.sh
 git commit -m "feat(update): replace update console"
 ```
 
@@ -84,7 +84,7 @@ Expected: frontend assertions pass after Task 3 also completes.
 ### Task 3: Harden Installer And Self-Update Git/Build Path
 
 **Files:**
-- Modify: `claude-code-commander.sh`
+- Modify: `ccc-bootstrap.sh`
 
 - [ ] **Step 1: Harden `ccc-self-update` script**
 
@@ -114,7 +114,7 @@ timeout 600 /usr/local/go/bin/go build \
 
 - [ ] **Step 3: Verify embedded script syntax**
 
-Run: `awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' claude-code-commander.sh > /tmp/ccc-self-update.syntax && bash -n /tmp/ccc-self-update.syntax`
+Run: `awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax && bash -n /tmp/ccc-self-update.syntax`
 
 Expected: no output and exit 0.
 

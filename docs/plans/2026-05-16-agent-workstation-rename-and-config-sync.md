@@ -27,7 +27,7 @@ Expected: FAIL because the starting code still used old product branding and did
 ### Task 2: Provisioner Config Sync
 
 **Files:**
-- Modify: `claude-code-commander.sh`
+- Modify: `ccc-bootstrap.sh`
 
 - [x] **Step 1: Add `ccc-sync-agent-configs` to the updateable section**
 
@@ -45,7 +45,7 @@ Keep `ccc-*` commands but rename user-facing product text to Agent Workstation a
 
 **Files:**
 - Modify: `docs/cockpit-plugin/index.html`
-- Modify embedded plugin block in `claude-code-commander.sh`
+- Modify embedded plugin block in `ccc-bootstrap.sh`
 
 - [x] **Step 1: Rename plugin title/menu text**
 
@@ -80,7 +80,7 @@ Run:
 
 ```bash
 bash tests/agent-workstation-static.sh
-bash -n claude-code-commander.sh
+bash -n ccc-bootstrap.sh
 awk 'BEGIN{capture=0} /<script>/{capture=1; next} /<\/script>/{capture=0} capture{print}' docs/cockpit-plugin/index.html > /tmp/cockpit-plugin.js
 node --check /tmp/cockpit-plugin.js
 git diff --check
