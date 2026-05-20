@@ -1816,12 +1816,18 @@ systemctl enable agent-workstation.service
 
 # Write version file before restarting — restart kills this process tree when
 # run from the web terminal (PTY is a child of agent-workstation).
-if [[ -n "${CCC_LATEST_COMMIT:-}" ]]; then
+# Prefer CCC_LATEST_COMMIT injected by ccc-self-update; fall back to the HEAD
+# of the just-cloned source repo so bootstrapping via the old script still records.
+_write_commit="${CCC_LATEST_COMMIT:-}"
+if [[ -z "$_write_commit" && -d "$AGENT_WORKSTATION_SRC/.git" ]]; then
+  _write_commit=$(git -c "safe.directory=$AGENT_WORKSTATION_SRC" -C "$AGENT_WORKSTATION_SRC" rev-parse HEAD 2>/dev/null || echo "")
+fi
+if [[ -n "$_write_commit" ]]; then
   mkdir -p /etc/ccc
   printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
-    "$CCC_LATEST_COMMIT" "$CCC_SELF_UPDATE_REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" \
+    "$_write_commit" "${CCC_SELF_UPDATE_REF:-main}" "$(date '+%Y-%m-%d %H:%M:%S %z')" \
     > "${CCC_VERSION_FILE:-/etc/ccc/version}"
-  echo "    Recorded installed commit: ${CCC_LATEST_COMMIT:0:7}"
+  echo "    Recorded installed commit: ${_write_commit:0:7}"
 fi
 
 echo "    Restarting Agent Workstation service..."
