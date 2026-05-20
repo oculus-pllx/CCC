@@ -181,8 +181,6 @@ Display effects are local browser preferences. Monitor flicker is enabled by def
 
 ## Current Roadmap
 
-Tracked in [`docs/plans/2026-05-20-container-code-companion-punchlist.md`](docs/plans/2026-05-20-container-code-companion-punchlist.md):
-
 - File uploads and downloads
 - Webmin-style file manager cleanup
 - Persistent notes

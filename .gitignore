@@ -1,5 +1,8 @@
 *:Zone.Identifier
 *.Zone.Identifier
 .superpowers/
+.claude/
+.local-repo-archive/
 HANDOFF.local.md
+HANDOFF.md
 Pllx_group_BRAND.md
