@@ -23,7 +23,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 - **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, 7 accent color presets, system overview, services, logs, networking, accounts, files, terminal, projects, updates, agent configs, and GitHub SSH key management
+- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, terminal, projects, updates, agent configs, and GitHub SSH key management
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -87,7 +87,7 @@ After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
-Provisioning takes **10–15 minutes**. Each of the 28 steps prints `[N/28]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
 
 ---
 
@@ -155,6 +155,43 @@ ccc
 
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
+
+---
+
+## Native Web UI
+
+Open `http://<container-ip>:9090` after provisioning and sign in with the working user and password you entered during install.
+
+The native UI is built into the Go service, not Cockpit and not a Node dashboard. It currently includes:
+
+- **Overview** — host, IP, uptime, services, projects, resource gauges, update status, and recent logs
+- **Updates** — separate App and OS tabs; App updates stream `ccc-self-update` output and reconnect after service restart
+- **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
+- **Projects** — create projects from templates, initialize git, open in Files, open in code-server, rename, and delete
+- **Terminal** — browser PTY tabs backed by xterm.js, with tmux-capable shells
+- **Accounts** — create users, change passwords, shells, groups, and delete users
+- **Logs, Network, Services** — inspect service state, network activity, and system logs
+- **Agent Configs** — edit Claude, Codex, Gemini, and MCP config files inline
+- **GitHub** — generate an SSH key, copy the public key, and test GitHub SSH access
+- **Settings** — theme swatches, editable top title, and CRT display effects
+
+Display effects are local browser preferences. Monitor flicker is enabled by default; sync drift can be enabled from Settings.
+
+---
+
+## Current Roadmap
+
+Tracked in [`docs/plans/2026-05-20-container-code-companion-punchlist.md`](docs/plans/2026-05-20-container-code-companion-punchlist.md):
+
+- File uploads and downloads
+- Webmin-style file manager cleanup
+- Persistent notes
+- Better project handling, including adding existing directories
+- Larger/adjustable terminal and tmux quick controls
+- Map drives wizard
+- App catalog / recommended tool visibility
+- Codex device authorization flow
+- Sidebar/menu polish
 
 ---
 
