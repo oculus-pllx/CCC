@@ -1526,108 +1526,65 @@ cat > /usr/local/bin/ccc-update-status << 'UPDATESTATUSSCRIPT'
 #!/bin/bash
 set -euo pipefail
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; D='\033[2m'; N='\033[0m'
-if [[ ! -t 1 || -n "${NO_COLOR:-}" ]]; then
-  B=''; G=''; C=''; Y=''; R=''; D=''; N=''
-fi
+[[ ! -t 1 || -n "${NO_COLOR:-}" ]] && B='' G='' C='' Y='' R='' D='' N=''
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
-CCC_USER="${CCC_USER:-claude-code}"
-CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
-CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
-CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
-CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-claude-code-commander.sh}"
+REF="${CCC_SELF_UPDATE_REF:-main}"
+REPO_URL="https://github.com/oculus-pllx/CCC.git"
+SRC="/opt/agent-workstation-src"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 SHOW_ACTIONS=1
 [[ "${1:-}" == "--no-actions" ]] && SHOW_ACTIONS=0
 TMP_REPO=""
-
-cleanup() {
-  [[ -n "${TMP_REPO:-}" ]] && rm -rf "$TMP_REPO"
-}
+cleanup() { [[ -n "${TMP_REPO:-}" ]] && rm -rf "$TMP_REPO"; }
 trap cleanup EXIT
-
-run_as_user() {
-  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
-    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
-  else
-    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
-  fi
-}
-
-clone_repo() {
-  TMP_REPO=$(mktemp -u /tmp/ccc-update-status.XXXXXX)
-  if run_as_user git clone --quiet --depth 50 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$TMP_REPO"; then
-    return 0
-  fi
-  rm -rf "$TMP_REPO"
-  TMP_REPO=$(mktemp -u /tmp/ccc-update-status.XXXXXX)
-  local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
-  https_repo="${https_repo%.git}.git"
-  run_as_user git clone --quiet --depth 50 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$TMP_REPO"
-}
 
 installed_commit=""
 installed_date=""
-if [[ -r "$VERSION_FILE" ]]; then
-  installed_commit=$(awk -F= '$1=="CCC_INSTALLED_COMMIT"{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
-  installed_date=$(awk -F= '$1=="CCC_INSTALLED_DATE"{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
+[[ -r "$VERSION_FILE" ]] && {
+  installed_commit=$(awk -F= '/^CCC_INSTALLED_COMMIT/{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
+  installed_date=$(awk -F= '/^CCC_INSTALLED_DATE/{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
+}
+
+# Use the persistent source clone if available; otherwise clone fresh via HTTPS.
+if [[ -d "$SRC/.git" ]]; then
+  git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null || true
+  REPO="$SRC"
+  latest_commit=$(git -C "$REPO" rev-parse "origin/$REF" 2>/dev/null || git -C "$REPO" rev-parse HEAD)
+else
+  TMP_REPO=$(mktemp -d /tmp/ccc-update-check.XXXXXX)
+  if ! git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO" 2>/dev/null; then
+    echo -e "${R}Could not reach GitHub. Check internet connection.${N}"
+    exit 1
+  fi
+  REPO="$TMP_REPO"
+  latest_commit=$(git -C "$REPO" rev-parse HEAD)
 fi
+
+latest_short="${latest_commit:0:7}"
+latest_date=$(git -C "$REPO" log -1 --format='%ci' "$latest_commit" 2>/dev/null || echo "")
+latest_subject=$(git -C "$REPO" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")
 
 echo ""
 echo -e "${B}Agent Workstation Update Status${N}"
-echo -e "  Repo:   ${C}${CCC_SELF_UPDATE_REPO}${N}"
-echo -e "  Ref:    ${C}${CCC_SELF_UPDATE_REF}${N}"
-echo -e "  Script: ${C}${CCC_SELF_UPDATE_SCRIPT}${N}"
-echo ""
-
-if ! clone_repo; then
-  echo -e "${R}Could not reach GitHub repo.${N}"
-  echo -e "  Check internet, repo access, and SSH keys. Try: ${C}ccc-doctor${N}"
-  exit 1
-fi
-
-latest_commit=$(run_as_user git -C "$TMP_REPO" rev-parse HEAD)
-latest_short=$(run_as_user git -C "$TMP_REPO" rev-parse --short HEAD)
-latest_date=$(run_as_user git -C "$TMP_REPO" log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
-latest_subject=$(run_as_user git -C "$TMP_REPO" log -1 --format='%s')
-
 if [[ -n "$installed_commit" ]]; then
-  installed_short=${installed_commit:0:7}
-  echo -e "  Installed: ${C}${installed_short}${N}${installed_date:+ — $installed_date}"
+  echo -e "  Installed: ${C}${installed_commit:0:7}${N}${installed_date:+ — $installed_date}"
 else
-  echo -e "  Installed: ${Y}not recorded${N} ${D}(manual install or pre-versioned update)${N}"
+  echo -e "  Installed: ${Y}not recorded${N}"
 fi
-echo -e "  GitHub:    ${C}${latest_short}${N} — ${latest_date}"
-echo -e "             ${latest_subject}"
+echo -e "  GitHub:    ${C}${latest_short}${N}${latest_date:+ — $latest_date}"
+[[ -n "$latest_subject" ]] && echo -e "             ${latest_subject}"
 echo ""
 
 if [[ -z "$installed_commit" ]]; then
-  echo -e "  ${Y}Update check: installed commit is not recorded.${N}"
-  echo -e "  ${D}Latest GitHub commit is shown above. Apply update to record this install.${N}"
-  echo -e "  ${D}Recent GitHub commits:${N}"
-  run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
-elif run_as_user git -C "$TMP_REPO" cat-file -e "$installed_commit^{commit}" 2>/dev/null; then
-  behind=$(run_as_user git -C "$TMP_REPO" rev-list --count "${installed_commit}..HEAD")
-  if [[ "$behind" -eq 0 ]]; then
-    echo -e "  ${G}Up to date with origin/${CCC_SELF_UPDATE_REF}.${N}"
-  else
-    echo -e "  ${Y}${behind} commit(s) behind origin/${CCC_SELF_UPDATE_REF}${N}"
-    run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 "${installed_commit}..HEAD" | sed 's/^/  • /'
-  fi
+  echo -e "  ${Y}No version recorded. Run: sudo ccc-self-update${N}"
+elif [[ "${installed_commit:0:7}" == "$latest_short" ]]; then
+  echo -e "  ${G}Up to date.${N}"
 else
-  if [[ "${installed_commit:0:7}" == "$latest_short" ]]; then
-    echo -e "  ${G}Current: installed commit matches latest GitHub commit.${N}"
-  else
-    echo -e "  ${Y}Update available: installed commit differs from latest GitHub commit.${N}"
-    echo -e "  ${D}Recent GitHub commits:${N}"
-    run_as_user git -C "$TMP_REPO" log --oneline --max-count=5 | sed 's/^/  • /'
-  fi
+  echo -e "  ${Y}Update available.${N}"
+  git -C "$REPO" log --oneline --max-count=5 2>/dev/null | sed 's/^/  • /' || true
 fi
 
-if [[ "$SHOW_ACTIONS" -eq 1 ]]; then
-  echo ""
-  echo -e "  Check:  ${C}ccc-update-status${N}"
-  echo -e "  Update: ${C}sudo ccc-self-update${N}"
-fi
+[[ "$SHOW_ACTIONS" -eq 1 ]] && { echo ""; echo -e "  Update: ${C}sudo ccc-self-update${N}"; }
 echo ""
 UPDATESTATUSSCRIPT
 chmod +x /usr/local/bin/ccc-update-status
@@ -1637,165 +1594,65 @@ cat > /usr/local/bin/ccc-self-update << 'SELFUPDATESCRIPT'
 #!/bin/bash
 set -euo pipefail
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
-if [[ ! -t 1 || -n "${NO_COLOR:-}" ]]; then
-  B=''; G=''; C=''; Y=''; R=''; N=''
-fi
+[[ ! -t 1 || -n "${NO_COLOR:-}" ]] && B='' G='' C='' Y='' R='' N=''
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
-CCC_USER="${CCC_USER:-claude-code}"
-CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
-CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
-CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
-CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-claude-code-commander.sh}"
-CCC_SELF_UPDATE_RAW_URL="${CCC_SELF_UPDATE_RAW_URL:-https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/${CCC_SELF_UPDATE_SCRIPT}}"
+[[ "$(id -u)" -ne 0 ]] && exec sudo "$0" "$@"
+
+REF="${CCC_SELF_UPDATE_REF:-main}"
+REPO_URL="https://github.com/oculus-pllx/CCC.git"
+SRC="/opt/agent-workstation-src"
+BIN="/usr/local/bin/agent-workstation"
+WEB="/opt/agent-workstation/web"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
-TMP="/tmp/ccc-provisioner-$$.sh"
-APPLY_SCRIPT="/tmp/ccc-updateable-$$.sh"
-CLONE_DIR=""
-LATEST_COMMIT=""
-
-cleanup() {
-  rm -f "$TMP" "$APPLY_SCRIPT"
-  [[ -n "${CLONE_DIR:-}" ]] && rm -rf "$CLONE_DIR"
-}
-trap cleanup EXIT
-
-run_as_user() {
-  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
-    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
-  else
-    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
-  fi
-}
-
-# Copies the provisioner script from a cloned repo dir.
-# Falls back to claude-code-commander.sh if the configured name is stale.
-_copy_from_clone() {
-  local dir="$1" target="$CCC_SELF_UPDATE_SCRIPT"
-  if [[ ! -f "$dir/$target" && "$target" != "claude-code-commander.sh" && -f "$dir/claude-code-commander.sh" ]]; then
-    echo -e "  ${Y}Config has stale script name '${target}'; using claude-code-commander.sh.${N}"
-    target="claude-code-commander.sh"
-  fi
-  if [[ -f "$dir/$target" ]]; then
-    cp "$dir/$target" "$TMP"
-    return 0
-  fi
-  echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
-  return 1
-}
-
-download_latest() {
-  echo -e "  Raw URL: ${C}${CCC_SELF_UPDATE_RAW_URL}${N}"
-  if curl -fsSL "$CCC_SELF_UPDATE_RAW_URL" -o "$TMP"; then
-    return 0
-  fi
-  # Canonical name fallback: stale config may reference a renamed script
-  if [[ "$CCC_SELF_UPDATE_SCRIPT" != "claude-code-commander.sh" ]]; then
-    local _raw_canonical="https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/claude-code-commander.sh"
-    echo -e "  ${Y}Trying canonical script name: ${_raw_canonical}${N}"
-    if curl -fsSL "$_raw_canonical" -o "$TMP"; then
-      echo -e "  ${Y}Config has stale script name; update will correct it.${N}"
-      return 0
-    fi
-  fi
-
-  echo -e "  ${Y}Raw download failed; trying Git clone fallback.${N}"
-  # mktemp -u: reserve a unique name without creating the dir so git clone can create it
-  CLONE_DIR=$(mktemp -u /tmp/ccc-self-update.XXXXXX)
-  if run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$CLONE_DIR"; then
-    _copy_from_clone "$CLONE_DIR" && return 0
-    return 1
-  fi
-
-  local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
-  https_repo="${https_repo%.git}.git"
-  echo -e "  ${Y}SSH clone failed; trying HTTPS clone: ${https_repo}${N}"
-  rm -rf "$CLONE_DIR"
-  CLONE_DIR=$(mktemp -u /tmp/ccc-self-update.XXXXXX)
-  if ! run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$CLONE_DIR"; then
-    return 1
-  fi
-  _copy_from_clone "$CLONE_DIR"
-}
-
-resolve_latest_commit() {
-  local _c
-  if [[ -n "${CLONE_DIR:-}" && -d "$CLONE_DIR/.git" ]]; then
-    run_as_user git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true
-    return 0
-  fi
-  local https_repo="${CCC_SELF_UPDATE_REPO/git@github.com:/https:\/\/github.com\/}"
-  https_repo="${https_repo%.git}.git"
-  _c=$(git ls-remote "$https_repo" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1)
-  [[ -n "$_c" ]] && { echo "$_c"; return 0; }
-  git ls-remote "$CCC_SELF_UPDATE_REPO" "refs/heads/$CCC_SELF_UPDATE_REF" 2>/dev/null | awk '{print $1}' | head -1 || true
-}
+GO="/usr/local/go/bin/go"
 
 echo ""
 echo -e "${B}Agent Workstation Self-Update${N}"
-echo -e "${Y}Downloads latest provisioner and re-applies Agent Workstation tools, MOTD, and native UI service.${N}"
-echo -e "${Y}Does NOT re-run Node/Go/Rust, Claude install, or user creation.${N}"
 echo ""
-if command -v ccc-update-status &>/dev/null; then
-  ccc-update-status --no-actions || true
-fi
 
-echo -e "${C}[1/3]${N} Downloading latest provisioner..."
-echo -e "  Repo:    ${C}${CCC_SELF_UPDATE_REPO}${N}"
-echo -e "  Ref:     ${C}${CCC_SELF_UPDATE_REF}${N}"
-echo -e "  Script:  ${C}${CCC_SELF_UPDATE_SCRIPT}${N}"
-if ! download_latest; then
-  echo -e "${R}Download failed. Check internet, GitHub access, and SSH keys: ccc-doctor${N}"
-  exit 1
-fi
-LATEST_COMMIT=$(resolve_latest_commit)
-echo -e "  Downloaded $(wc -l < "$TMP") lines"
-
-echo ""
-echo -e "${C}[2/3]${N} Extracting updateable sections..."
-_S="CCC_UPDATEABLE_START"; _E="CCC_UPDATEABLE_END"
-UPDATE_SCRIPT=$(awk "/# $_S/,/# $_E/" "$TMP")
-if [[ -z "$UPDATE_SCRIPT" ]]; then
-  echo -e "${R}Could not find update markers in provisioner. Repo may be outdated.${N}"
-  rm -f "$TMP"
-  exit 1
-fi
-
-echo ""
-echo -e "${C}[3/3]${N} Applying updates..."
-sudo mkdir -p "$(dirname "$LOG_FILE")"
-{
-  echo "#!/bin/bash"
-  echo "set -euo pipefail"
-  echo 'step() { echo "  >>> $2"; }'
-  echo "CCC_LATEST_COMMIT=\"${LATEST_COMMIT:-}\""
-  echo "CCC_SELF_UPDATE_REF=\"${CCC_SELF_UPDATE_REF}\""
-  echo "CCC_VERSION_FILE=\"${VERSION_FILE}\""
-  echo "$UPDATE_SCRIPT"
-} > "$APPLY_SCRIPT"
-chmod +x "$APPLY_SCRIPT"
-echo -e "  Log: ${C}${LOG_FILE}${N}"
-set +e
-sudo bash "$APPLY_SCRIPT" 2>&1 | sudo tee "$LOG_FILE"
-status=${PIPESTATUS[0]}
-set -e
-if [[ "$status" -eq 0 ]]; then
-  echo ""
-  if [[ -n "$LATEST_COMMIT" ]]; then
-    sudo mkdir -p /etc/ccc
-    {
-      echo "CCC_INSTALLED_COMMIT=\"$LATEST_COMMIT\""
-      echo "CCC_INSTALLED_REF=\"$CCC_SELF_UPDATE_REF\""
-      echo "CCC_INSTALLED_DATE=\"$(date '+%Y-%m-%d %H:%M:%S %z')\""
-    } | sudo tee "$VERSION_FILE" >/dev/null
-  fi
-  echo -e "${G}${B}Self-update complete.${N}"
-  echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')"
+# [1/4] Sync source
+echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
+if [[ -d "$SRC/.git" ]]; then
+  git -C "$SRC" fetch origin "$REF" --quiet
+  git -C "$SRC" reset --hard "origin/$REF" --quiet
 else
-  echo ""
-  echo -e "${R}Update script exited with errors: ${status}. Some steps may have partially applied.${N}"
-  exit "$status"
+  rm -rf "$SRC"
+  git clone --depth 1 --branch "$REF" "$REPO_URL" "$SRC"
 fi
+COMMIT=$(git -C "$SRC" rev-parse HEAD)
+echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(git -C "$SRC" log -1 --format='%s')"
+
+# [2/4] Build binary
+echo ""
+echo -e "${C}[2/4]${N} Building Agent Workstation binary..."
+timeout 600 "$GO" build -C "$SRC/agent-workstation" -o "$BIN" ./cmd/server
+chmod +x "$BIN"
+echo -e "  OK: $BIN"
+
+# [3/4] Sync web assets
+echo ""
+echo -e "${C}[3/4]${N} Syncing web assets..."
+rsync -a --delete "$SRC/agent-workstation/web/" "$WEB/"
+echo -e "  OK: $WEB"
+
+# [4/4] Write version + restart
+echo ""
+echo -e "${C}[4/4]${N} Recording version and restarting service..."
+mkdir -p /etc/ccc
+printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
+  "$COMMIT" "$REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" > "$VERSION_FILE"
+echo -e "  Recorded: ${C}${COMMIT:0:7}${N}"
+
+# Detach restart from the current process group. When run from the web terminal,
+# the PTY is a child of agent-workstation — a synchronous restart would kill this
+# script before it exits. setsid creates a new session; the restart survives PTY teardown.
+setsid systemctl restart agent-workstation.service &
+disown $! 2>/dev/null || true
+
+echo ""
+echo -e "${G}${B}Self-update complete. Service restarting in background.${N}"
+echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')" | tee -a "$LOG_FILE" >/dev/null
 echo ""
 SELFUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-self-update

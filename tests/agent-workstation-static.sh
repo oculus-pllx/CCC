@@ -50,10 +50,9 @@ require_file_contains claude-code-commander.sh "timeout 600 /usr/local/go/bin/go
 require_file_contains claude-code-commander.sh "AGENT_WORKSTATION_USERNAME:-"
 require_file_contains claude-code-commander.sh "Set CCC_USER in /etc/ccc/config"
 require_file_contains claude-code-commander.sh 'NO_COLOR'
-require_file_contains claude-code-commander.sh 'status=${PIPESTATUS[0]}'
-require_file_contains claude-code-commander.sh "Update check: installed commit is not recorded"
-require_file_contains claude-code-commander.sh "Update available: installed commit differs"
-require_file_contains claude-code-commander.sh "Current: installed commit matches"
+require_file_contains claude-code-commander.sh 'setsid systemctl restart agent-workstation.service'
+require_file_contains claude-code-commander.sh 'CCC_INSTALLED_COMMIT'
+require_file_contains claude-code-commander.sh 'Update available'
 require_file_contains claude-code-commander.sh "Self-update successful"
 require_file_contains agent-workstation/web/app.js "Apply Agent Workstation Update"
 require_file_contains agent-workstation/web/app.js "/api/self-update"
