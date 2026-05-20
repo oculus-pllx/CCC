@@ -1545,11 +1545,11 @@ installed_date=""
 }
 
 # Use the persistent source clone if available; otherwise clone fresh via HTTPS.
-git config --system --add safe.directory "$SRC" 2>/dev/null || git config --global --add safe.directory "$SRC" 2>/dev/null || true
+_git() { git -c "safe.directory=$SRC" "$@"; }
 if [[ -d "$SRC/.git" ]]; then
-  git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null || true
+  _git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null || true
   REPO="$SRC"
-  latest_commit=$(git -C "$REPO" rev-parse "origin/$REF" 2>/dev/null || git -C "$REPO" rev-parse HEAD)
+  latest_commit=$(_git -C "$REPO" rev-parse "origin/$REF" 2>/dev/null || _git -C "$REPO" rev-parse HEAD)
 else
   TMP_REPO=$(mktemp -d /tmp/ccc-update-check.XXXXXX)
   if ! git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO" 2>/dev/null; then
@@ -1557,12 +1557,13 @@ else
     exit 1
   fi
   REPO="$TMP_REPO"
-  latest_commit=$(git -C "$REPO" rev-parse HEAD)
+  latest_commit=$(git -c "safe.directory=$REPO" -C "$REPO" rev-parse HEAD)
 fi
 
+_grepo() { git -c "safe.directory=$REPO" "$@"; }
 latest_short="${latest_commit:0:7}"
-latest_date=$(git -C "$REPO" log -1 --format='%ci' "$latest_commit" 2>/dev/null || echo "")
-latest_subject=$(git -C "$REPO" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")
+latest_date=$(_grepo -C "$REPO" log -1 --format='%ci' "$latest_commit" 2>/dev/null || echo "")
+latest_subject=$(_grepo -C "$REPO" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")
 
 echo ""
 echo -e "${B}Agent Workstation Update Status${N}"
@@ -1581,7 +1582,7 @@ elif [[ "${installed_commit:0:7}" == "$latest_short" ]]; then
   echo -e "  ${G}Up to date.${N}"
 else
   echo -e "  ${Y}Update available.${N}"
-  git -C "$REPO" log --oneline --max-count=5 2>/dev/null | sed 's/^/  • /' || true
+  _grepo -C "$REPO" log --oneline --max-count=5 2>/dev/null | sed 's/^/  • /' || true
 fi
 
 [[ "$SHOW_ACTIONS" -eq 1 ]] && { echo ""; echo -e "  Update: ${C}sudo ccc-self-update${N}"; }
@@ -1613,16 +1614,16 @@ echo ""
 
 # [1/4] Sync source
 echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
-git config --system --add safe.directory "$SRC" 2>/dev/null || git config --global --add safe.directory "$SRC" 2>/dev/null || true
+_git() { git -c "safe.directory=$SRC" "$@"; }
 if [[ -d "$SRC/.git" ]]; then
-  git -C "$SRC" fetch origin "$REF" --quiet
-  git -C "$SRC" reset --hard "origin/$REF" --quiet
+  _git -C "$SRC" fetch origin "$REF" --quiet
+  _git -C "$SRC" reset --hard "origin/$REF" --quiet
 else
   rm -rf "$SRC"
   git clone --depth 1 --branch "$REF" "$REPO_URL" "$SRC"
 fi
-COMMIT=$(git -C "$SRC" rev-parse HEAD)
-echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(git -C "$SRC" log -1 --format='%s')"
+COMMIT=$(_git -C "$SRC" rev-parse HEAD)
+echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%s')"
 
 # [2/4] Build binary
 echo ""
@@ -1724,9 +1725,6 @@ LOGROTATE
 
 # ── Agent Workstation native web UI ───────────────────────────────────────────
 step 27 "Agent Workstation native web UI"
-
-# Ensure git trusts the source directory regardless of which user cloned it.
-git config --system --add safe.directory /opt/agent-workstation-src 2>/dev/null || true
 
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 systemctl disable --now cockpit.socket 2>/dev/null || true
