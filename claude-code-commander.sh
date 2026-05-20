@@ -1768,6 +1768,9 @@ sudo mkdir -p "$(dirname "$LOG_FILE")"
   echo "#!/bin/bash"
   echo "set -euo pipefail"
   echo 'step() { echo "  >>> $2"; }'
+  echo "CCC_LATEST_COMMIT=\"${LATEST_COMMIT:-}\""
+  echo "CCC_SELF_UPDATE_REF=\"${CCC_SELF_UPDATE_REF}\""
+  echo "CCC_VERSION_FILE=\"${VERSION_FILE}\""
   echo "$UPDATE_SCRIPT"
 } > "$APPLY_SCRIPT"
 chmod +x "$APPLY_SCRIPT"
@@ -1946,8 +1949,21 @@ EOF
 
 systemctl daemon-reload
 systemctl enable agent-workstation.service
+
+# Write version file before restarting — restart kills this process tree when
+# run from the web terminal (PTY is a child of agent-workstation).
+if [[ -n "${CCC_LATEST_COMMIT:-}" ]]; then
+  mkdir -p /etc/ccc
+  printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
+    "$CCC_LATEST_COMMIT" "$CCC_SELF_UPDATE_REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" \
+    > "${CCC_VERSION_FILE:-/etc/ccc/version}"
+  echo "    Recorded installed commit: ${CCC_LATEST_COMMIT:0:7}"
+fi
+
 echo "    Restarting Agent Workstation service..."
-timeout 60 systemctl restart agent-workstation.service
+# Detach from the current process group so the restart survives PTY teardown.
+setsid systemctl restart agent-workstation.service &
+disown $! 2>/dev/null || true
 
 echo "    Agent Workstation: http://<ip>:9090 (login as $CCC_USER)"
 echo "    Agent Workstation uses the $CCC_USER user password after final setup."
