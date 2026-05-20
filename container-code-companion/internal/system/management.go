@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -81,6 +82,17 @@ type FileContent struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
 	Size    int64  `json:"size"`
+}
+
+type UploadedFile struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+type DownloadFile struct {
+	Path string
+	Name string
+	Size int64
 }
 
 type UpdateStatus struct {
@@ -364,6 +376,59 @@ func WriteTextFile(path string, content string) error {
 		return errors.New("cannot save content to a directory")
 	}
 	return os.WriteFile(cleaned, []byte(content), info.Mode().Perm())
+}
+
+func SaveUploadedFile(dir string, filename string, source io.Reader) (UploadedFile, error) {
+	if strings.TrimSpace(dir) == "" {
+		return UploadedFile{}, errors.New("upload directory is required")
+	}
+	if strings.TrimSpace(filename) == "" || filename != filepath.Base(filename) {
+		return UploadedFile{}, errors.New("valid upload filename is required")
+	}
+	cleanedDir, err := filepath.Abs(dir)
+	if err != nil {
+		return UploadedFile{}, err
+	}
+	info, err := os.Stat(cleanedDir)
+	if err != nil {
+		return UploadedFile{}, err
+	}
+	if !info.IsDir() {
+		return UploadedFile{}, errors.New("upload path must be a directory")
+	}
+	target := filepath.Join(cleanedDir, filename)
+	file, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return UploadedFile{}, err
+	}
+	defer file.Close()
+	written, err := io.Copy(file, io.LimitReader(source, 64*1024*1024+1))
+	if err != nil {
+		return UploadedFile{}, err
+	}
+	if written > 64*1024*1024 {
+		_ = os.Remove(target)
+		return UploadedFile{}, errors.New("uploaded file is larger than 64 MiB")
+	}
+	return UploadedFile{Path: target, Size: written}, nil
+}
+
+func PrepareFileDownload(path string) (DownloadFile, error) {
+	if strings.TrimSpace(path) == "" {
+		return DownloadFile{}, errors.New("download path is required")
+	}
+	cleaned, err := filepath.Abs(path)
+	if err != nil {
+		return DownloadFile{}, err
+	}
+	info, err := os.Stat(cleaned)
+	if err != nil {
+		return DownloadFile{}, err
+	}
+	if info.IsDir() {
+		return DownloadFile{}, errors.New("directory downloads are not supported yet")
+	}
+	return DownloadFile{Path: cleaned, Name: filepath.Base(cleaned), Size: info.Size()}, nil
 }
 
 func RunFileOperation(operation FileOperation) (CommandResult, error) {

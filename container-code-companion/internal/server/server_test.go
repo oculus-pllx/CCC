@@ -1,10 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -259,6 +263,104 @@ func TestProtectedFileWriteSavesContent(t *testing.T) {
 	}
 	if !strings.Contains(res.Body.String(), "saved") {
 		t.Fatalf("expected save response, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedFileUploadWritesMultipartFile(t *testing.T) {
+	root := t.TempDir()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "upload.txt")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := part.Write([]byte("uploaded content")); err != nil {
+		t.Fatalf("write form file: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/file-upload?path="+root, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	content, err := os.ReadFile(filepath.Join(root, "upload.txt"))
+	if err != nil {
+		t.Fatalf("expected uploaded file: %v", err)
+	}
+	if string(content) != "uploaded content" {
+		t.Fatalf("expected uploaded content, got %q", string(content))
+	}
+}
+
+func TestProtectedFileUploadRejectsTraversalFilename(t *testing.T) {
+	root := t.TempDir()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "../escape.txt")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("nope"))
+	_ = writer.Close()
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/file-upload?path="+root, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d with body %q", res.Code, res.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "escape.txt")); !os.IsNotExist(err) {
+		t.Fatalf("expected traversal upload not to create file, stat err=%v", err)
+	}
+}
+
+func TestProtectedFileDownloadReturnsAttachment(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "download.txt")
+	if err := os.WriteFile(path, []byte("download content"), 0o644); err != nil {
+		t.Fatalf("write download fixture: %v", err)
+	}
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/file-download?path="+path, nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if res.Header().Get("Content-Disposition") != `attachment; filename="download.txt"` {
+		t.Fatalf("expected attachment disposition, got %q", res.Header().Get("Content-Disposition"))
+	}
+	if res.Body.String() != "download content" {
+		t.Fatalf("expected downloaded content, got %q", res.Body.String())
+	}
+}
+
+func TestProtectedFileDownloadRejectsDirectory(t *testing.T) {
+	root := t.TempDir()
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/file-download?path="+root, nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d with body %q", res.Code, res.Body.String())
 	}
 }
 

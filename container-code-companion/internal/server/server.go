@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,6 +29,8 @@ type Config struct {
 	ListFiles        func(path string) (system.FileListing, error)
 	ReadFile         func(path string) (system.FileContent, error)
 	WriteFile        func(path string, content string) error
+	UploadFile       func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
+	DownloadFile     func(path string) (system.DownloadFile, error)
 	ControlService   func(service string, operation string) (system.CommandResult, error)
 	FileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
@@ -48,6 +52,8 @@ type Server struct {
 	listFiles        func(path string) (system.FileListing, error)
 	readFile         func(path string) (system.FileContent, error)
 	writeFile        func(path string, content string) error
+	uploadFile       func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
+	downloadFile     func(path string) (system.DownloadFile, error)
 	controlService   func(service string, operation string) (system.CommandResult, error)
 	fileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
@@ -70,6 +76,8 @@ func New(config Config) *Server {
 		listFiles:        config.ListFiles,
 		readFile:         config.ReadFile,
 		writeFile:        config.WriteFile,
+		uploadFile:       config.UploadFile,
+		downloadFile:     config.DownloadFile,
 		controlService:   config.ControlService,
 		fileOperation:    config.FileOperation,
 		projectOperation: config.ProjectOperation,
@@ -97,6 +105,12 @@ func New(config Config) *Server {
 	}
 	if s.writeFile == nil {
 		s.writeFile = system.WriteTextFile
+	}
+	if s.uploadFile == nil {
+		s.uploadFile = system.SaveUploadedFile
+	}
+	if s.downloadFile == nil {
+		s.downloadFile = system.PrepareFileDownload
 	}
 	if s.controlService == nil {
 		s.controlService = system.ControlService
@@ -132,6 +146,8 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/self-update", s.requireSession(http.HandlerFunc(s.handleSelfUpdate)))
 	s.mux.Handle("/api/files", s.requireSession(http.HandlerFunc(s.handleFiles)))
 	s.mux.Handle("/api/file", s.requireSession(http.HandlerFunc(s.handleFile)))
+	s.mux.Handle("/api/file-upload", s.requireSession(http.HandlerFunc(s.handleFileUpload)))
+	s.mux.Handle("/api/file-download", s.requireSession(http.HandlerFunc(s.handleFileDownload)))
 	s.mux.Handle("/api/file-op", s.requireSession(http.HandlerFunc(s.handleFileOperation)))
 	s.mux.Handle("/api/service", s.requireSession(http.HandlerFunc(s.handleService)))
 	s.mux.Handle("/api/project", s.requireSession(http.HandlerFunc(s.handleProject)))
@@ -340,6 +356,61 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseMultipartForm(64 * 1024 * 1024); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid upload request"})
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "upload file is required"})
+		return
+	}
+	defer file.Close()
+	filename, err := safeUploadFilename(header)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	uploaded, err := s.uploadFile(r.URL.Query().Get("path"), filename, file)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "file": uploaded})
+}
+
+func (s *Server) handleFileDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	download, err := s.downloadFile(r.URL.Query().Get("path"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", download.Name))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", download.Size))
+	http.ServeFile(w, r, download.Path)
+}
+
+func safeUploadFilename(header *multipart.FileHeader) (string, error) {
+	_, params, err := mime.ParseMediaType(header.Header.Get("Content-Disposition"))
+	if err != nil {
+		return "", fmt.Errorf("invalid upload filename")
+	}
+	raw := params["filename"]
+	if strings.TrimSpace(raw) == "" || strings.ContainsAny(raw, `/\`) {
+		return "", fmt.Errorf("valid upload filename is required")
+	}
+	return header.Filename, nil
 }
 
 func (s *Server) handleService(w http.ResponseWriter, r *http.Request) {

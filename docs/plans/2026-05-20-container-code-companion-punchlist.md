@@ -13,7 +13,7 @@
 ## Priority Order
 
 - [x] **P0 Bootstrap prerequisites:** install `bubblewrap` for Codex sandboxing and install GitHub CLI from the official apt repository.
-- [ ] **P1 File manager foundation:** webmin-style file manager with upload/download, better directory navigation, and safe file operations.
+- [x] **P1 File manager foundation:** webmin-style file manager with upload/download, better directory navigation, and safe file operations.
 - [ ] **P1 Project handling:** add existing directory as project, improve project metadata, and expose project actions clearly.
 - [ ] **P1 Terminal improvements:** larger adjustable terminal, tmux quick buttons, and usable scroll behavior.
 - [ ] **P2 Notes:** persistent notes section stored on disk.
@@ -84,7 +84,7 @@
 - Static test for `/api/file-upload`, `/api/file-download`, `type="file"`, and `download`.
 - Browser smoke: upload a text file, download it, compare content.
 
-- [ ] Task 2 complete.
+- [x] Task 2 complete.
 
 ---
 

@@ -359,6 +359,8 @@ function renderFiles() {
       <button id="parent-button" class="small-button">Up</button>
       <button id="file-new-file-button" class="small-button">New File</button>
       <button id="file-new-folder-button" class="small-button">New Folder</button>
+      <label class="small-button file-upload-label" for="file-upload-input">Upload</label>
+      <input id="file-upload-input" type="file" hidden>
     </div>
     <div class="file-browser">
       <div>
@@ -370,6 +372,7 @@ function renderFiles() {
         <div class="file-toolbar">
           <input id="current-file" type="text" value="${escapeAttribute(currentFile)}" placeholder="Select a file">
           <button id="save-file-button" class="small-button">Save</button>
+          <button id="file-download-button" class="small-button">Download</button>
           <button id="file-rename-button" class="small-button">Rename</button>
           <button id="file-delete-button" class="small-button danger-button">Delete</button>
         </div>
@@ -1058,6 +1061,8 @@ function bindFileBrowser() {
   document.getElementById('file-new-folder-button')?.addEventListener('click', () => createFileEntry('dir'));
   document.getElementById('file-rename-button')?.addEventListener('click', renameCurrentFile);
   document.getElementById('file-delete-button')?.addEventListener('click', deleteCurrentFile);
+  document.getElementById('file-upload-input')?.addEventListener('change', uploadCurrentDirectory);
+  document.getElementById('file-download-button')?.addEventListener('click', downloadCurrentFile);
   loadFiles(filePath);
 }
 
@@ -1126,6 +1131,45 @@ async function saveCurrentFile() {
   } catch (error) {
     output.textContent = error.message;
   }
+}
+
+async function uploadCurrentDirectory(event) {
+  const input = event.target;
+  const output = document.getElementById('file-output');
+  const file = input.files?.[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append('file', file);
+  output.hidden = false;
+  output.textContent = 'Uploading...';
+  try {
+    const response = await fetch(`/api/file-upload?path=${encodeURIComponent(filePath)}`, {
+      method: 'POST',
+      body: form,
+      credentials: 'include',
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || `Request failed with ${response.status}`);
+    }
+    output.textContent = `Uploaded ${result.file?.path || file.name}`;
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  } finally {
+    input.value = '';
+  }
+}
+
+function downloadCurrentFile() {
+  const path = document.getElementById('current-file').value;
+  const output = document.getElementById('file-output');
+  if (!path) {
+    output.hidden = false;
+    output.textContent = 'Select a file to download.';
+    return;
+  }
+  window.location.href = `/api/file-download?path=${encodeURIComponent(path)}`;
 }
 
 async function createFileEntry(kind) {
