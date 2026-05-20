@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  Agent Workstation — Proxmox LXC Provisioner
+#  Container Code Companion — Proxmox LXC Provisioner
 #  Creates a lean, production-ready headless LXC dev workstation
 #  for Claude Code, OpenAI Codex, and Gemini CLI
 #
@@ -15,7 +15,7 @@
 #    • Claude Code + agent configs preloaded from oculus-configs
 #    • SSH hardened — root login disabled
 #    • ccc help command + MOTD on every login
-#    • Separate OS, Agent Workstation, and oculus-configs update paths
+#    • Separate OS, Container Code Companion, and oculus-configs update paths
 # ============================================================================
 set -euo pipefail
 
@@ -35,7 +35,7 @@ error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 header() {
   echo ""
   echo -e "${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-  echo -e "${BOLD}║          Agent Workstation (Proxmox)             ║${NC}"
+  echo -e "${BOLD}║          Container Code Companion (Proxmox)             ║${NC}"
   echo -e "${BOLD}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
 }
@@ -296,7 +296,7 @@ get_config() {
   echo "  User:         ${CC_USER} (non-root, passwordless sudo)"
   echo "  code-server:  port 8080 (web VS Code)"
   echo "  VS Code Web:  port 8080 (code-server)"
-  echo "  Agent UI:     port 9090 (Agent Workstation native UI)"
+  echo "  Agent UI:     port 9090 (Container Code Companion native UI)"
   echo "─────────────────────────────────────────────────"
   echo ""
   read -rp "Proceed? (y/N): " confirm
@@ -810,7 +810,7 @@ sudo -u claude-code mkdir -p /home/claude-code/projects
 
 # Welcome file — opens automatically in code-server on first load
 sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WELCOMEMD'
-# Welcome to Agent Workstation
+# Welcome to Container Code Companion
 
 ## First Steps
 
@@ -843,7 +843,7 @@ Alt+Arrow             # switch panes (no prefix)
 Ctrl+B d              # detach (session keeps running)
 ```
 
-## Agent Workstation UI (port 9090)
+## Container Code Companion UI (port 9090)
 
 Native headless management UI for system overview, services, logs, files, projects, updates, terminal, and agent configs. Use code-server on port 8080 for full IDE workflows.
 
@@ -851,7 +851,7 @@ Native headless management UI for system overview, services, logs, files, projec
 
 ```bash
 ccc-onboarding     # first-login wizard
-ccc-update         # update Agent Workstation tooling + app CLIs
+ccc-update         # update Container Code Companion tooling + app CLIs
 ccc-os-update      # update OS packages with apt
 ccc-sync-agent-configs # update Claude/Codex/Gemini config
 ccc-doctor         # health check
@@ -909,7 +909,7 @@ systemctl restart ssh
 step 22 "Shell environment & aliases"
 cat >> /home/claude-code/.bashrc << 'BASHRC'
 
-# ── Agent Workstation ─────────────────────────────────────────────────────
+# ── Container Code Companion ─────────────────────────────────────────────────────
 export EDITOR=nano
 export LANG=en_US.UTF-8
 export TZ=America/New_York
@@ -948,7 +948,7 @@ ccc() {
   local C='\033[0;36m' B='\033[1m' G='\033[0;32m' Y='\033[1;33m' N='\033[0m'
   echo ""
   echo -e "${B}╔══════════════════════════════════════════════════════════════════╗${N}"
-  echo -e "${B}║                    Agent Workstation Help                    ║${N}"
+  echo -e "${B}║                    Container Code Companion Help                    ║${N}"
   echo -e "${B}╚══════════════════════════════════════════════════════════════════╝${N}"
   echo ""
   echo -e "  ${B}AGENT CLIS${N}"
@@ -967,9 +967,9 @@ ccc() {
   echo -e "    ${C}ccc-onboarding${N}            First-login wizard (git identity, SSH key, GitHub)"
   echo -e "    ${C}ccc-setup${N}                 Same wizard, safe to re-run"
   echo -e "    ${C}ccc-update-status${N}         Show installed vs GitHub provisioner version"
-  echo -e "    ${C}ccc-self-update${N}           Update Agent Workstation tooling from GitHub"
+  echo -e "    ${C}ccc-self-update${N}           Update Container Code Companion tooling from GitHub"
   echo -e "    ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs from oculus-configs"
-  echo -e "    ${C}ccc-update${N}                Update Agent Workstation tooling + app CLIs"
+  echo -e "    ${C}ccc-update${N}                Update Container Code Companion tooling + app CLIs"
   echo -e "    ${C}ccc-os-update${N}             OS package update (apt)"
   echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
   echo ""
@@ -1020,7 +1020,7 @@ ccc() {
 if [[ $- == *i* && ! -f "$HOME/.ccc-onboarded" && -z "${CCC_ONBOARDING_SHOWN:-}" ]]; then
   export CCC_ONBOARDING_SHOWN=1
   echo ""
-  echo "Agent Workstation first-login onboarding is ready."
+  echo "Container Code Companion first-login onboarding is ready."
   read -rp "Run it now? [Y/n] " _ccc_run_onboarding
   if [[ -z "$_ccc_run_onboarding" || "$_ccc_run_onboarding" =~ ^[Yy]$ ]]; then
     ccc-onboarding
@@ -1083,7 +1083,7 @@ if ! id "$CCC_USER" &>/dev/null; then
   CCC_HOME="/home/$CCC_USER"
 fi
 if ! id "$CCC_USER" &>/dev/null; then
-  echo "Could not determine Agent Workstation user. Set CCC_USER in /etc/ccc/config." >&2
+  echo "Could not determine Container Code Companion user. Set CCC_USER in /etc/ccc/config." >&2
   exit 1
 fi
 
@@ -1223,11 +1223,11 @@ PATH="$CCC_HOME/.local/bin:$CCC_HOME/.claude/bin:$CCC_HOME/.cargo/bin:/usr/local
 export PATH
 
 echo ""
-echo -e "${B}Agent Workstation Tooling Update${N}"
-echo -e "${Y}Updates Agent Workstation tooling from GitHub and app CLIs only. OS packages are not upgraded.${N}"
+echo -e "${B}Container Code Companion Tooling Update${N}"
+echo -e "${Y}Updates Container Code Companion tooling from GitHub and app CLIs only. OS packages are not upgraded.${N}"
 echo ""
 
-echo -e "${C}[1/3]${N} Agent Workstation provisioner/tools from GitHub..."
+echo -e "${C}[1/3]${N} Container Code Companion provisioner/tools from GitHub..."
 if command -v ccc-self-update &>/dev/null; then
   ccc-self-update || true
 else
@@ -1264,7 +1264,7 @@ cat > /usr/local/bin/ccc-os-update << 'OSUPDATESCRIPT'
 set -euo pipefail
 B='\033[1m'; C='\033[0;36m'; G='\033[0;32m'; N='\033[0m'
 echo ""
-echo -e "${B}Agent Workstation OS Update${N}"
+echo -e "${B}Container Code Companion OS Update${N}"
 echo -e "${C}[1/3]${N} apt update"
 apt-get update
 echo -e "${C}[2/3]${N} apt upgrade"
@@ -1282,7 +1282,7 @@ cat > /usr/local/bin/ccc-setup << 'SETUPSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; N='\033[0m'
 echo ""
-echo -e "${B}Agent Workstation Post-Install Setup Wizard${N}"
+echo -e "${B}Container Code Companion Post-Install Setup Wizard${N}"
 echo ""
 
 # Git identity
@@ -1336,7 +1336,7 @@ chmod +x /usr/local/bin/ccc-onboarding
 cat > /usr/local/bin/ccc-fix-cockpit-updates << 'COCKPITFIXSCRIPT'
 #!/bin/bash
 set -euo pipefail
-echo "ccc-fix-cockpit-updates is retired. Agent Workstation now uses agent-workstation.service on port 9090."
+echo "ccc-fix-cockpit-updates is retired. Container Code Companion now uses agent-workstation.service on port 9090."
 echo "Run: sudo systemctl restart agent-workstation.service"
 COCKPITFIXSCRIPT
 chmod +x /usr/local/bin/ccc-fix-cockpit-updates
@@ -1344,7 +1344,7 @@ chmod +x /usr/local/bin/ccc-fix-cockpit-updates
 cat > /usr/local/bin/ccc-verify-cockpit-updates << 'COCKPITVERIFYSCRIPT'
 #!/bin/bash
 set -euo pipefail
-echo "ccc-verify-cockpit-updates is retired. Agent Workstation no longer uses Cockpit."
+echo "ccc-verify-cockpit-updates is retired. Container Code Companion no longer uses Cockpit."
 systemctl is-active --quiet agent-workstation.service
 COCKPITVERIFYSCRIPT
 chmod +x /usr/local/bin/ccc-verify-cockpit-updates
@@ -1361,7 +1361,7 @@ ok()   { echo -e "  ${G}✓${N} $*"; }
 fail() { echo -e "  ${R}✗${N} $*"; }
 warn() { echo -e "  ${Y}!${N} $*"; }
 echo ""
-echo -e "${B}Agent Workstation Doctor — System Check${N}"
+echo -e "${B}Container Code Companion Doctor — System Check${N}"
 echo ""
 
 echo -e "${C}── Network ───────────────────────────────────${N}"
@@ -1385,7 +1385,7 @@ echo ""
 
 echo -e "${C}── Services ──────────────────────────────────${N}"
 systemctl is-active --quiet "$CCC_CODE_SERVER_SERVICE" && ok "code-server running" || fail "code-server not running — sudo systemctl start $CCC_CODE_SERVER_SERVICE"
-systemctl is-active --quiet agent-workstation.service && ok "Agent Workstation UI running" || fail "Agent Workstation UI not running — sudo systemctl start agent-workstation.service"
+systemctl is-active --quiet agent-workstation.service && ok "Container Code Companion UI running" || fail "Container Code Companion UI not running — sudo systemctl start agent-workstation.service"
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
@@ -1566,7 +1566,7 @@ latest_date=$(_grepo -C "$REPO" log -1 --format='%ci' "$latest_commit" 2>/dev/nu
 latest_subject=$(_grepo -C "$REPO" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")
 
 echo ""
-echo -e "${B}Agent Workstation Update Status${N}"
+echo -e "${B}Container Code Companion Update Status${N}"
 if [[ -n "$installed_commit" ]]; then
   echo -e "  Installed: ${C}${installed_commit:0:7}${N}${installed_date:+ — $installed_date}"
 else
@@ -1609,7 +1609,7 @@ LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
 GO="/usr/local/go/bin/go"
 
 echo ""
-echo -e "${B}Agent Workstation Self-Update${N}"
+echo -e "${B}Container Code Companion Self-Update${N}"
 echo ""
 
 # [1/4] Sync source
@@ -1629,7 +1629,7 @@ echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%
 
 # [2/4] Build binary
 echo ""
-echo -e "${C}[2/4]${N} Building Agent Workstation binary..."
+echo -e "${C}[2/4]${N} Building Container Code Companion binary..."
 timeout 600 "$GO" build -buildvcs=false -C "$SRC/agent-workstation" -o "$BIN" ./cmd/server
 chmod +x "$BIN"
 echo -e "  OK: $BIN"
@@ -1668,7 +1668,7 @@ cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
 G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; Y='\033[1;33m'; D='\033[2m'; N='\033[0m'
 echo ""
-echo -e "${G}${B}  Agent Workstation${N}"
+echo -e "${G}${B}  Container Code Companion${N}"
 echo -e "  ${C}claude${N}                    Start Claude Code"
 echo -e "  ${C}codex${N}                     Start Codex CLI (if installed)"
 echo -e "  ${C}gemini${N}                    Start Gemini CLI (if installed)"
@@ -1679,9 +1679,9 @@ echo -e "  ${Y}Setup & Maintenance${N}"
 echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, GitHub)"
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
 echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
-echo -e "  ${C}ccc-self-update${N}           Update Agent Workstation tooling from GitHub"
+echo -e "  ${C}ccc-self-update${N}           Update Container Code Companion tooling from GitHub"
 echo -e "  ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs"
-echo -e "  ${C}ccc-update${N}                Update Agent Workstation tooling + app CLIs"
+echo -e "  ${C}ccc-update${N}                Update Container Code Companion tooling + app CLIs"
 echo -e "  ${C}ccc-os-update${N}             OS package update (apt)"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"
 echo -e "  ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
@@ -1691,7 +1691,7 @@ echo ""
 echo -e "  ${Y}Web Interfaces${N}"
 IP=\$(hostname -I 2>/dev/null | awk '{print \$1}')
 echo -e "  ${C}http://\${IP}:8080${N}   VS Code Web — multi-terminal, file editor"
-echo -e "  ${C}http://\${IP}:9090${N}    Agent Workstation — native management UI"
+echo -e "  ${C}http://\${IP}:9090${N}    Container Code Companion — native management UI"
 echo -e "  ${D}Tip: use port 8080 for multiple terminal tabs (Terminal → New Terminal)${N}"
 echo ""
 MOTD
@@ -1710,7 +1710,7 @@ rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
 cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-# Weekly Agent Workstation tooling update from GitHub. Does not run apt upgrade.
+# Weekly Container Code Companion tooling update from GitHub. Does not run apt upgrade.
 0 3 * * 0 root /usr/local/bin/ccc-update >> /var/log/ccc-app-update.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/ccc-app-update
@@ -1725,8 +1725,8 @@ cat > /etc/logrotate.d/ccc-app-update << 'LOGROTATE'
 }
 LOGROTATE
 
-# ── Agent Workstation native web UI ───────────────────────────────────────────
-step 27 "Agent Workstation native web UI"
+# ── Container Code Companion native web UI ───────────────────────────────────────────
+step 27 "Container Code Companion native web UI"
 
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 systemctl disable --now cockpit.socket 2>/dev/null || true
@@ -1749,21 +1749,21 @@ if [[ "$_agent_repo" == git@github.com:* ]]; then
   _agent_repo="https://github.com/${_agent_repo#git@github.com:}"
 fi
 _agent_repo="${_agent_repo%.git}.git"
-echo "    Cloning Agent Workstation source from $_agent_repo ($CCC_SELF_UPDATE_REF)..."
+echo "    Cloning Container Code Companion source from $_agent_repo ($CCC_SELF_UPDATE_REF)..."
 if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" "$AGENT_WORKSTATION_SRC"; then
   echo "[WARN] Could not clone $_agent_repo branch $CCC_SELF_UPDATE_REF; trying main."
   git clone --quiet --depth 1 --branch main "$_agent_repo" "$AGENT_WORKSTATION_SRC"
 fi
 git config --system --add safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null || true
 
-echo "    Building Agent Workstation binary..."
+echo "    Building Container Code Companion binary..."
 timeout 600 /usr/local/go/bin/go build \
   -buildvcs=false \
   -C "$AGENT_WORKSTATION_SRC/agent-workstation" \
   -o /usr/local/bin/agent-workstation \
   ./cmd/server
 chmod +x /usr/local/bin/agent-workstation
-echo "    Syncing Agent Workstation web assets..."
+echo "    Syncing Container Code Companion web assets..."
 rsync -a --delete "$AGENT_WORKSTATION_SRC/agent-workstation/web/" "$AGENT_WORKSTATION_ROOT/web/"
 
 if [[ -r "$AGENT_WORKSTATION_ENV" ]]; then
@@ -1780,7 +1780,7 @@ if ! id "$CCC_USER" &>/dev/null; then
   CCC_HOME="/home/$CCC_USER"
 fi
 if ! id "$CCC_USER" &>/dev/null; then
-  echo "Could not determine Agent Workstation user for systemd unit. Set CCC_USER in /etc/ccc/config." >&2
+  echo "Could not determine Container Code Companion user for systemd unit. Set CCC_USER in /etc/ccc/config." >&2
   exit 1
 fi
 AGENT_WORKSTATION_SESSION_TOKEN="${AGENT_WORKSTATION_SESSION_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)}"
@@ -1797,7 +1797,7 @@ chmod 640 "$AGENT_WORKSTATION_ENV"
 
 cat > /etc/systemd/system/agent-workstation.service <<EOF
 [Unit]
-Description=Agent Workstation native web UI
+Description=Container Code Companion native web UI
 After=network-online.target
 Wants=network-online.target
 
@@ -1834,13 +1834,13 @@ if [[ -n "$_write_commit" ]]; then
   echo "    Recorded installed commit: ${_write_commit:0:7}"
 fi
 
-echo "    Restarting Agent Workstation service..."
+echo "    Restarting Container Code Companion service..."
 # Detach from the current process group so the restart survives PTY teardown.
 setsid systemctl restart agent-workstation.service &
 disown $! 2>/dev/null || true
 
-echo "    Agent Workstation: http://<ip>:9090 (login as $CCC_USER)"
-echo "    Agent Workstation uses the $CCC_USER user password after final setup."
+echo "    Container Code Companion: http://<ip>:9090 (login as $CCC_USER)"
+echo "    Container Code Companion uses the $CCC_USER user password after final setup."
 
 # Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit.
 # motd-news fetches Canonical marketing content; useless and always times out in LXC.
@@ -1885,7 +1885,7 @@ PROVISION_EOF
   pct exec "$CT_ID" -- chown "root:${CC_USER}" /etc/agent-workstation/env
   pct exec "$CT_ID" -- chmod 640 /etc/agent-workstation/env
   pct exec "$CT_ID" -- systemctl restart agent-workstation.service
-  success "Agent Workstation UI login set to ${CC_USER} user credentials."
+  success "Container Code Companion UI login set to ${CC_USER} user credentials."
 
   pct exec "$CT_ID" -- bash -c "mkdir -p /home/${CC_USER}/.config/code-server"
   local _cs_password_yaml
@@ -1944,7 +1944,7 @@ print_summary() {
 
   echo ""
   echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-  echo -e "${GREEN}${BOLD}║          Agent Workstation — Ready!          ║${NC}"
+  echo -e "${GREEN}${BOLD}║          Container Code Companion — Ready!          ║${NC}"
   echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
   echo ""
   echo -e "  ${BOLD}Container:${NC}    $CT_ID ($CT_HOSTNAME) — $CT_OS"
@@ -1963,7 +1963,7 @@ print_summary() {
   [[ -n "${ct_ip:-}" ]] && \
   echo -e "    Web VS Code:      ${CYAN}http://${ct_ip}:8080${NC}  (password: $CS_PASSWORD)"
   [[ -n "${ct_ip:-}" ]] && \
-  echo -e "    Agent Workstation:${CYAN}http://${ct_ip}:9090${NC}  (user: ${CC_USER}, password: user password entered above)"
+  echo -e "    Container Code Companion:${CYAN}http://${ct_ip}:9090${NC}  (user: ${CC_USER}, password: user password entered above)"
   echo ""
   echo -e "  ${BOLD}First steps:${NC}"
   echo -e "    1. ${CYAN}ssh ${CC_USER}@${ct_ip:-<ip>}${NC}"
@@ -1976,7 +1976,7 @@ print_summary() {
   echo -e "  ${BOLD}yq:${NC}           mikefarah Go binary at /usr/local/bin/yq"
   echo -e "  ${BOLD}Permissions:${NC}  All tools pre-approved (no prompts)"
   echo -e "  ${BOLD}SSH:${NC}          Root login disabled — use ${CC_USER}"
-  echo -e "  ${BOLD}Auto-updates:${NC} Agent Workstation tooling Sundays 3 AM ET"
+  echo -e "  ${BOLD}Auto-updates:${NC} Container Code Companion tooling Sundays 3 AM ET"
   echo ""
 }
 

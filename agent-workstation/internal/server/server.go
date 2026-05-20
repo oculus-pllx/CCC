@@ -145,7 +145,7 @@ func (s *Server) routes() {
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":   true,
-		"name": "Agent Workstation",
+		"name": "Container Code Companion",
 	})
 }
 
@@ -255,7 +255,7 @@ func (s *Server) handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendEvent(map[string]string{"line": "Starting Agent Workstation self-update..."})
+	sendEvent(map[string]string{"line": "Starting Container Code Companion self-update..."})
 
 	// Merge stdout+stderr into a single pipe so we can stream both.
 	pr, pw := io.Pipe()

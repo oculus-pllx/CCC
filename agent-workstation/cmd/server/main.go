@@ -25,7 +25,7 @@ func main() {
 	}
 
 	srv := server.New(server.Config{SessionToken: token, Username: username, Password: password})
-	log.Printf("Agent Workstation listening on %s", addr)
+	log.Printf("Container Code Companion listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {
 		log.Fatal(err)
 	}

@@ -224,7 +224,7 @@ func StartSelfUpdate() (CommandResult, error) {
 		" && mkdir -p /var/log" +
 		" && touch " + logPath +
 		" && chmod 0644 " + logPath +
-		" && printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
+		" && printf 'Container Code Companion self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
 		" && setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null &"
 	// Use Start+Wait instead of Output/Run so that no stdout/stderr pipe is
 	// inherited by the setsid child process. If Output() is used, the child
@@ -247,7 +247,7 @@ func StartSelfUpdate() (CommandResult, error) {
 	return CommandResult{
 		Command:  "ccc-self-update",
 		Cwd:      workstationHome(),
-		Output:   "Agent Workstation self-update started.",
+		Output:   "Container Code Companion self-update started.",
 		ExitCode: 0,
 	}, nil
 }

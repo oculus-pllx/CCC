@@ -25,6 +25,7 @@ const THEMES = {
 };
 const DEFAULT_THEME = 'green';
 const THEME_STORAGE_KEY = 'aw-theme';
+const CCC_CUSTOM_TITLE_STORAGE_KEY = 'ccc-custom-title';
 
 let currentSection = 'overview';
 let snapshot = null;
@@ -256,7 +257,7 @@ function renderOverview() {
         </div>
         <div class="dash-panel">
           <h3>Recent Activity</h3>
-          <pre class="mini-output">${escapeHTML(primaryLog || 'No recent Agent Workstation logs.')}</pre>
+          <pre class="mini-output">${escapeHTML(primaryLog || 'No recent Container Code Companion logs.')}</pre>
         </div>
       </section>
     </div>
@@ -400,15 +401,15 @@ function renderAppUpdateTab(updateText, updateLog) {
   return `
     <div class="update-summary">
       <div>
-        <h3>Agent Workstation</h3>
-        <p class="section-description">Pull the latest Agent Workstation source from GitHub, rebuild the native UI, sync web assets, and restart the service.</p>
+        <h3>Container Code Companion</h3>
+        <p class="section-description">Pull the latest Container Code Companion source from GitHub, rebuild the native UI, sync web assets, and restart the service.</p>
       </div>
       <span class="badge ${updateBadgeClass(updateBadge)}">${escapeHTML(updateBadge)}</span>
     </div>
     <div class="action-row">
       <button class="small-button" id="self-update-btn">Update App</button>
     </div>
-    <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Agent Workstation update status.')}</pre>
+    <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Container Code Companion update status.')}</pre>
     ${logPreview ? `
       <div class="update-log-panel">
         <h3>Recent App Update Log</h3>
@@ -425,7 +426,7 @@ function renderOSUpdateTab(osUpdateText) {
     <div class="update-summary">
       <div>
         <h3>OS Packages</h3>
-        <p class="section-description">Run apt package updates for the LXC operating system without changing Agent Workstation application code.</p>
+        <p class="section-description">Run apt package updates for the LXC operating system without changing Container Code Companion application code.</p>
       </div>
       <span class="badge ${updateBadgeClass(osBadge)}">${escapeHTML(osBadge)}</span>
     </div>
@@ -1623,6 +1624,15 @@ function loadTheme() {
   applyTheme(saved && THEMES[saved] ? saved : DEFAULT_THEME);
 }
 
+function bindCustomTitle() {
+  const input = document.getElementById('custom-title-input');
+  if (!input) return;
+  input.value = localStorage.getItem(CCC_CUSTOM_TITLE_STORAGE_KEY) || '';
+  input.addEventListener('input', () => {
+    localStorage.setItem(CCC_CUSTOM_TITLE_STORAGE_KEY, input.value.trim());
+  });
+}
+
 function stripANSI(value) {
   return String(value || '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
 }
@@ -1660,6 +1670,7 @@ function escapeAttribute(value) {
 }
 
 loadTheme();
+bindCustomTitle();
 loadHealth();
 refresh();
 document.getElementById('login-panel').addEventListener('submit', login);

@@ -29,8 +29,8 @@ func TestHealthReturnsAgentWorkstationStatus(t *testing.T) {
 	if body["ok"] != true {
 		t.Fatalf("expected ok=true, got %#v", body["ok"])
 	}
-	if body["name"] != "Agent Workstation" {
-		t.Fatalf("expected Agent Workstation name, got %#v", body["name"])
+	if body["name"] != "Container Code Companion" {
+		t.Fatalf("expected Container Code Companion name, got %#v", body["name"])
 	}
 }
 
@@ -44,8 +44,8 @@ func TestRootServesIndexHTML(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", res.Code)
 	}
-	if !strings.Contains(res.Body.String(), "Agent Workstation") {
-		t.Fatalf("expected index HTML to contain Agent Workstation, got %q", res.Body.String())
+	if !strings.Contains(res.Body.String(), "Container Code Companion") {
+		t.Fatalf("expected index HTML to contain Container Code Companion, got %q", res.Body.String())
 	}
 }
 
@@ -371,7 +371,7 @@ func TestSelfUpdateActionReturnsMonitorStartedMessage(t *testing.T) {
 				started = true
 				return system.CommandResult{
 					Command:  "ccc-self-update",
-					Output:   "Agent Workstation self-update monitor started.",
+					Output:   "Container Code Companion self-update monitor started.",
 					ExitCode: 0,
 				}, nil
 			}

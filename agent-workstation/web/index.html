@@ -3,16 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent Workstation</title>
+  <title>Container Code Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/xterm.min.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <h1>Agent Workstation</h1>
+    <a class="brand-lockup" href="https://pllx.group" target="_blank" rel="noopener" aria-label="Container Code Companion by Parallax Group">
+      <svg class="brand-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <line x1="11.2" y1="16.8" x2="20.8" y2="13.6" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
+        <line x1="11.2" y1="47.2" x2="20.8" y2="50.4" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
+        <line x1="32" y1="32" x2="44.8" y2="32" stroke="currentColor" stroke-opacity="0.15" stroke-width="1.44" stroke-dasharray="2.8 2.8"/>
+        <polyline points="11.2,16.8 32,32 11.2,47.2" stroke="currentColor" stroke-opacity="0.30" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="20.8,13.6 44.8,32 20.8,50.4" stroke="currentColor" stroke-opacity="0.90" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-text">
+        <strong>C.C.C</strong>
+        <span>by Parallax Group</span>
+      </span>
+    </a>
     <div class="topbar-actions">
       <span id="health">Checking...</span>
       <button id="logout-button" class="small-button" hidden>Log Out</button>
@@ -68,10 +80,20 @@
         <h2 id="section-title">Overview</h2>
         <button id="refresh-button" class="small-button" hidden>Refresh</button>
       </div>
+      <input id="custom-title-input" class="custom-title-input" type="text" maxlength="96" autocomplete="off" spellcheck="false" aria-label="Custom dashboard title" placeholder="Container Code Companion">
       <div id="section-body" class="panel">Loading system overview...</div>
       <div id="terminal-container" class="panel" hidden></div>
     </section>
   </main>
+  <footer class="app-footer">
+    <a class="footer-brand" href="https://pllx.group" target="_blank" rel="noopener">
+      <span>C.C.C</span>
+      <small>by Parallax Group</small>
+    </a>
+    <span>&copy; 2026 Parallax Group</span>
+    <span>MIT License</span>
+    <a href="https://pllx.group" target="_blank" rel="noopener">pllx.group</a>
+  </footer>
   <script src="/vendor/xterm.min.js"></script>
   <script src="/app.js"></script>
 </body>

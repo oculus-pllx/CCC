@@ -1,6 +1,8 @@
-# Agent Workstation
+# Container Code Companion
 
-A Proxmox LXC provisioner that creates a lean, headless dev workstation for Claude Code, OpenAI Codex, and Gemini CLI. No desktop GUI, no Docker, no bloat. Everything is installed into a browser-accessible, CLI-first Linux container.
+Container Code Companion by Parallax Group is a Proxmox LXC provisioner that creates a lean, headless dev workstation for Claude Code, OpenAI Codex, and Gemini CLI. No desktop GUI, no Docker, no bloat. Everything is installed into a browser-accessible, CLI-first Linux container.
+
+Parallax Group: [pllx.group](https://pllx.group)
 
 > Built on [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — free, open-source server virtualization (community edition).
 
@@ -18,10 +20,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
 - **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
-- **Three update paths** — OS packages, Agent Workstation tooling, and shared agent configs are updated separately
+- **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Agent Workstation UI** on port 9090 — native headless management dashboard with Prism dark theme, 7 accent color presets, cyberpunk-glow effects, system overview, services, logs, networking, accounts, files, terminal, projects, updates, agent configs, and GitHub SSH key management
+- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, 7 accent color presets, system overview, services, logs, networking, accounts, files, terminal, projects, updates, agent configs, and GitHub SSH key management
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -30,7 +32,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/claude-
 - **Optional Proxmox HA** — register with `ha-manager` at provision time (cluster only)
 - **oculus-configs** — shared Claude/Codex/Gemini config, rules, skills, and templates synced from [oculus-configs](https://github.com/oculus-pllx/oculus-configs)
 - **Zero Docker** — pure native toolchain, minimal overhead
-- **Weekly Agent Workstation tooling updates** — Sundays 3 AM ET; OS and agent config updates stay explicit
+- **Weekly Container Code Companion tooling updates** — Sundays 3 AM ET; OS and agent config updates stay explicit
 
 ---
 
@@ -64,7 +66,7 @@ The script is interactive. You'll be prompted for:
 |---|---|---|
 | Container ID | next available | Auto-detected via `pvesh` |
 | Hostname | `ccc-dev` | |
-| **Username** | `claude-code` | Your working user — used for SSH, Agent Workstation, code-server |
+| **Username** | `claude-code` | Your working user — used for SSH, Container Code Companion, code-server |
 | Root password | — | Temporary, setup only |
 | User password | — | Password for your chosen username |
 | code-server password | `codeserver` | Web VS Code UI |
@@ -163,8 +165,8 @@ The `ccc` command prints the full reference. Quick shortcuts:
 ccc-onboarding          # first-login wizard: git identity, SSH key, GitHub
 ccc-setup               # same wizard, safe to re-run
 ccc-update-status       # show installed vs GitHub provisioner version
-ccc-self-update         # update Agent Workstation tooling from GitHub
-ccc-update              # update Agent Workstation tooling + app CLIs
+ccc-self-update         # update Container Code Companion tooling from GitHub
+ccc-update              # update Container Code Companion tooling + app CLIs
 ccc-os-update           # update OS packages with apt
 ccc-sync-agent-configs  # update Claude/Codex/Gemini configs from oculus-configs
 ccc-doctor              # health check: network, runtimes, services, disk
@@ -219,12 +221,12 @@ echo '{"model":{"id":"claude-sonnet-4"},"thinking":{"enabled":true}}' \
 
 ## Updating the Container
 
-Agent Workstation separates updates so OS packages, workstation tooling, and shared agent behavior can move independently.
+Container Code Companion separates updates so OS packages, workstation tooling, and shared agent behavior can move independently.
 
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean
 ccc-update-status           # show installed vs GitHub provisioner version
-sudo ccc-self-update        # Agent Workstation tooling: commands, MOTD, native UI service
+sudo ccc-self-update        # Container Code Companion tooling: commands, MOTD, native UI service
 sudo ccc-sync-agent-configs # shared Claude/Codex/Gemini config from oculus-configs
 ccc-update                  # convenience: tooling + app CLI updates, no apt upgrade
 claude update               # Claude Code only
@@ -300,7 +302,7 @@ Add manually from the Proxmox host:
 ha-manager add ct:<CT_ID> --state started --group <group>
 ```
 
-**Agent Workstation UI not loading (port 9090)**
+**Container Code Companion UI not loading (port 9090)**
 ```bash
 pct exec <CT_ID> -- systemctl status agent-workstation.service
 pct exec <CT_ID> -- systemctl restart agent-workstation.service
@@ -309,7 +311,7 @@ If `agent-workstation.service` cannot bind port 9090, check what owns the port:
 ```bash
 pct exec <CT_ID> -- ss -ltnp | grep ':9090'
 ```
-Older CCC installers used a standalone Node dashboard on port 9090. Agent Workstation does not use that service. Remove the legacy service/process, then start the native UI:
+Older CCC installers used a standalone Node dashboard on port 9090. Container Code Companion does not use that service. Remove the legacy service/process, then start the native UI:
 ```bash
 pct exec <CT_ID> -- systemctl disable --now ccc-dashboard cockpit.socket cockpit.service
 pct exec <CT_ID> -- rm -f /etc/systemd/system/ccc-dashboard.service
@@ -318,7 +320,7 @@ pct exec <CT_ID> -- systemctl restart agent-workstation.service
 ```
 Open `http://<container-ip>:9090` and sign in with the workstation username and the user password entered during install. The service stores those credentials in `/etc/agent-workstation/env` so the native UI and LXC user stay aligned.
 
-**Self-update fails during "Building Agent Workstation binary"**
+**Self-update fails during "Building Container Code Companion binary"**
 The failing compiler output is the real error. Inspect the log:
 ```bash
 sudo tail -160 /var/log/ccc-self-update.log
@@ -352,5 +354,7 @@ To test changes: provision a throwaway container, run through First Steps, verif
 ---
 
 ## License
+
+Copyright 2026 Parallax Group.
 
 MIT — use, modify, fork freely.

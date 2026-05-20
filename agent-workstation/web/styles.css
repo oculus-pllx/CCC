@@ -40,7 +40,7 @@ body::after {
 input, select, textarea, button { font: inherit; }
 
 .topbar {
-  height: 56px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -65,7 +65,42 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .layout {
   display: grid;
   grid-template-columns: 220px 1fr;
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - 112px);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 12px rgba(var(--accent-rgb), 0.35));
+}
+
+.brand-text {
+  display: grid;
+  gap: 1px;
+  line-height: 1;
+}
+
+.brand-text strong {
+  font-family: 'Syne', 'IBM Plex Mono', monospace;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+
+.brand-text span {
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.82;
 }
 
 .sidebar {
@@ -124,6 +159,26 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 }
 
 .content-heading h2 { margin: 0; }
+
+.custom-title-input {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 10px 0 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.32);
+  outline: none;
+  background: transparent;
+  color: var(--accent);
+  font-family: 'Syne', 'IBM Plex Mono', monospace;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.18);
+}
+
+.custom-title-input::placeholder {
+  color: rgba(var(--accent-rgb), 0.48);
+}
 
 .panel {
   border: 1px solid var(--border);
@@ -636,6 +691,44 @@ h3 {
   background: var(--topbar);
   color: var(--text);
   white-space: pre-wrap;
+}
+
+.app-footer {
+  min-height: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--topbar);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.app-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.footer-brand span {
+  font-family: 'Syne', 'IBM Plex Mono', monospace;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.footer-brand small {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .table-wrap {
