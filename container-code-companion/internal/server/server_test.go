@@ -448,6 +448,103 @@ func TestProtectedNetworkActivityReturnsCounters(t *testing.T) {
 	}
 }
 
+func TestProtectedNotesLifecycleUsesConfiguredStore(t *testing.T) {
+	notes := []system.Note{}
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		ListNotes: func() ([]system.Note, error) {
+			return notes, nil
+		},
+		SaveNote: func(note system.Note) (system.Note, error) {
+			if note.ID == "" {
+				note.ID = "note-1"
+			}
+			updated := false
+			for index := range notes {
+				if notes[index].ID == note.ID {
+					notes[index] = note
+					updated = true
+					break
+				}
+			}
+			if !updated {
+				notes = append(notes, note)
+			}
+			return note, nil
+		},
+		DeleteNote: func(id string) error {
+			filtered := notes[:0]
+			for _, note := range notes {
+				if note.ID != id {
+					filtered = append(filtered, note)
+				}
+			}
+			notes = filtered
+			return nil
+		},
+	})
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/notes", strings.NewReader(`{"title":"Scratch","content":"first draft"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	createRes := httptest.NewRecorder()
+	srv.ServeHTTP(createRes, createReq)
+
+	if createRes.Code != http.StatusOK {
+		t.Fatalf("expected create status 200, got %d with body %q", createRes.Code, createRes.Body.String())
+	}
+	var created system.Note
+	if err := json.Unmarshal(createRes.Body.Bytes(), &created); err != nil {
+		t.Fatalf("create response is not a note: %v", err)
+	}
+	if created.ID != "note-1" || created.Title != "Scratch" || created.Content != "first draft" {
+		t.Fatalf("expected created note, got %#v", created)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/notes", strings.NewReader(`{"id":"note-1","title":"Renamed","content":"saved content"}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	updateRes := httptest.NewRecorder()
+	srv.ServeHTTP(updateRes, updateReq)
+
+	if updateRes.Code != http.StatusOK {
+		t.Fatalf("expected update status 200, got %d with body %q", updateRes.Code, updateRes.Body.String())
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/notes", nil)
+	listReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	listRes := httptest.NewRecorder()
+	srv.ServeHTTP(listRes, listReq)
+
+	if listRes.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d with body %q", listRes.Code, listRes.Body.String())
+	}
+	var listBody struct {
+		Notes []system.Note `json:"notes"`
+	}
+	if err := json.Unmarshal(listRes.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("list response is not JSON: %v", err)
+	}
+	if len(listBody.Notes) != 1 || listBody.Notes[0].Title != "Renamed" || listBody.Notes[0].Content != "saved content" {
+		t.Fatalf("expected updated note in list, got %#v", listBody.Notes)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/notes?id=note-1", nil)
+	deleteReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	deleteRes := httptest.NewRecorder()
+	srv.ServeHTTP(deleteRes, deleteReq)
+
+	if deleteRes.Code != http.StatusOK {
+		t.Fatalf("expected delete status 200, got %d with body %q", deleteRes.Code, deleteRes.Body.String())
+	}
+	if len(notes) != 0 {
+		t.Fatalf("expected notes to be deleted, got %#v", notes)
+	}
+}
+
 func TestOverviewRejectsNonGetMethod(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest(http.MethodPost, "/api/overview", nil)

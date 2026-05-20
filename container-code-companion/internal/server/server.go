@@ -36,6 +36,9 @@ type Config struct {
 	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
 	AccountOperation func(operation system.AccountOperation) (system.CommandResult, error)
 	NetworkActivity  func() (system.NetworkActivity, error)
+	ListNotes        func() ([]system.Note, error)
+	SaveNote         func(note system.Note) (system.Note, error)
+	DeleteNote       func(id string) error
 	SecureCookies    bool // set true when serving behind HTTPS
 }
 
@@ -59,6 +62,9 @@ type Server struct {
 	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
 	accountOperation func(operation system.AccountOperation) (system.CommandResult, error)
 	networkActivity  func() (system.NetworkActivity, error)
+	listNotes        func() ([]system.Note, error)
+	saveNote         func(note system.Note) (system.Note, error)
+	deleteNote       func(id string) error
 	secureCookies    bool
 }
 
@@ -83,6 +89,9 @@ func New(config Config) *Server {
 		projectOperation: config.ProjectOperation,
 		accountOperation: config.AccountOperation,
 		networkActivity:  config.NetworkActivity,
+		listNotes:        config.ListNotes,
+		saveNote:         config.SaveNote,
+		deleteNote:       config.DeleteNote,
 		secureCookies:    config.SecureCookies,
 	}
 	if s.overview == nil {
@@ -127,6 +136,15 @@ func New(config Config) *Server {
 	if s.networkActivity == nil {
 		s.networkActivity = system.CollectNetworkActivity
 	}
+	if s.listNotes == nil {
+		s.listNotes = system.ListNotes
+	}
+	if s.saveNote == nil {
+		s.saveNote = system.SaveNote
+	}
+	if s.deleteNote == nil {
+		s.deleteNote = system.DeleteNote
+	}
 	s.routes()
 	return s
 }
@@ -154,6 +172,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/account", s.requireSession(http.HandlerFunc(s.handleAccount)))
 	s.mux.Handle("/api/github", s.requireSession(http.HandlerFunc(s.handleGitHub)))
 	s.mux.Handle("/api/network-activity", s.requireSession(http.HandlerFunc(s.handleNetworkActivity)))
+	s.mux.Handle("/api/notes", s.requireSession(http.HandlerFunc(s.handleNotes)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
 	s.mux.Handle("/", s.staticHandler())
 }
@@ -499,6 +518,43 @@ func (s *Server) handleNetworkActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, activity)
+}
+
+func (s *Server) handleNotes(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		notes, err := s.listNotes()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"notes": notes})
+	case http.MethodPost, http.MethodPut:
+		var note system.Note
+		if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
+			http.Error(w, "invalid note request", http.StatusBadRequest)
+			return
+		}
+		saved, err := s.saveNote(note)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "note id is required"})
+			return
+		}
+		if err := s.deleteNote(id); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleGitHub(w http.ResponseWriter, r *http.Request) {

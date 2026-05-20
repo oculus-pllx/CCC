@@ -885,6 +885,100 @@ td {
   gap: 16px;
 }
 
+.notes-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.45fr) minmax(360px, 1fr);
+  gap: 16px;
+  min-height: 560px;
+}
+
+.notes-sidebar,
+.notes-editor-panel {
+  min-width: 0;
+}
+
+.notes-toolbar,
+.notes-title-row,
+.notes-status-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.notes-toolbar {
+  margin-bottom: 10px;
+}
+
+.notes-list {
+  display: grid;
+  gap: 6px;
+  max-height: 620px;
+  overflow: auto;
+}
+
+.note-row {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-row:hover {
+  border-color: var(--accent);
+}
+
+.note-row.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.note-row strong {
+  overflow-wrap: anywhere;
+}
+
+.note-row span,
+.notes-status-row {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notes-title-row {
+  margin-bottom: 10px;
+}
+
+.notes-title-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+.notes-editor {
+  width: 100%;
+  min-height: 500px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--text);
+  padding: 12px;
+  font: 13px/1.5 'IBM Plex Mono', monospace;
+}
+
+.notes-status-row {
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
 .file-list {
   display: grid;
   gap: 6px;
@@ -970,7 +1064,8 @@ td {
   .status-strip,
   .gauge-grid,
   .dashboard-grid,
-  .file-browser {
+  .file-browser,
+  .notes-layout {
     grid-template-columns: 1fr;
   }
 }

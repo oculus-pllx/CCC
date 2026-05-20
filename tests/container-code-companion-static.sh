@@ -83,6 +83,7 @@ require_file_contains ccc-bootstrap.sh 'CTX_WARN="!!"'
 require_file_contains ccc-bootstrap.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"
 require_file_contains container-code-companion/web/index.html "Projects"
+require_file_contains container-code-companion/web/index.html 'data-section="notes"'
 require_file_contains container-code-companion/web/index.html "oculus-configs"
 require_file_contains container-code-companion/web/index.html "Dashboard"
 require_file_contains container-code-companion/web/index.html "Workstation"
@@ -161,6 +162,24 @@ require_file_contains container-code-companion/web/app.js "selectFileEntry"
 require_file_contains container-code-companion/web/styles.css ".file-manager"
 require_file_contains container-code-companion/web/styles.css ".file-breadcrumbs"
 require_file_contains container-code-companion/web/styles.css ".file-entry.selected"
+require_file_contains container-code-companion/web/app.js "notes: 'Notes'"
+require_file_contains container-code-companion/web/app.js "renderNotes"
+require_file_contains container-code-companion/web/app.js "bindNotes"
+require_file_contains container-code-companion/web/app.js "/api/notes"
+require_file_contains container-code-companion/web/app.js "notes-list"
+require_file_contains container-code-companion/web/app.js "notes-editor"
+require_file_contains container-code-companion/web/app.js "notes-title-input"
+require_file_contains container-code-companion/web/app.js "notes-save-button"
+require_file_contains container-code-companion/web/app.js "notes-delete-button"
+require_file_contains container-code-companion/web/app.js "Unsaved changes."
+require_file_contains container-code-companion/web/app.js "Discard unsaved note changes?"
+require_file_contains container-code-companion/web/styles.css ".notes-layout"
+require_file_contains container-code-companion/web/styles.css ".note-row.active"
+require_file_contains container-code-companion/internal/server/server.go "/api/notes"
+require_file_contains container-code-companion/internal/server/server.go "handleNotes"
+require_file_contains container-code-companion/internal/system/notes.go "type Note struct"
+require_file_contains container-code-companion/internal/system/notes.go 'filepath.Join(workstationHome(), ".ccc", "notes.json")'
+require_file_contains container-code-companion/internal/system/notes.go "os.Rename"
 require_file_contains container-code-companion/web/app.js "resetTerminalConnection"
 require_file_contains container-code-companion/web/app.js "removeEventListener('resize', resizeTerminal)"
 require_file_contains container-code-companion/web/app.js "terminalTabs"
@@ -219,7 +238,7 @@ require_ordered_patterns() {
 
 require_ordered_patterns container-code-companion/web/index.html \
   '<div class="nav-heading">Dashboard</div>' 'data-section="overview"' 'data-section="updates"' \
-  '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="projects"' 'data-section="terminal"' \
+  '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
   '<div class="nav-heading">Agents</div>' 'data-section="configs"' 'data-section="oculus"'
 

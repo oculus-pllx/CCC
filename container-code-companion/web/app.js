@@ -5,6 +5,7 @@ const titles = {
   accounts: 'Accounts',
   services: 'Services',
   files: 'Files',
+  notes: 'Notes',
   updates: 'Updates',
   terminal: 'Terminal',
   projects: 'Projects',
@@ -37,6 +38,9 @@ let snapshot = null;
 let filePath = '';
 let currentFile = '';
 let selectedFilePath = '';
+let notesCache = [];
+let activeNoteId = '';
+let notesDirty = false;
 let terminalSocket = null;
 let terminal = null;
 let rawTerminalBuffer = '';
@@ -230,6 +234,7 @@ function renderSection(section) {
     accounts: renderAccounts,
     services: renderServices,
     files: renderFiles,
+    notes: renderNotes,
     updates: renderUpdates,
     projects: renderProjects,
     configs: renderConfigs,
@@ -428,6 +433,32 @@ function renderFileBreadcrumbs(path) {
     crumbs.push(`<button type="button" data-file-breadcrumb="${escapeAttribute(current)}">${escapeHTML(part)}</button>`);
   });
   return crumbs.join('<span>/</span>');
+}
+
+function renderNotes() {
+  return `
+    <div class="notes-layout">
+      <aside class="notes-sidebar">
+        <div class="notes-toolbar">
+          <button id="notes-new-button" class="small-button">New Note</button>
+          <button id="notes-refresh-button" class="small-button">Refresh</button>
+        </div>
+        <div id="notes-list" class="notes-list">Loading notes...</div>
+      </aside>
+      <section class="notes-editor-panel">
+        <div class="notes-title-row">
+          <input id="notes-title-input" type="text" maxlength="120" placeholder="Note title" autocomplete="off">
+          <button id="notes-save-button" class="small-button">Save</button>
+          <button id="notes-delete-button" class="small-button danger-button">Delete</button>
+        </div>
+        <textarea id="notes-editor" class="notes-editor" spellcheck="true" placeholder="Write notes here..."></textarea>
+        <div class="notes-status-row">
+          <span id="notes-status" class="muted">Select or create a note.</span>
+          <span id="notes-updated" class="muted"></span>
+        </div>
+      </section>
+    </div>
+  `;
 }
 
 function renderUpdates() {
@@ -687,6 +718,9 @@ function bindSectionActions(section) {
   });
   if (section === 'files') {
     bindFileBrowser();
+  }
+  if (section === 'notes') {
+    bindNotes();
   }
   if (section === 'projects') {
     bindProjects();
@@ -1614,6 +1648,156 @@ async function runProjectOperation(payload) {
   } catch (error) {
     output.textContent = error.message;
   }
+}
+
+function bindNotes() {
+  document.getElementById('notes-new-button')?.addEventListener('click', createNote);
+  document.getElementById('notes-refresh-button')?.addEventListener('click', loadNotes);
+  document.getElementById('notes-save-button')?.addEventListener('click', saveActiveNote);
+  document.getElementById('notes-delete-button')?.addEventListener('click', deleteActiveNote);
+  document.getElementById('notes-title-input')?.addEventListener('input', markNotesDirty);
+  document.getElementById('notes-editor')?.addEventListener('input', markNotesDirty);
+  loadNotes();
+}
+
+async function loadNotes() {
+  const list = document.getElementById('notes-list');
+  if (list) list.textContent = 'Loading notes...';
+  try {
+    const response = await fetch('/api/notes', { credentials: 'include' });
+    if (!response.ok) throw new Error(await response.text() || `Request failed with ${response.status}`);
+    const data = await response.json();
+    notesCache = data.notes || [];
+    if (activeNoteId && !notesCache.some(note => note.id === activeNoteId)) {
+      activeNoteId = '';
+    }
+    if (!activeNoteId && notesCache.length) {
+      activeNoteId = notesCache[0].id;
+    }
+    notesDirty = false;
+    renderNotesList();
+    showActiveNote();
+  } catch (error) {
+    if (list) list.textContent = `Unable to load notes: ${error.message}`;
+  }
+}
+
+function renderNotesList() {
+  const list = document.getElementById('notes-list');
+  if (!list) return;
+  if (!notesCache.length) {
+    list.innerHTML = '<p class="muted">No notes yet.</p>';
+    return;
+  }
+  list.innerHTML = notesCache.map(note => `
+    <button class="note-row${note.id === activeNoteId ? ' active' : ''}" data-note-id="${escapeAttribute(note.id)}">
+      <strong>${escapeHTML(note.title || 'Untitled')}</strong>
+      <span>${escapeHTML(formatNoteDate(note.updatedAt))}</span>
+    </button>
+  `).join('');
+  list.querySelectorAll('[data-note-id]').forEach(button => {
+    button.addEventListener('click', () => selectNote(button.dataset.noteId));
+  });
+}
+
+function selectNote(id) {
+  if (id === activeNoteId) return;
+  if (!confirmDiscardNotes()) return;
+  activeNoteId = id;
+  notesDirty = false;
+  renderNotesList();
+  showActiveNote();
+}
+
+function showActiveNote() {
+  const title = document.getElementById('notes-title-input');
+  const editor = document.getElementById('notes-editor');
+  const status = document.getElementById('notes-status');
+  const updated = document.getElementById('notes-updated');
+  const selected = notesCache.find(note => note.id === activeNoteId);
+  if (!title || !editor || !status || !updated) return;
+  title.disabled = !selected;
+  editor.disabled = !selected;
+  document.getElementById('notes-save-button').disabled = !selected;
+  document.getElementById('notes-delete-button').disabled = !selected;
+  title.value = selected?.title || '';
+  editor.value = selected?.content || '';
+  status.textContent = selected ? 'Saved.' : 'Select or create a note.';
+  updated.textContent = selected?.updatedAt ? `Updated ${formatNoteDate(selected.updatedAt)}` : '';
+}
+
+function markNotesDirty() {
+  notesDirty = true;
+  setNotesStatus('Unsaved changes.');
+}
+
+function confirmDiscardNotes() {
+  return !notesDirty || window.confirm('Discard unsaved note changes?');
+}
+
+async function createNote() {
+  if (!confirmDiscardNotes()) return;
+  try {
+    const note = await postJSON('/api/notes', { title: 'New note', content: '' });
+    activeNoteId = note.id;
+    await loadNotes();
+    document.getElementById('notes-title-input')?.focus();
+  } catch (error) {
+    setNotesStatus(error.message);
+  }
+}
+
+async function saveActiveNote() {
+  const title = document.getElementById('notes-title-input');
+  const editor = document.getElementById('notes-editor');
+  if (!activeNoteId || !title || !editor) return;
+  try {
+    const note = await postJSON('/api/notes', {
+      id: activeNoteId,
+      title: title.value,
+      content: editor.value,
+    }, 'PUT');
+    activeNoteId = note.id;
+    notesDirty = false;
+    await loadNotes();
+    setNotesStatus('Saved.');
+  } catch (error) {
+    setNotesStatus(error.message);
+  }
+}
+
+async function deleteActiveNote() {
+  if (!activeNoteId) return;
+  if (!window.confirm('Delete this note?')) return;
+  try {
+    const response = await fetch(`/api/notes?id=${encodeURIComponent(activeNoteId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      let message = await response.text();
+      try { message = JSON.parse(message).error || message; } catch {}
+      throw new Error(message || `Request failed with ${response.status}`);
+    }
+    activeNoteId = '';
+    notesDirty = false;
+    await loadNotes();
+    setNotesStatus('Deleted.');
+  } catch (error) {
+    setNotesStatus(error.message);
+  }
+}
+
+function setNotesStatus(message) {
+  const status = document.getElementById('notes-status');
+  if (status) status.textContent = message;
+}
+
+function formatNoteDate(value) {
+  if (!value) return 'never';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 async function postJSON(url, body, method = 'POST') {
