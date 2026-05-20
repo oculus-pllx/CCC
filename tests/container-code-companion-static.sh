@@ -115,6 +115,13 @@ require_file_contains ccc-bootstrap.sh '-C "$CONTAINER_CODE_COMPANION_SRC/contai
 require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC"'
 require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$SRC"'
 require_file_contains container-code-companion/web/app.js "let activeUpdateTab = 'app'"
+require_file_contains container-code-companion/web/app.js "let snapshotPollTimer = null"
+require_file_contains container-code-companion/web/app.js "startSnapshotPolling"
+require_file_contains container-code-companion/web/app.js "stopSnapshotPolling"
+require_file_contains container-code-companion/web/app.js "pollSnapshot"
+require_file_contains container-code-companion/web/app.js "setInterval(pollSnapshot, 30000)"
+require_file_contains container-code-companion/web/app.js "currentSection === 'updates'"
+require_file_contains container-code-companion/web/app.js "currentSection === 'overview'"
 require_file_contains container-code-companion/web/app.js "data-update-tab=\"app\""
 require_file_contains container-code-companion/web/app.js "data-update-tab=\"os\""
 require_file_contains container-code-companion/web/app.js "Update App"

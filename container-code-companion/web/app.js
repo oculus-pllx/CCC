@@ -43,6 +43,7 @@ let terminalTabs = [];
 let activeTerminalTabId = null;
 let nextTerminalTabId = 1;
 let updatePollTimer = null;
+let snapshotPollTimer = null;
 let activeUpdateTab = 'app';
 let networkPollTimer = null;
 let lastNetworkSample = null;
@@ -93,11 +94,36 @@ async function refresh() {
   const body = document.getElementById('section-body');
   try {
     body.textContent = 'Loading...';
-    await loadSnapshot();
+    const data = await loadSnapshot();
+    if (data) startSnapshotPolling();
     renderSection(currentSection);
   } catch (error) {
     body.textContent = `Unavailable: ${error.message}`;
   }
+}
+
+async function pollSnapshot() {
+  const data = await fetchWorkstationData();
+  if (!data) {
+    stopSnapshotPolling();
+    return;
+  }
+  snapshot = data;
+  setSignedIn(true);
+  if (currentSection === 'updates' || currentSection === 'overview') {
+    renderSection(currentSection);
+  }
+}
+
+function startSnapshotPolling() {
+  if (snapshotPollTimer) return;
+  snapshotPollTimer = setInterval(pollSnapshot, 30000);
+}
+
+function stopSnapshotPolling() {
+  if (!snapshotPollTimer) return;
+  clearInterval(snapshotPollTimer);
+  snapshotPollTimer = null;
 }
 
 async function login(event) {
@@ -127,6 +153,7 @@ async function login(event) {
 
 async function logout() {
   await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+  stopSnapshotPolling();
   snapshot = null;
   setSignedIn(false);
   networkHistory = [];
@@ -745,6 +772,7 @@ function monitorReconnect(output) {
       updatePollTimer = null;
       snapshot = data;
       setSignedIn(true);
+      startSnapshotPolling();
       if (output.isConnected) {
         output.textContent += '\nUpdate finished successfully. Reconnected.';
       }
