@@ -36,6 +36,7 @@ let currentSection = 'overview';
 let snapshot = null;
 let filePath = '';
 let currentFile = '';
+let selectedFilePath = '';
 let terminalSocket = null;
 let terminal = null;
 let rawTerminalBuffer = '';
@@ -380,14 +381,25 @@ function renderFiles() {
     filePath = snapshot.projects?.[0]?.path || '/';
   }
   return `
-    <div class="file-toolbar">
-      <input id="file-path" type="text" value="${escapeAttribute(filePath)}">
-      <button id="browse-button" class="small-button">Open</button>
-      <button id="parent-button" class="small-button">Up</button>
-      <button id="file-new-file-button" class="small-button">New File</button>
-      <button id="file-new-folder-button" class="small-button">New Folder</button>
-      <label class="small-button file-upload-label" for="file-upload-input">Upload</label>
-      <input id="file-upload-input" type="file" hidden>
+    <div class="file-manager">
+      <div class="file-toolbar">
+        <button id="file-home-button" class="small-button">Home</button>
+        <button id="file-projects-button" class="small-button">Projects</button>
+        <button id="parent-button" class="small-button">Up</button>
+        <button id="file-refresh-button" class="small-button">Refresh</button>
+        <input id="file-path" type="text" value="${escapeAttribute(filePath)}">
+        <button id="browse-button" class="small-button">Open</button>
+      </div>
+      <div id="file-breadcrumbs" class="file-breadcrumbs">${renderFileBreadcrumbs(filePath)}</div>
+      <div class="file-toolbar file-action-toolbar">
+        <button id="file-new-file-button" class="small-button">New File</button>
+        <button id="file-new-folder-button" class="small-button">New Folder</button>
+        <label class="small-button file-upload-label" for="file-upload-input">Upload</label>
+        <input id="file-upload-input" type="file" hidden>
+        <button id="file-download-button" class="small-button">Download</button>
+        <button id="file-rename-button" class="small-button">Rename</button>
+        <button id="file-delete-button" class="small-button danger-button">Delete</button>
+      </div>
     </div>
     <div class="file-browser">
       <div>
@@ -399,15 +411,23 @@ function renderFiles() {
         <div class="file-toolbar">
           <input id="current-file" type="text" value="${escapeAttribute(currentFile)}" placeholder="Select a file">
           <button id="save-file-button" class="small-button">Save</button>
-          <button id="file-download-button" class="small-button">Download</button>
-          <button id="file-rename-button" class="small-button">Rename</button>
-          <button id="file-delete-button" class="small-button danger-button">Delete</button>
         </div>
         <textarea id="file-editor" spellcheck="false"></textarea>
         <pre id="file-output" class="output" hidden></pre>
       </div>
     </div>
   `;
+}
+
+function renderFileBreadcrumbs(path) {
+  const parts = String(path || '/').split('/').filter(Boolean);
+  const crumbs = ['<button type="button" data-file-breadcrumb="/">/</button>'];
+  let current = '';
+  parts.forEach(part => {
+    current += `/${part}`;
+    crumbs.push(`<button type="button" data-file-breadcrumb="${escapeAttribute(current)}">${escapeHTML(part)}</button>`);
+  });
+  return crumbs.join('<span>/</span>');
 }
 
 function renderUpdates() {
@@ -1074,6 +1094,21 @@ function bindFileBrowser() {
     filePath = document.getElementById('file-path').value;
     loadFiles(filePath);
   });
+  document.getElementById('file-home-button')?.addEventListener('click', () => {
+    filePath = '/home';
+    loadFiles(filePath);
+  });
+  document.getElementById('file-projects-button')?.addEventListener('click', () => {
+    filePath = snapshot.projects?.[0]?.path ? directoryName(snapshot.projects[0].path) : '/home';
+    loadFiles(filePath);
+  });
+  document.getElementById('file-refresh-button')?.addEventListener('click', () => loadFiles(filePath));
+  document.querySelectorAll('[data-file-breadcrumb]').forEach(button => {
+    button.addEventListener('click', () => {
+      filePath = button.dataset.fileBreadcrumb;
+      loadFiles(filePath);
+    });
+  });
   document.getElementById('parent-button').addEventListener('click', () => {
     const parts = filePath.split('/').filter(Boolean);
     parts.pop();
@@ -1104,12 +1139,21 @@ async function loadFiles(path) {
       throw new Error(data.error || `Request failed with ${response.status}`);
     }
     filePath = data.path;
+    selectedFilePath = '';
     document.getElementById('file-path').value = data.path;
+    document.getElementById('file-breadcrumbs').innerHTML = renderFileBreadcrumbs(data.path);
+    document.querySelectorAll('[data-file-breadcrumb]').forEach(button => {
+      button.addEventListener('click', () => {
+        filePath = button.dataset.fileBreadcrumb;
+        loadFiles(filePath);
+      });
+    });
     list.innerHTML = (data.entries || []).map(entry => `
       <button class="file-entry" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}">
         <span>${entry.type === 'dir' ? 'dir' : 'file'}</span>
         <strong>${escapeHTML(entry.name)}</strong>
         <small>${escapeHTML(formatBytes(entry.size))}</small>
+        <small>${escapeHTML(entry.mtime || '')}</small>
       </button>
     `).join('') || '<p>No files found.</p>';
     list.querySelectorAll('.file-entry').forEach(button => {
@@ -1118,13 +1162,23 @@ async function loadFiles(path) {
           filePath = button.dataset.path;
           loadFiles(filePath);
         } else {
-          openFile(button.dataset.path);
+          selectFileEntry(button);
         }
       });
     });
   } catch (error) {
     list.textContent = error.message;
   }
+}
+
+function selectFileEntry(button) {
+  selectedFilePath = button.dataset.path;
+  currentFile = selectedFilePath;
+  document.querySelectorAll('.file-entry').forEach(entry => {
+    entry.classList.toggle('selected', entry === button);
+  });
+  document.getElementById('current-file').value = selectedFilePath;
+  openFile(selectedFilePath);
 }
 
 async function openFile(path) {
@@ -1190,7 +1244,7 @@ async function uploadCurrentDirectory(event) {
 }
 
 function downloadCurrentFile() {
-  const path = document.getElementById('current-file').value;
+  const path = selectedFilePath || document.getElementById('current-file').value;
   const output = document.getElementById('file-output');
   if (!path) {
     output.hidden = false;
@@ -1217,7 +1271,7 @@ async function createFileEntry(kind) {
 }
 
 async function renameCurrentFile() {
-  const path = document.getElementById('current-file').value;
+  const path = selectedFilePath || document.getElementById('current-file').value;
   if (!path) return;
   const target = prompt('New path', path);
   if (!target || target === path) return;
@@ -1228,6 +1282,7 @@ async function renameCurrentFile() {
     const result = await postJSON('/api/file-op', { operation: 'rename', path, target });
     output.textContent = result.output || 'renamed';
     currentFile = target;
+    selectedFilePath = target;
     document.getElementById('current-file').value = target;
     await loadFiles(filePath);
   } catch (error) {
@@ -1236,7 +1291,7 @@ async function renameCurrentFile() {
 }
 
 async function deleteCurrentFile() {
-  const path = document.getElementById('current-file').value;
+  const path = selectedFilePath || document.getElementById('current-file').value;
   if (!path || !confirm(`Delete ${path}?`)) return;
   const output = document.getElementById('file-output');
   output.hidden = false;
@@ -1245,6 +1300,7 @@ async function deleteCurrentFile() {
     const result = await postJSON('/api/file-op', { operation: 'delete', path });
     output.textContent = result.output || 'deleted';
     currentFile = '';
+    selectedFilePath = '';
     document.getElementById('current-file').value = '';
     document.getElementById('file-editor').value = '';
     await loadFiles(filePath);

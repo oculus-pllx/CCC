@@ -113,7 +113,7 @@
 - Static test for toolbar commands and breadcrumb rendering.
 - Browser smoke: create, rename, delete, upload, open, edit, save, download.
 
-- [ ] Task 3 complete.
+- [x] Task 3 complete.
 
 ---
 

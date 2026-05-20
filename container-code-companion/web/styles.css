@@ -837,15 +837,46 @@ td {
   padding: 8px 10px;
 }
 
-.file-toolbar {
-  display: flex;
+.file-manager {
+  display: grid;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.file-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .file-toolbar input {
   flex: 1;
   min-width: 0;
+}
+
+.file-action-toolbar {
+  padding-top: 2px;
+}
+
+.file-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--muted);
+}
+
+.file-breadcrumbs button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 4px;
 }
 
 .file-browser {
@@ -863,7 +894,7 @@ td {
 
 .file-entry {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   width: 100%;
@@ -878,6 +909,11 @@ td {
 
 .file-entry:hover {
   border-color: var(--accent);
+}
+
+.file-entry.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .file-entry strong {
