@@ -1,8 +1,8 @@
-# Agent Workstation — Theme System Design
+# Container Code Companion — Theme System Design
 
 **Date:** 2026-05-18  
 **Status:** Approved  
-**Goal:** Apply Prism dark branding to Agent Workstation and add a user-selectable accent-color theme system with a Settings page.
+**Goal:** Apply Prism dark branding to Container Code Companion and add a user-selectable accent-color theme system with a Settings page.
 
 ---
 
@@ -122,7 +122,7 @@ const THEMES = {
   white:  '#e2e8f0',
 };
 const DEFAULT_THEME = 'green';
-const THEME_STORAGE_KEY = 'aw-theme';
+const THEME_STORAGE_KEY = 'ccc-theme';
 ```
 
 ### New functions
@@ -199,17 +199,17 @@ Active sidebar item background uses `var(--accent-bg)` instead of the hardcoded 
 
 ---
 
-## `tests/agent-workstation-static.sh` Changes
+## `tests/container-code-companion-static.sh` Changes
 
 Add assertions:
 ```bash
-require_file_contains agent-workstation/web/app.js "THEMES"
-require_file_contains agent-workstation/web/app.js "applyTheme"
-require_file_contains agent-workstation/web/app.js "loadTheme"
-require_file_contains agent-workstation/web/app.js "aw-theme"
-require_file_contains agent-workstation/web/app.js "settings-swatch"
-require_file_contains agent-workstation/web/index.html "IBM+Plex+Mono"
-require_file_contains agent-workstation/web/index.html 'data-section="settings"'
+require_file_contains container-code-companion/web/app.js "THEMES"
+require_file_contains container-code-companion/web/app.js "applyTheme"
+require_file_contains container-code-companion/web/app.js "loadTheme"
+require_file_contains container-code-companion/web/app.js "ccc-theme"
+require_file_contains container-code-companion/web/app.js "settings-swatch"
+require_file_contains container-code-companion/web/index.html "IBM+Plex+Mono"
+require_file_contains container-code-companion/web/index.html 'data-section="settings"'
 ```
 
 ---
@@ -218,10 +218,10 @@ require_file_contains agent-workstation/web/index.html 'data-section="settings"'
 
 | File | Change |
 |---|---|
-| `agent-workstation/web/index.html` | Google Fonts link; Settings nav item |
-| `agent-workstation/web/styles.css` | Prism dark palette; IBM Plex Mono font; swatch CSS; active sidebar accent; replace hardcoded colors with vars |
-| `agent-workstation/web/app.js` | `THEMES`, `DEFAULT_THEME`, `THEME_STORAGE_KEY` constants; `hexToRgb`, `applyTheme`, `loadTheme`, `renderSettings`, `bindSettings` functions; `loadTheme()` call at init; `titles` map entry for `settings` |
-| `tests/agent-workstation-static.sh` | New assertions |
+| `container-code-companion/web/index.html` | Google Fonts link; Settings nav item |
+| `container-code-companion/web/styles.css` | Prism dark palette; IBM Plex Mono font; swatch CSS; active sidebar accent; replace hardcoded colors with vars |
+| `container-code-companion/web/app.js` | `THEMES`, `DEFAULT_THEME`, `THEME_STORAGE_KEY` constants; `hexToRgb`, `applyTheme`, `loadTheme`, `renderSettings`, `bindSettings` functions; `loadTheme()` call at init; `titles` map entry for `settings` |
+| `tests/container-code-companion-static.sh` | New assertions |
 
 ---
 

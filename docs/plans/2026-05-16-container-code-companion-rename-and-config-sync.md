@@ -1,8 +1,8 @@
-# Agent Workstation Rename and Config Sync Implementation Plan
+# Container Code Companion Rename and Config Sync Implementation Plan
 
 > Implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rename user-facing CCC branding to Agent Workstation and split updates into OS, Agent Workstation tooling, and oculus-configs agent config sync.
+**Goal:** Rename user-facing CCC branding to Container Code Companion and split updates into OS, Container Code Companion tooling, and oculus-configs agent config sync.
 
 **Architecture:** Keep the existing single bash provisioner and Cockpit plugin. Add one reusable `ccc-sync-agent-configs` command in the updateable section, call it during provisioning, and update Cockpit/docs text without adding another web service.
 
@@ -13,7 +13,7 @@
 ### Task 1: Static Regression Test
 
 **Files:**
-- Create: `tests/agent-workstation-static.sh`
+- Create: `tests/container-code-companion-static.sh`
 
 - [x] **Step 1: Add a failing static test**
 
@@ -21,7 +21,7 @@ Create a shell test that asserts the rename, update separation, Cockpit retentio
 
 - [x] **Step 2: Run test to verify it fails**
 
-Run: `bash tests/agent-workstation-static.sh`
+Run: `bash tests/container-code-companion-static.sh`
 Expected: FAIL because the starting code still used old product branding and did not include `ccc-sync-agent-configs`.
 
 ### Task 2: Provisioner Config Sync
@@ -39,7 +39,7 @@ Use the same command during provisioning so first install and later sync use one
 
 - [x] **Step 3: Update command help, MOTD, doctor, and update labels**
 
-Keep `ccc-*` commands but rename user-facing product text to Agent Workstation and list the three update paths.
+Keep `ccc-*` commands but rename user-facing product text to Container Code Companion and list the three update paths.
 
 ### Task 3: Cockpit Plugin
 
@@ -49,11 +49,11 @@ Keep `ccc-*` commands but rename user-facing product text to Agent Workstation a
 
 - [x] **Step 1: Rename plugin title/menu text**
 
-Use Agent Workstation while preserving Cockpit/PatternFly theme loading.
+Use Container Code Companion while preserving Cockpit/PatternFly theme loading.
 
 - [x] **Step 2: Update Overview and Updates**
 
-Show Claude/Codex/Gemini readiness and provide separate OS, Agent Workstation, and oculus-configs update actions.
+Show Claude/Codex/Gemini readiness and provide separate OS, Container Code Companion, and oculus-configs update actions.
 
 ### Task 4: Documentation
 
@@ -63,7 +63,7 @@ Show Claude/Codex/Gemini readiness and provide separate OS, Agent Workstation, a
 
 - [x] **Step 1: Rewrite product description**
 
-Describe Agent Workstation as a headless Proxmox LXC CLI dev workstation.
+Describe Container Code Companion as a headless Proxmox LXC CLI dev workstation.
 
 - [x] **Step 2: Document update paths and oculus-configs role**
 
@@ -79,7 +79,7 @@ Explain `ccc-os-update`, `ccc-self-update`, and `ccc-sync-agent-configs`.
 Run:
 
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 bash -n ccc-bootstrap.sh
 awk 'BEGIN{capture=0} /<script>/{capture=1; next} /<\/script>/{capture=0} capture{print}' docs/cockpit-plugin/index.html > /tmp/cockpit-plugin.js
 node --check /tmp/cockpit-plugin.js
@@ -88,4 +88,4 @@ git diff --check
 
 - [x] **Step 2: Commit**
 
-Commit the implementation with message: `Rename to Agent Workstation and sync agent configs`.
+Commit the implementation with message: `Rename to Container Code Companion and sync agent configs`.

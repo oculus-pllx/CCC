@@ -1,10 +1,10 @@
-# Agent Workstation Update Console Implementation Plan
+# Container Code Companion Update Console Implementation Plan
 
 > Implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the mixed Updates page with a two-tab App/OS update console and fix fresh-container Git ownership failures.
 
-**Architecture:** Keep the existing Go HTTP endpoints and CLI-backed update commands. Replace the frontend update renderer/binders with tab-specific state and outputs, then harden installer and self-update build commands around `/opt/agent-workstation-src`.
+**Architecture:** Keep the existing Go HTTP endpoints and CLI-backed update commands. Replace the frontend update renderer/binders with tab-specific state and outputs, then harden installer and self-update build commands around `/opt/container-code-companion-src`.
 
 **Tech Stack:** Go standard library HTTP server, static JavaScript/CSS, Bash installer/update scripts, shell static tests.
 
@@ -13,30 +13,30 @@
 ### Task 1: Static Tests For Replacement UI And Git Hardening
 
 **Files:**
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `tests/container-code-companion-static.sh`
 
 - [ ] **Step 1: Write failing static assertions**
 
 Add assertions requiring:
 
 ```bash
-require_file_contains agent-workstation/web/app.js "let activeUpdateTab = 'app'"
-require_file_contains agent-workstation/web/app.js "data-update-tab=\"app\""
-require_file_contains agent-workstation/web/app.js "data-update-tab=\"os\""
-require_file_contains agent-workstation/web/app.js "Update App"
-require_file_contains agent-workstation/web/app.js "Update OS"
-require_file_contains agent-workstation/web/app.js "renderUpdateConsole"
-require_file_not_contains agent-workstation/web/app.js "Refresh Agent Workstation Status"
-require_file_contains agent-workstation/web/styles.css ".update-tabs"
-require_file_contains agent-workstation/web/styles.css ".update-console"
+require_file_contains container-code-companion/web/app.js "let activeUpdateTab = 'app'"
+require_file_contains container-code-companion/web/app.js "data-update-tab=\"app\""
+require_file_contains container-code-companion/web/app.js "data-update-tab=\"os\""
+require_file_contains container-code-companion/web/app.js "Update App"
+require_file_contains container-code-companion/web/app.js "Update OS"
+require_file_contains container-code-companion/web/app.js "renderUpdateConsole"
+require_file_not_contains container-code-companion/web/app.js "Refresh Container Code Companion Status"
+require_file_contains container-code-companion/web/styles.css ".update-tabs"
+require_file_contains container-code-companion/web/styles.css ".update-console"
 require_file_contains ccc-bootstrap.sh "-buildvcs=false"
-require_file_contains ccc-bootstrap.sh "git config --system --add safe.directory \"$AGENT_WORKSTATION_SRC\""
+require_file_contains ccc-bootstrap.sh "git config --system --add safe.directory \"$CONTAINER_CODE_COMPANION_SRC\""
 require_file_contains ccc-bootstrap.sh "git config --system --add safe.directory \"$SRC\""
 ```
 
 - [ ] **Step 2: Run static test and verify failure**
 
-Run: `bash tests/agent-workstation-static.sh`
+Run: `bash tests/container-code-companion-static.sh`
 
 Expected: FAIL on one of the new missing update-console assertions.
 
@@ -45,15 +45,15 @@ Expected: FAIL on one of the new missing update-console assertions.
 Run:
 
 ```bash
-git add tests/agent-workstation-static.sh agent-workstation/web/app.js agent-workstation/web/styles.css ccc-bootstrap.sh
+git add tests/container-code-companion-static.sh container-code-companion/web/app.js container-code-companion/web/styles.css ccc-bootstrap.sh
 git commit -m "feat(update): replace update console"
 ```
 
 ### Task 2: Replace Updates Page Frontend
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/web/styles.css`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
 
 - [ ] **Step 1: Add update tab state**
 
@@ -77,7 +77,7 @@ Add `.update-console`, `.update-tabs`, `.update-tab`, `.update-tab.active`, `.up
 
 - [ ] **Step 5: Run static test**
 
-Run: `bash tests/agent-workstation-static.sh`
+Run: `bash tests/container-code-companion-static.sh`
 
 Expected: frontend assertions pass after Task 3 also completes.
 
@@ -91,15 +91,15 @@ Expected: frontend assertions pass after Task 3 also completes.
 In the `SELFUPDATESCRIPT` section, configure system-level safe-directory before Git commands when possible, keep inline `safe.directory`, and build with:
 
 ```bash
-timeout 600 "$GO" build -buildvcs=false -C "$SRC/agent-workstation" -o "$BIN" ./cmd/server
+timeout 600 "$GO" build -buildvcs=false -C "$SRC/container-code-companion" -o "$BIN" ./cmd/server
 ```
 
 - [ ] **Step 2: Harden fresh installer clone/build**
 
-After the fresh clone to `$AGENT_WORKSTATION_SRC`, configure:
+After the fresh clone to `$CONTAINER_CODE_COMPANION_SRC`, configure:
 
 ```bash
-git config --system --add safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null || true
+git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC" 2>/dev/null || true
 ```
 
 Build with:
@@ -107,8 +107,8 @@ Build with:
 ```bash
 timeout 600 /usr/local/go/bin/go build \
   -buildvcs=false \
-  -C "$AGENT_WORKSTATION_SRC/agent-workstation" \
-  -o /usr/local/bin/agent-workstation \
+  -C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion" \
+  -o /usr/local/bin/container-code-companion \
   ./cmd/server
 ```
 
@@ -125,13 +125,13 @@ Expected: no output and exit 0.
 
 - [ ] **Step 1: Run Go tests**
 
-Run: `cd agent-workstation && go test ./...`
+Run: `cd container-code-companion && go test ./...`
 
 Expected: all packages pass.
 
 - [ ] **Step 2: Run static suite**
 
-Run: `bash tests/agent-workstation-static.sh`
+Run: `bash tests/container-code-companion-static.sh`
 
 Expected: no output and exit 0.
 

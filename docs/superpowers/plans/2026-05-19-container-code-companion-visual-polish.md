@@ -1,8 +1,8 @@
-# Agent Workstation Visual Polish — Implementation Plan
+# Container Code Companion Visual Polish — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add nine cyberpunk-glow visual effects to the Agent Workstation GUI — neon topbar underglow, gauge halo, scanlines, sidebar glow bar, hover lifts, section fade-in, pulsing health dot, and animated gauge sweep — all theme-aware via a new `--accent-rgb` CSS variable.
+**Goal:** Add nine cyberpunk-glow visual effects to the Container Code Companion GUI — neon topbar underglow, gauge halo, scanlines, sidebar glow bar, hover lifts, section fade-in, pulsing health dot, and animated gauge sweep — all theme-aware via a new `--accent-rgb` CSS variable.
 
 **Architecture:** Pure CSS for static effects (effects 1–5, 7–9); `requestAnimationFrame` loop for gauge sweep (effect 6); tiny JS class toggles for section fade and health dot. All glow uses `rgba(var(--accent-rgb), alpha)` so effects automatically match the active theme color. No layout or functionality changes.
 
@@ -12,9 +12,9 @@
 
 ## File Map
 
-- `agent-workstation/web/styles.css` — all CSS effects
-- `agent-workstation/web/app.js` — `applyTheme`, `loadHealth`, `renderSection`, `bindSectionActions`, new `animateGauges` function
-- `tests/agent-workstation-static.sh` — 9 new static assertions
+- `container-code-companion/web/styles.css` — all CSS effects
+- `container-code-companion/web/app.js` — `applyTheme`, `loadHealth`, `renderSection`, `bindSectionActions`, new `animateGauges` function
+- `tests/container-code-companion-static.sh` — 9 new static assertions
 
 ---
 
@@ -22,9 +22,9 @@
 
 The repo root is `/home/peyton/repos/CCC`. All commands run from there unless noted.
 
-**Build:** `/home/peyton/.local/go/bin/go build -C agent-workstation -o /tmp/aw-test ./cmd/server`
-**JS syntax:** `node --check agent-workstation/web/app.js && echo OK`
-**Static tests:** `bash tests/agent-workstation-static.sh`
+**Build:** `/home/peyton/.local/go/bin/go build -C container-code-companion -o /tmp/aw-test ./cmd/server`
+**JS syntax:** `node --check container-code-companion/web/app.js && echo OK`
+**Static tests:** `bash tests/container-code-companion-static.sh`
 
 The static test suite uses `require_file_contains file pattern` to assert strings exist. We use this as our test harness — add assertions first (TDD), then implement.
 
@@ -42,37 +42,37 @@ Key existing functions in `app.js`:
 ## Task 1: Add failing static assertions + `--accent-rgb` prerequisite
 
 **Files:**
-- Modify: `tests/agent-workstation-static.sh`
-- Modify: `agent-workstation/web/app.js`
+- Modify: `tests/container-code-companion-static.sh`
+- Modify: `container-code-companion/web/app.js`
 
 - [ ] **Step 1: Add static assertions (will fail until later tasks implement them)**
 
-Find the `# Task 5: Network graph accent` block near the end of `tests/agent-workstation-static.sh` and add after it:
+Find the `# Task 5: Network graph accent` block near the end of `tests/container-code-companion-static.sh` and add after it:
 
 ```bash
 # Visual polish
-require_file_contains agent-workstation/web/styles.css 'pulse-dot'
-require_file_contains agent-workstation/web/styles.css 'section-fade'
-require_file_contains agent-workstation/web/styles.css 'section-enter'
-require_file_contains agent-workstation/web/styles.css 'drop-shadow'
-require_file_contains agent-workstation/web/styles.css 'scanlines'
-require_file_contains agent-workstation/web/app.js 'animateGauges'
-require_file_contains agent-workstation/web/app.js '--accent-rgb'
-require_file_contains agent-workstation/web/app.js 'section-enter'
-require_file_contains agent-workstation/web/app.js 'health.online'
+require_file_contains container-code-companion/web/styles.css 'pulse-dot'
+require_file_contains container-code-companion/web/styles.css 'section-fade'
+require_file_contains container-code-companion/web/styles.css 'section-enter'
+require_file_contains container-code-companion/web/styles.css 'drop-shadow'
+require_file_contains container-code-companion/web/styles.css 'scanlines'
+require_file_contains container-code-companion/web/app.js 'animateGauges'
+require_file_contains container-code-companion/web/app.js '--accent-rgb'
+require_file_contains container-code-companion/web/app.js 'section-enter'
+require_file_contains container-code-companion/web/app.js 'health.online'
 ```
 
 - [ ] **Step 2: Verify assertions fail**
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh 2>&1 | head -5
+bash tests/container-code-companion-static.sh 2>&1 | head -5
 ```
-Expected: `FAIL: agent-workstation/web/styles.css missing: pulse-dot` (or similar)
+Expected: `FAIL: container-code-companion/web/styles.css missing: pulse-dot` (or similar)
 
 - [ ] **Step 3: Add `--accent-rgb` to `applyTheme`**
 
-In `agent-workstation/web/app.js`, find `applyTheme`:
+In `container-code-companion/web/app.js`, find `applyTheme`:
 ```js
 function applyTheme(name) {
   const hex = THEMES[name] || THEMES[DEFAULT_THEME];
@@ -102,14 +102,14 @@ function applyTheme(name) {
 - [ ] **Step 4: Verify JS syntax**
 
 ```bash
-node --check agent-workstation/web/app.js && echo OK
+node --check container-code-companion/web/app.js && echo OK
 ```
 Expected: `OK`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/agent-workstation-static.sh agent-workstation/web/app.js
+git add tests/container-code-companion-static.sh container-code-companion/web/app.js
 git commit -m "feat(polish): add --accent-rgb CSS var + static test stubs for visual effects"
 ```
 
@@ -118,7 +118,7 @@ git commit -m "feat(polish): add --accent-rgb CSS var + static test stubs for vi
 ## Task 2: CSS glow effects — topbar, gauges, scanlines, sidebar (Effects 1–4)
 
 **Files:**
-- Modify: `agent-workstation/web/styles.css`
+- Modify: `container-code-companion/web/styles.css`
 
 - [ ] **Step 1: Add topbar neon underglow (Effect 1)**
 
@@ -201,14 +201,14 @@ Find `.sidebar button.active {` in `styles.css`. Add `box-shadow` to the existin
 - [ ] **Step 5: Verify scanlines and drop-shadow strings are in the file**
 
 ```bash
-grep -c 'scanlines\|drop-shadow' agent-workstation/web/styles.css
+grep -c 'scanlines\|drop-shadow' container-code-companion/web/styles.css
 ```
 Expected: `2` (or higher)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agent-workstation/web/styles.css
+git add container-code-companion/web/styles.css
 git commit -m "feat(polish): topbar underglow, gauge halo, scanlines, sidebar active bar"
 ```
 
@@ -217,7 +217,7 @@ git commit -m "feat(polish): topbar underglow, gauge halo, scanlines, sidebar ac
 ## Task 3: CSS hover glows — panels, tiles, gauge cards (Effect 5)
 
 **Files:**
-- Modify: `agent-workstation/web/styles.css`
+- Modify: `container-code-companion/web/styles.css`
 
 - [ ] **Step 1: Add transition and hover rule to `.panel`**
 
@@ -298,7 +298,7 @@ Add hover rule immediately after:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add agent-workstation/web/styles.css
+git add container-code-companion/web/styles.css
 git commit -m "feat(polish): hover glow on panels, status tiles, and gauge cards"
 ```
 
@@ -307,12 +307,12 @@ git commit -m "feat(polish): hover glow on panels, status tiles, and gauge cards
 ## Task 4: Section fade-in (Effect 7) — CSS + JS
 
 **Files:**
-- Modify: `agent-workstation/web/styles.css`
-- Modify: `agent-workstation/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
+- Modify: `container-code-companion/web/app.js`
 
 - [ ] **Step 1: Add keyframe and class to `styles.css`**
 
-Append to the end of `agent-workstation/web/styles.css`:
+Append to the end of `container-code-companion/web/styles.css`:
 
 ```css
 @keyframes section-fade {
@@ -345,21 +345,21 @@ Replace with:
 - [ ] **Step 3: Verify JS syntax**
 
 ```bash
-node --check agent-workstation/web/app.js && echo OK
+node --check container-code-companion/web/app.js && echo OK
 ```
 Expected: `OK`
 
 - [ ] **Step 4: Check static assertions for section-fade and section-enter pass**
 
 ```bash
-bash tests/agent-workstation-static.sh 2>&1 | grep -E 'section-fade|section-enter|FAIL'
+bash tests/container-code-companion-static.sh 2>&1 | grep -E 'section-fade|section-enter|FAIL'
 ```
 Expected: no output (those two assertions now pass)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent-workstation/web/styles.css agent-workstation/web/app.js
+git add container-code-companion/web/styles.css container-code-companion/web/app.js
 git commit -m "feat(polish): section fade-in animation on nav change"
 ```
 
@@ -368,12 +368,12 @@ git commit -m "feat(polish): section fade-in animation on nav change"
 ## Task 5: Pulsing health dot (Effect 8) — CSS + JS
 
 **Files:**
-- Modify: `agent-workstation/web/styles.css`
-- Modify: `agent-workstation/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
+- Modify: `container-code-companion/web/app.js`
 
 - [ ] **Step 1: Add pulse keyframe and `#health` rules to `styles.css`**
 
-Append to the end of `agent-workstation/web/styles.css`:
+Append to the end of `container-code-companion/web/styles.css`:
 
 ```css
 @keyframes pulse-dot {
@@ -426,14 +426,14 @@ async function loadHealth() {
 - [ ] **Step 3: Verify JS syntax**
 
 ```bash
-node --check agent-workstation/web/app.js && echo OK
+node --check container-code-companion/web/app.js && echo OK
 ```
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add agent-workstation/web/styles.css agent-workstation/web/app.js
+git add container-code-companion/web/styles.css container-code-companion/web/app.js
 git commit -m "feat(polish): pulsing accent dot on Online health indicator"
 ```
 
@@ -442,7 +442,7 @@ git commit -m "feat(polish): pulsing accent dot on Online health indicator"
 ## Task 6: Gauge sweep animation (Effect 6) — JS only
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
+- Modify: `container-code-companion/web/app.js`
 
 - [ ] **Step 1: Add `animateGauges` function**
 
@@ -487,14 +487,14 @@ Add immediately after:
 - [ ] **Step 3: Verify JS syntax**
 
 ```bash
-node --check agent-workstation/web/app.js && echo OK
+node --check container-code-companion/web/app.js && echo OK
 ```
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add agent-workstation/web/app.js
+git add container-code-companion/web/app.js
 git commit -m "feat(polish): gauge sweep animation on overview load"
 ```
 
@@ -507,35 +507,35 @@ git commit -m "feat(polish): gauge sweep animation on overview load"
 - [ ] **Step 1: Run full static test suite**
 
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
-Expected: `agent-workstation static checks passed`
+Expected: `container-code-companion static checks passed`
 
 If any assertion fails, fix it before continuing.
 
 - [ ] **Step 2: Go build**
 
 ```bash
-/home/peyton/.local/go/bin/go build -C agent-workstation -o /tmp/aw-test ./cmd/server && echo BUILD OK
+/home/peyton/.local/go/bin/go build -C container-code-companion -o /tmp/aw-test ./cmd/server && echo BUILD OK
 ```
 Expected: `BUILD OK`
 
 - [ ] **Step 3: Go tests**
 
 ```bash
-cd agent-workstation && /home/peyton/.local/go/bin/go test ./... && echo TESTS OK
+cd container-code-companion && /home/peyton/.local/go/bin/go test ./... && echo TESTS OK
 ```
 Expected: all `ok`, then `TESTS OK`
 
 - [ ] **Step 4: JS syntax**
 
 ```bash
-node --check agent-workstation/web/app.js && echo JS OK
+node --check container-code-companion/web/app.js && echo JS OK
 ```
 Expected: `JS OK`
 
 - [ ] **Step 5: Push**
 
 ```bash
-git push origin agent-workstation-native-ui
+git push origin container-code-companion-native-ui
 ```

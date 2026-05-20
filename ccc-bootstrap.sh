@@ -1072,9 +1072,9 @@ fi
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 if ! id "$CCC_USER" &>/dev/null; then
-  if [[ -r /etc/agent-workstation/env ]]; then
-    _aw_user=$(awk -F= '/^AGENT_WORKSTATION_USERNAME=/{print $2; exit}' /etc/agent-workstation/env)
-    CCC_USER="${_aw_user:-$CCC_USER}"
+  if [[ -r /etc/container-code-companion/env ]]; then
+    _ccc_ui_user=$(awk -F= '/^CONTAINER_CODE_COMPANION_USERNAME=/{print $2; exit}' /etc/container-code-companion/env)
+    CCC_USER="${_ccc_ui_user:-$CCC_USER}"
     CCC_HOME="/home/$CCC_USER"
   fi
 fi
@@ -1336,8 +1336,8 @@ chmod +x /usr/local/bin/ccc-onboarding
 cat > /usr/local/bin/ccc-fix-cockpit-updates << 'COCKPITFIXSCRIPT'
 #!/bin/bash
 set -euo pipefail
-echo "ccc-fix-cockpit-updates is retired. Container Code Companion now uses agent-workstation.service on port 9090."
-echo "Run: sudo systemctl restart agent-workstation.service"
+echo "ccc-fix-cockpit-updates is retired. Container Code Companion now uses container-code-companion.service on port 9090."
+echo "Run: sudo systemctl restart container-code-companion.service"
 COCKPITFIXSCRIPT
 chmod +x /usr/local/bin/ccc-fix-cockpit-updates
 
@@ -1345,7 +1345,7 @@ cat > /usr/local/bin/ccc-verify-cockpit-updates << 'COCKPITVERIFYSCRIPT'
 #!/bin/bash
 set -euo pipefail
 echo "ccc-verify-cockpit-updates is retired. Container Code Companion no longer uses Cockpit."
-systemctl is-active --quiet agent-workstation.service
+systemctl is-active --quiet container-code-companion.service
 COCKPITVERIFYSCRIPT
 chmod +x /usr/local/bin/ccc-verify-cockpit-updates
 
@@ -1385,7 +1385,7 @@ echo ""
 
 echo -e "${C}── Services ──────────────────────────────────${N}"
 systemctl is-active --quiet "$CCC_CODE_SERVER_SERVICE" && ok "code-server running" || fail "code-server not running — sudo systemctl start $CCC_CODE_SERVER_SERVICE"
-systemctl is-active --quiet agent-workstation.service && ok "Container Code Companion UI running" || fail "Container Code Companion UI not running — sudo systemctl start agent-workstation.service"
+systemctl is-active --quiet container-code-companion.service && ok "Container Code Companion UI running" || fail "Container Code Companion UI not running — sudo systemctl start container-code-companion.service"
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
@@ -1529,7 +1529,7 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; D='
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 REF="${CCC_SELF_UPDATE_REF:-main}"
 REPO_URL="https://github.com/oculus-pllx/CCC.git"
-SRC="/opt/agent-workstation-src"
+SRC="/opt/container-code-companion-src"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 SHOW_ACTIONS=1
 [[ "${1:-}" == "--no-actions" ]] && SHOW_ACTIONS=0
@@ -1601,9 +1601,9 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='
 
 REF="${CCC_SELF_UPDATE_REF:-main}"
 REPO_URL="https://github.com/oculus-pllx/CCC.git"
-SRC="/opt/agent-workstation-src"
-BIN="/usr/local/bin/agent-workstation"
-WEB="/opt/agent-workstation/web"
+SRC="/opt/container-code-companion-src"
+BIN="/usr/local/bin/container-code-companion"
+WEB="/opt/container-code-companion/web"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
 GO="/usr/local/go/bin/go"
@@ -1630,14 +1630,14 @@ echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%
 # [2/4] Build binary
 echo ""
 echo -e "${C}[2/4]${N} Building Container Code Companion binary..."
-timeout 600 "$GO" build -C "$SRC/agent-workstation" -buildvcs=false -o "$BIN" ./cmd/server
+timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false -o "$BIN" ./cmd/server
 chmod +x "$BIN"
 echo -e "  OK: $BIN"
 
 # [3/4] Sync web assets
 echo ""
 echo -e "${C}[3/4]${N} Syncing web assets..."
-rsync -a --delete "$SRC/agent-workstation/web/" "$WEB/"
+rsync -a --delete "$SRC/container-code-companion/web/" "$WEB/"
 echo -e "  OK: $WEB"
 
 # [4/4] Write version + restart
@@ -1649,9 +1649,9 @@ printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%
 echo -e "  Recorded: ${C}${COMMIT:0:7}${N}"
 
 # Detach restart from the current process group. When run from the web terminal,
-# the PTY is a child of agent-workstation — a synchronous restart would kill this
+# the PTY is a child of container-code-companion — a synchronous restart would kill this
 # script before it exits. setsid creates a new session; the restart survives PTY teardown.
-setsid systemctl restart agent-workstation.service &
+setsid systemctl restart container-code-companion.service &
 disown $! 2>/dev/null || true
 
 echo ""
@@ -1738,11 +1738,11 @@ if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; t
 fi
 systemctl daemon-reload
 
-AGENT_WORKSTATION_SRC="/opt/agent-workstation-src"
-AGENT_WORKSTATION_ROOT="/opt/agent-workstation"
-AGENT_WORKSTATION_ENV="/etc/agent-workstation/env"
-rm -rf "$AGENT_WORKSTATION_SRC"
-mkdir -p "$AGENT_WORKSTATION_ROOT" /etc/agent-workstation
+CONTAINER_CODE_COMPANION_SRC="/opt/container-code-companion-src"
+CONTAINER_CODE_COMPANION_ROOT="/opt/container-code-companion"
+CONTAINER_CODE_COMPANION_ENV="/etc/container-code-companion/env"
+rm -rf "$CONTAINER_CODE_COMPANION_SRC"
+mkdir -p "$CONTAINER_CODE_COMPANION_ROOT" /etc/container-code-companion
 
 _agent_repo="$CCC_SELF_UPDATE_REPO"
 if [[ "$_agent_repo" == git@github.com:* ]]; then
@@ -1750,29 +1750,29 @@ if [[ "$_agent_repo" == git@github.com:* ]]; then
 fi
 _agent_repo="${_agent_repo%.git}.git"
 echo "    Cloning Container Code Companion source from $_agent_repo ($CCC_SELF_UPDATE_REF)..."
-if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" "$AGENT_WORKSTATION_SRC"; then
+if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" "$CONTAINER_CODE_COMPANION_SRC"; then
   echo "[WARN] Could not clone $_agent_repo branch $CCC_SELF_UPDATE_REF; trying main."
-  git clone --quiet --depth 1 --branch main "$_agent_repo" "$AGENT_WORKSTATION_SRC"
+  git clone --quiet --depth 1 --branch main "$_agent_repo" "$CONTAINER_CODE_COMPANION_SRC"
 fi
-git config --system --add safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null || true
+git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC" 2>/dev/null || true
 
 echo "    Building Container Code Companion binary..."
 timeout 600 /usr/local/go/bin/go build \
-  -C "$AGENT_WORKSTATION_SRC/agent-workstation" \
+  -C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion" \
   -buildvcs=false \
-  -o /usr/local/bin/agent-workstation \
+  -o /usr/local/bin/container-code-companion \
   ./cmd/server
-chmod +x /usr/local/bin/agent-workstation
+chmod +x /usr/local/bin/container-code-companion
 echo "    Syncing Container Code Companion web assets..."
-rsync -a --delete "$AGENT_WORKSTATION_SRC/agent-workstation/web/" "$AGENT_WORKSTATION_ROOT/web/"
+rsync -a --delete "$CONTAINER_CODE_COMPANION_SRC/container-code-companion/web/" "$CONTAINER_CODE_COMPANION_ROOT/web/"
 
-if [[ -r "$AGENT_WORKSTATION_ENV" ]]; then
-  _aw_user=$(awk -F= '/^AGENT_WORKSTATION_USERNAME=/{print $2; exit}' "$AGENT_WORKSTATION_ENV")
-  _aw_token=$(awk -F= '/^AGENT_WORKSTATION_SESSION_TOKEN=/{print $2; exit}' "$AGENT_WORKSTATION_ENV")
-  _aw_pass=$(awk -F= '/^AGENT_WORKSTATION_PASSWORD=/{print $2; exit}' "$AGENT_WORKSTATION_ENV")
-  [[ -n "${_aw_user:-}"  ]] && CCC_USER="$_aw_user"
-  [[ -n "${_aw_token:-}" ]] && AGENT_WORKSTATION_SESSION_TOKEN="$_aw_token"
-  [[ -n "${_aw_pass:-}"  ]] && AGENT_WORKSTATION_PASSWORD="$_aw_pass"
+if [[ -r "$CONTAINER_CODE_COMPANION_ENV" ]]; then
+  _ccc_ui_user=$(awk -F= '/^CONTAINER_CODE_COMPANION_USERNAME=/{print $2; exit}' "$CONTAINER_CODE_COMPANION_ENV")
+  _ccc_ui_token=$(awk -F= '/^CONTAINER_CODE_COMPANION_SESSION_TOKEN=/{print $2; exit}' "$CONTAINER_CODE_COMPANION_ENV")
+  _ccc_ui_pass=$(awk -F= '/^CONTAINER_CODE_COMPANION_PASSWORD=/{print $2; exit}' "$CONTAINER_CODE_COMPANION_ENV")
+  [[ -n "${_ccc_ui_user:-}"  ]] && CCC_USER="$_ccc_ui_user"
+  [[ -n "${_ccc_ui_token:-}" ]] && CONTAINER_CODE_COMPANION_SESSION_TOKEN="$_ccc_ui_token"
+  [[ -n "${_ccc_ui_pass:-}"  ]] && CONTAINER_CODE_COMPANION_PASSWORD="$_ccc_ui_pass"
   CCC_HOME="/home/$CCC_USER"
 fi
 if ! id "$CCC_USER" &>/dev/null; then
@@ -1783,19 +1783,19 @@ if ! id "$CCC_USER" &>/dev/null; then
   echo "Could not determine Container Code Companion user for systemd unit. Set CCC_USER in /etc/ccc/config." >&2
   exit 1
 fi
-AGENT_WORKSTATION_SESSION_TOKEN="${AGENT_WORKSTATION_SESSION_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)}"
-AGENT_WORKSTATION_PASSWORD="${AGENT_WORKSTATION_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | head -c 24)}"
-cat > "$AGENT_WORKSTATION_ENV" <<EOF
-AGENT_WORKSTATION_ADDR=0.0.0.0:9090
-AGENT_WORKSTATION_WEB_DIR=$AGENT_WORKSTATION_ROOT/web
-AGENT_WORKSTATION_SESSION_TOKEN=$AGENT_WORKSTATION_SESSION_TOKEN
-AGENT_WORKSTATION_USERNAME=$CCC_USER
-AGENT_WORKSTATION_PASSWORD=$AGENT_WORKSTATION_PASSWORD
+CONTAINER_CODE_COMPANION_SESSION_TOKEN="${CONTAINER_CODE_COMPANION_SESSION_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)}"
+CONTAINER_CODE_COMPANION_PASSWORD="${CONTAINER_CODE_COMPANION_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | head -c 24)}"
+cat > "$CONTAINER_CODE_COMPANION_ENV" <<EOF
+CONTAINER_CODE_COMPANION_ADDR=0.0.0.0:9090
+CONTAINER_CODE_COMPANION_WEB_DIR=$CONTAINER_CODE_COMPANION_ROOT/web
+CONTAINER_CODE_COMPANION_SESSION_TOKEN=$CONTAINER_CODE_COMPANION_SESSION_TOKEN
+CONTAINER_CODE_COMPANION_USERNAME=$CCC_USER
+CONTAINER_CODE_COMPANION_PASSWORD=$CONTAINER_CODE_COMPANION_PASSWORD
 EOF
-chown root:"$CCC_USER" "$AGENT_WORKSTATION_ENV"
-chmod 640 "$AGENT_WORKSTATION_ENV"
+chown root:"$CCC_USER" "$CONTAINER_CODE_COMPANION_ENV"
+chmod 640 "$CONTAINER_CODE_COMPANION_ENV"
 
-cat > /etc/systemd/system/agent-workstation.service <<EOF
+cat > /etc/systemd/system/container-code-companion.service <<EOF
 [Unit]
 Description=Container Code Companion native web UI
 After=network-online.target
@@ -1805,9 +1805,9 @@ Wants=network-online.target
 Type=simple
 User=$CCC_USER
 Group=$CCC_USER
-WorkingDirectory=$AGENT_WORKSTATION_ROOT
-EnvironmentFile=$AGENT_WORKSTATION_ENV
-ExecStart=/usr/local/bin/agent-workstation
+WorkingDirectory=$CONTAINER_CODE_COMPANION_ROOT
+EnvironmentFile=$CONTAINER_CODE_COMPANION_ENV
+ExecStart=/usr/local/bin/container-code-companion
 Restart=always
 RestartSec=3
 
@@ -1816,15 +1816,15 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable agent-workstation.service
+systemctl enable container-code-companion.service
 
 # Write version file before restarting — restart kills this process tree when
-# run from the web terminal (PTY is a child of agent-workstation).
+# run from the web terminal (PTY is a child of container-code-companion).
 # Prefer CCC_LATEST_COMMIT injected by ccc-self-update; fall back to the HEAD
 # of the just-cloned source repo so bootstrapping via the old script still records.
 _write_commit="${CCC_LATEST_COMMIT:-}"
-if [[ -z "$_write_commit" && -d "$AGENT_WORKSTATION_SRC/.git" ]]; then
-  _write_commit=$(git -c "safe.directory=$AGENT_WORKSTATION_SRC" -C "$AGENT_WORKSTATION_SRC" rev-parse HEAD 2>/dev/null || echo "")
+if [[ -z "$_write_commit" && -d "$CONTAINER_CODE_COMPANION_SRC/.git" ]]; then
+  _write_commit=$(git -c "safe.directory=$CONTAINER_CODE_COMPANION_SRC" -C "$CONTAINER_CODE_COMPANION_SRC" rev-parse HEAD 2>/dev/null || echo "")
 fi
 if [[ -n "$_write_commit" ]]; then
   mkdir -p /etc/ccc
@@ -1836,7 +1836,7 @@ fi
 
 echo "    Restarting Container Code Companion service..."
 # Detach from the current process group so the restart survives PTY teardown.
-setsid systemctl restart agent-workstation.service &
+setsid systemctl restart container-code-companion.service &
 disown $! 2>/dev/null || true
 
 _ccc_ui_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
@@ -1883,13 +1883,13 @@ PROVISION_EOF
 
   printf '%s:%s\n' "${CC_USER}" "${CC_PASSWORD}" | pct exec "$CT_ID" -- chpasswd
 
-  _aw_token=$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)
-  printf 'AGENT_WORKSTATION_ADDR=0.0.0.0:9090\nAGENT_WORKSTATION_WEB_DIR=/opt/agent-workstation/web\nAGENT_WORKSTATION_SESSION_TOKEN=%s\nAGENT_WORKSTATION_USERNAME=%s\nAGENT_WORKSTATION_PASSWORD=%s\n' \
-    "$_aw_token" "$CC_USER" "$CC_PASSWORD" \
-    | pct exec "$CT_ID" -- tee /etc/agent-workstation/env > /dev/null
-  pct exec "$CT_ID" -- chown "root:${CC_USER}" /etc/agent-workstation/env
-  pct exec "$CT_ID" -- chmod 640 /etc/agent-workstation/env
-  pct exec "$CT_ID" -- systemctl restart agent-workstation.service
+  _ccc_ui_token=$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)
+  printf 'CONTAINER_CODE_COMPANION_ADDR=0.0.0.0:9090\nCONTAINER_CODE_COMPANION_WEB_DIR=/opt/container-code-companion/web\nCONTAINER_CODE_COMPANION_SESSION_TOKEN=%s\nCONTAINER_CODE_COMPANION_USERNAME=%s\nCONTAINER_CODE_COMPANION_PASSWORD=%s\n' \
+    "$_ccc_ui_token" "$CC_USER" "$CC_PASSWORD" \
+    | pct exec "$CT_ID" -- tee /etc/container-code-companion/env > /dev/null
+  pct exec "$CT_ID" -- chown "root:${CC_USER}" /etc/container-code-companion/env
+  pct exec "$CT_ID" -- chmod 640 /etc/container-code-companion/env
+  pct exec "$CT_ID" -- systemctl restart container-code-companion.service
   success "Container Code Companion UI login set to ${CC_USER} user credentials."
 
   pct exec "$CT_ID" -- bash -c "mkdir -p /home/${CC_USER}/.config/code-server"

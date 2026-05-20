@@ -1,6 +1,6 @@
-# Agent Workstation Visual Polish — Design Spec
+# Container Code Companion Visual Polish — Design Spec
 
-**Goal:** Add nine visual effects to the Agent Workstation GUI — cyberpunk glow base with animated gauges and hover dynamics — without changing layout, functionality, or the theme system.
+**Goal:** Add nine visual effects to the Container Code Companion GUI — cyberpunk glow base with animated gauges and hover dynamics — without changing layout, functionality, or the theme system.
 
 **Architecture:** Pure CSS for static effects; small JS additions for animation triggers. All glow effects use `--accent-rgb` (new CSS variable, set alongside `--accent` in `applyTheme`) so every effect automatically tracks the active theme color.
 
@@ -10,9 +10,9 @@
 
 ## Files
 
-- Modify: `agent-workstation/web/styles.css` — effects 1–5, 7, 8, 9
-- Modify: `agent-workstation/web/app.js` — `--accent-rgb` in `applyTheme`, gauge sweep (`animateGauges`), section fade class toggle in `renderSection`, health class toggle in `loadHealth`
-- Modify: `tests/agent-workstation-static.sh` — new static assertions
+- Modify: `container-code-companion/web/styles.css` — effects 1–5, 7, 8, 9
+- Modify: `container-code-companion/web/app.js` — `--accent-rgb` in `applyTheme`, gauge sweep (`animateGauges`), section fade class toggle in `renderSection`, health class toggle in `loadHealth`
+- Modify: `tests/container-code-companion-static.sh` — new static assertions
 
 ---
 
@@ -257,18 +257,18 @@ Already covered under Effect 5 (same `.status-tile:hover` rule).
 
 ## Static test additions
 
-Add to `tests/agent-workstation-static.sh`:
+Add to `tests/container-code-companion-static.sh`:
 ```bash
 # Visual polish
-require_file_contains agent-workstation/web/styles.css 'pulse-dot'
-require_file_contains agent-workstation/web/styles.css 'section-fade'
-require_file_contains agent-workstation/web/styles.css 'section-enter'
-require_file_contains agent-workstation/web/styles.css 'drop-shadow'
-require_file_contains agent-workstation/web/styles.css 'scanlines'
-require_file_contains agent-workstation/web/app.js 'animateGauges'
-require_file_contains agent-workstation/web/app.js '--accent-rgb'
-require_file_contains agent-workstation/web/app.js 'section-enter'
-require_file_contains agent-workstation/web/app.js 'health.online'
+require_file_contains container-code-companion/web/styles.css 'pulse-dot'
+require_file_contains container-code-companion/web/styles.css 'section-fade'
+require_file_contains container-code-companion/web/styles.css 'section-enter'
+require_file_contains container-code-companion/web/styles.css 'drop-shadow'
+require_file_contains container-code-companion/web/styles.css 'scanlines'
+require_file_contains container-code-companion/web/app.js 'animateGauges'
+require_file_contains container-code-companion/web/app.js '--accent-rgb'
+require_file_contains container-code-companion/web/app.js 'section-enter'
+require_file_contains container-code-companion/web/app.js 'health.online'
 ```
 
 Note: the scanlines check requires a comment `/* scanlines */` in styles.css above the `body::after` rule so the word appears in the file.

@@ -2,7 +2,7 @@
 
 > Implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Agent Workstation usable as a real headless workstation UI with Prism-style file/project management and a real tmux-capable PTY terminal.
+**Goal:** Make Container Code Companion usable as a real headless workstation UI with Prism-style file/project management and a real tmux-capable PTY terminal.
 
 **Architecture:** Keep the existing Go native service on port 9090 and add JSON APIs for project/file operations plus a WebSocket PTY endpoint. The frontend remains vanilla HTML/CSS/JS and uses the same authenticated session cookie; the terminal uses Go PTY, not `node-pty`.
 
@@ -13,23 +13,23 @@
 ### Task 1: Project APIs
 
 **Files:**
-- Modify: `agent-workstation/internal/system/management.go`
-- Modify: `agent-workstation/internal/server/server.go`
-- Modify: `agent-workstation/internal/server/server_test.go`
-- Modify: `agent-workstation/web/app.js`
+- Modify: `container-code-companion/internal/system/management.go`
+- Modify: `container-code-companion/internal/server/server.go`
+- Modify: `container-code-companion/internal/server/server_test.go`
+- Modify: `container-code-companion/web/app.js`
 
 - [x] Add failing tests for create, rename, and delete project API calls.
 - [x] Implement project operations under `~/projects`.
 - [x] Wire Projects panel to create, rename, delete, open in VS Code, and browse files.
-- [x] Verify with `go test ./...` and `node --check agent-workstation/web/app.js`.
+- [x] Verify with `go test ./...` and `node --check container-code-companion/web/app.js`.
 
 ### Task 2: Prism-Style File Manager
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/web/styles.css`
-- Modify: `agent-workstation/internal/system/management.go`
-- Modify: `agent-workstation/internal/server/server.go`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
+- Modify: `container-code-companion/internal/system/management.go`
+- Modify: `container-code-companion/internal/server/server.go`
 
 - [x] Add create folder, create file, rename, delete controls.
 - [x] Keep read/write bounded to text files and return clear permission errors.
@@ -39,13 +39,13 @@
 ### Task 3: Real PTY Terminal
 
 **Files:**
-- Modify: `agent-workstation/go.mod`
-- Modify: `agent-workstation/go.sum`
-- Create: `agent-workstation/internal/server/terminal.go`
-- Modify: `agent-workstation/internal/server/server.go`
-- Modify: `agent-workstation/web/index.html`
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/web/styles.css`
+- Modify: `container-code-companion/go.mod`
+- Modify: `container-code-companion/go.sum`
+- Create: `container-code-companion/internal/server/terminal.go`
+- Modify: `container-code-companion/internal/server/server.go`
+- Modify: `container-code-companion/web/index.html`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
 
 - [x] Add Go dependencies `github.com/creack/pty` and `github.com/gorilla/websocket`.
 - [x] Add `/api/pty` WebSocket endpoint that starts `bash -l` in `~/projects` inside a PTY.
@@ -63,11 +63,11 @@
 **Files:**
 - Modify as needed from Tasks 1-3.
 
-- [x] Run `bash tests/agent-workstation-static.sh`.
+- [x] Run `bash tests/container-code-companion-static.sh`.
 - [x] Run `bash -n ccc-bootstrap.sh`.
-- [x] Run `cd agent-workstation && go test ./...`.
-- [x] Run `node --check agent-workstation/web/app.js`.
+- [x] Run `cd container-code-companion && go test ./...`.
+- [x] Run `node --check container-code-companion/web/app.js`.
 - [x] Run `git diff --check`.
-- [x] Commit and push `agent-workstation-native-ui`.
+- [x] Commit and push `container-code-companion-native-ui`.
 - [ ] Fresh LXC verification: run `sudo ccc-self-update`, verify `ccc-update-status` records `db4c0ce` or newer, then test Accounts, Network graph, Agent Config editing, and Terminal tabs in `http://<lxc-ip>:9090`.
-- [ ] Fix GUI update action: current deployed LXC still shows `Failed to fetch` when using the `Apply Agent Workstation Update` button. CLI `sudo ccc-self-update` remains the fallback. Debug the browser request, service restart timing, and `/api/action` behavior in the live LXC.
+- [ ] Fix GUI update action: current deployed LXC still shows `Failed to fetch` when using the `Apply Container Code Companion Update` button. CLI `sudo ccc-self-update` remains the fallback. Debug the browser request, service restart timing, and `/api/action` behavior in the live LXC.

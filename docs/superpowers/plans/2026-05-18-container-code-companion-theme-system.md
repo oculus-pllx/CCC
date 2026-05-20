@@ -1,8 +1,8 @@
-# Agent Workstation Theme System Implementation Plan
+# Container Code Companion Theme System Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Apply the Prism dark navy base palette and IBM Plex Mono font to the Agent Workstation UI, then add a user-selectable accent-color theme system (7 themes, green default) accessible via a new Settings page.
+**Goal:** Apply the Prism dark navy base palette and IBM Plex Mono font to the Container Code Companion UI, then add a user-selectable accent-color theme system (7 themes, green default) accessible via a new Settings page.
 
 **Architecture:** All theming is done via CSS custom properties (`--accent`, `--border`, `--accent-bg`) set by `applyTheme()` on `document.documentElement`. The base Prism dark palette (bg/panel/topbar) is hardcoded in `:root`. The selected theme is persisted in `localStorage` and restored by `loadTheme()` called once at script load before the page renders. The Settings page renders a list of swatch buttons; clicking one calls `applyTheme()` then re-renders the section.
 
@@ -14,44 +14,44 @@
 
 | File | Change |
 |---|---|
-| `agent-workstation/web/styles.css` | Replace all vars + hardcoded colors with Prism palette; add swatch CSS; accent-colored active sidebar |
-| `agent-workstation/web/index.html` | Google Fonts link; Settings nav group |
-| `agent-workstation/web/app.js` | THEMES constant; hexToRgb, applyTheme, loadTheme, renderSettings, bindSettings; loadTheme() call at init; network graph uses --accent |
-| `tests/agent-workstation-static.sh` | New assertions for all changes |
+| `container-code-companion/web/styles.css` | Replace all vars + hardcoded colors with Prism palette; add swatch CSS; accent-colored active sidebar |
+| `container-code-companion/web/index.html` | Google Fonts link; Settings nav group |
+| `container-code-companion/web/app.js` | THEMES constant; hexToRgb, applyTheme, loadTheme, renderSettings, bindSettings; loadTheme() call at init; network graph uses --accent |
+| `tests/container-code-companion-static.sh` | New assertions for all changes |
 
 ---
 
 ## Task 1: CSS — Prism Dark Palette
 
 **Files:**
-- Modify: `agent-workstation/web/styles.css`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/styles.css`
+- Modify: `tests/container-code-companion-static.sh`
 
 Replace the current gray palette (`#17191c` bg, `#24282d` panels) with the Prism navy palette (`#060d16` bg, `#0a1628` panels). Replace all hardcoded dark color literals with CSS variables. Update the sidebar active state to use the accent color. Add Settings swatch CSS.
 
 - [ ] **Step 1: Write failing static assertions**
 
-Add to `tests/agent-workstation-static.sh`:
+Add to `tests/container-code-companion-static.sh`:
 ```bash
 # Task 1: CSS Prism palette
-require_file_contains agent-workstation/web/styles.css '--topbar'
-require_file_contains agent-workstation/web/styles.css '--panel2'
-require_file_contains agent-workstation/web/styles.css '--accent-bg'
-require_file_contains agent-workstation/web/styles.css '#060d16'
-require_file_contains agent-workstation/web/styles.css 'IBM Plex Mono'
-require_file_contains agent-workstation/web/styles.css 'settings-swatch-row'
-require_file_not_contains agent-workstation/web/styles.css '#17191c'
-require_file_not_contains agent-workstation/web/styles.css '#24282d'
-require_file_not_contains agent-workstation/web/styles.css '#3f454d'
-require_file_not_contains agent-workstation/web/styles.css '#a7adb5'
-require_file_not_contains agent-workstation/web/styles.css '#111316'
-require_file_not_contains agent-workstation/web/styles.css '#1b1e22'
-require_file_not_contains agent-workstation/web/styles.css '#050608'
+require_file_contains container-code-companion/web/styles.css '--topbar'
+require_file_contains container-code-companion/web/styles.css '--panel2'
+require_file_contains container-code-companion/web/styles.css '--accent-bg'
+require_file_contains container-code-companion/web/styles.css '#060d16'
+require_file_contains container-code-companion/web/styles.css 'IBM Plex Mono'
+require_file_contains container-code-companion/web/styles.css 'settings-swatch-row'
+require_file_not_contains container-code-companion/web/styles.css '#17191c'
+require_file_not_contains container-code-companion/web/styles.css '#24282d'
+require_file_not_contains container-code-companion/web/styles.css '#3f454d'
+require_file_not_contains container-code-companion/web/styles.css '#a7adb5'
+require_file_not_contains container-code-companion/web/styles.css '#111316'
+require_file_not_contains container-code-companion/web/styles.css '#1b1e22'
+require_file_not_contains container-code-companion/web/styles.css '#050608'
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL (all the old color values are still present)
 
@@ -563,14 +563,14 @@ Append to the end of `styles.css`:
 - [ ] **Step 12: Run static checks and JS syntax**
 
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
-Expected: `agent-workstation static checks passed`
+Expected: `container-code-companion static checks passed`
 
 - [ ] **Step 13: Commit**
 
 ```bash
-git add agent-workstation/web/styles.css tests/agent-workstation-static.sh
+git add container-code-companion/web/styles.css tests/container-code-companion-static.sh
 git commit -m "feat(theme): apply Prism dark palette and add theme swatch CSS"
 ```
 
@@ -579,21 +579,21 @@ git commit -m "feat(theme): apply Prism dark palette and add theme swatch CSS"
 ## Task 2: index.html — Google Fonts + Settings Nav
 
 **Files:**
-- Modify: `agent-workstation/web/index.html`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/index.html`
+- Modify: `tests/container-code-companion-static.sh`
 
 - [ ] **Step 1: Write failing static assertions**
 
-Add to `tests/agent-workstation-static.sh`:
+Add to `tests/container-code-companion-static.sh`:
 ```bash
 # Task 2: index.html
-require_file_contains agent-workstation/web/index.html 'IBM+Plex+Mono'
-require_file_contains agent-workstation/web/index.html 'data-section="settings"'
+require_file_contains container-code-companion/web/index.html 'IBM+Plex+Mono'
+require_file_contains container-code-companion/web/index.html 'data-section="settings"'
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL
 
@@ -637,14 +637,14 @@ The last nav group before `</nav>` is the Agents group. Add a Preferences group 
 - [ ] **Step 4: Run static checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: pass
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent-workstation/web/index.html tests/agent-workstation-static.sh
+git add container-code-companion/web/index.html tests/container-code-companion-static.sh
 git commit -m "feat(theme): add Google Fonts and Settings nav item"
 ```
 
@@ -653,26 +653,26 @@ git commit -m "feat(theme): add Google Fonts and Settings nav item"
 ## Task 3: JS — Theme Engine
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `tests/container-code-companion-static.sh`
 
 Add the constants and functions that power the theme system. `loadTheme()` is called at script initialization so the theme is applied before any render.
 
 - [ ] **Step 1: Write failing static assertions**
 
-Add to `tests/agent-workstation-static.sh`:
+Add to `tests/container-code-companion-static.sh`:
 ```bash
 # Task 3: JS theme engine
-require_file_contains agent-workstation/web/app.js 'const THEMES'
-require_file_contains agent-workstation/web/app.js 'applyTheme'
-require_file_contains agent-workstation/web/app.js 'loadTheme'
-require_file_contains agent-workstation/web/app.js 'aw-theme'
-require_file_contains agent-workstation/web/app.js 'hexToRgb'
+require_file_contains container-code-companion/web/app.js 'const THEMES'
+require_file_contains container-code-companion/web/app.js 'applyTheme'
+require_file_contains container-code-companion/web/app.js 'loadTheme'
+require_file_contains container-code-companion/web/app.js 'ccc-theme'
+require_file_contains container-code-companion/web/app.js 'hexToRgb'
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL
 
@@ -691,7 +691,7 @@ const THEMES = {
   white:  '#e2e8f0',
 };
 const DEFAULT_THEME = 'green';
-const THEME_STORAGE_KEY = 'aw-theme';
+const THEME_STORAGE_KEY = 'ccc-theme';
 ```
 
 - [ ] **Step 3: Add hexToRgb, applyTheme, loadTheme functions**
@@ -740,15 +740,15 @@ refresh();
 - [ ] **Step 5: Run checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: both pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agent-workstation/web/app.js tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js tests/container-code-companion-static.sh
 git commit -m "feat(theme): add theme engine — THEMES, applyTheme, loadTheme, hexToRgb"
 ```
 
@@ -757,25 +757,25 @@ git commit -m "feat(theme): add theme engine — THEMES, applyTheme, loadTheme, 
 ## Task 4: JS — Settings Page
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `tests/container-code-companion-static.sh`
 
 Add `renderSettings` and `bindSettings`. Wire them into the existing `renderSection` / `bindSectionActions` dispatch.
 
 - [ ] **Step 1: Write failing static assertions**
 
-Add to `tests/agent-workstation-static.sh`:
+Add to `tests/container-code-companion-static.sh`:
 ```bash
 # Task 4: Settings page
-require_file_contains agent-workstation/web/app.js 'renderSettings'
-require_file_contains agent-workstation/web/app.js 'bindSettings'
-require_file_contains agent-workstation/web/app.js 'settings-swatch'
-require_file_contains agent-workstation/web/app.js "settings: 'Settings'"
+require_file_contains container-code-companion/web/app.js 'renderSettings'
+require_file_contains container-code-companion/web/app.js 'bindSettings'
+require_file_contains container-code-companion/web/app.js 'settings-swatch'
+require_file_contains container-code-companion/web/app.js "settings: 'Settings'"
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL
 
@@ -923,7 +923,7 @@ function bindSettings() {
 `renderSettings` does not call `snapshot` — it reads only from `THEMES` and `localStorage`. This means it renders even when the user is not signed in. Verify `renderSection` doesn't block settings rendering:
 
 ```bash
-grep -n "if (!snapshot)" agent-workstation/web/app.js
+grep -n "if (!snapshot)" container-code-companion/web/app.js
 ```
 
 The guard in `renderSection` returns early with a "sign in required" message if `!snapshot`. Settings should still be accessible unauthenticated. Fix: add `settings` to the guard exception.
@@ -947,15 +947,15 @@ Replace with:
 - [ ] **Step 8: Run checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: both pass
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add agent-workstation/web/app.js tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js tests/container-code-companion-static.sh
 git commit -m "feat(theme): add Settings page with theme swatch picker"
 ```
 
@@ -964,24 +964,24 @@ git commit -m "feat(theme): add Settings page with theme swatch picker"
 ## Task 5: Network Graph — Accent-Aware Colors
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/web/styles.css`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
+- Modify: `tests/container-code-companion-static.sh`
 
 The network graph currently uses the old hardcoded blue `#68a6f8` for the RX line. Update it to read `--accent` from the computed style, so it matches the active theme. The TX line stays `#34d399` (semantic green for upload).
 
 - [ ] **Step 1: Write failing static assertions**
 
-Add to `tests/agent-workstation-static.sh`:
+Add to `tests/container-code-companion-static.sh`:
 ```bash
 # Task 5: Network graph accent
-require_file_not_contains agent-workstation/web/app.js "'#68a6f8'"
-require_file_not_contains agent-workstation/web/styles.css '#68a6f8'
+require_file_not_contains container-code-companion/web/app.js "'#68a6f8'"
+require_file_not_contains container-code-companion/web/styles.css '#68a6f8'
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL (both values are still present)
 
@@ -1037,15 +1037,15 @@ Replace with:
 - [ ] **Step 4: Run checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: both pass
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent-workstation/web/app.js agent-workstation/web/styles.css tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js container-code-companion/web/styles.css tests/container-code-companion-static.sh
 git commit -m "feat(theme): network graph RX line uses active accent color"
 ```
 
@@ -1058,14 +1058,14 @@ git commit -m "feat(theme): network graph RX line uses active accent color"
 - [ ] **Step 1: Go test suite**
 
 ```bash
-/home/peyton/.local/go/bin/go test ./agent-workstation/... -v 2>&1 | tail -20
+/home/peyton/.local/go/bin/go test ./container-code-companion/... -v 2>&1 | tail -20
 ```
 Expected: all PASS, no FAIL lines.
 
 - [ ] **Step 2: Build**
 
 ```bash
-/home/peyton/.local/go/bin/go build ./agent-workstation/cmd/server
+/home/peyton/.local/go/bin/go build ./container-code-companion/cmd/server
 rm -f server
 ```
 Expected: no errors.
@@ -1073,8 +1073,8 @@ Expected: no errors.
 - [ ] **Step 3: All static and syntax checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 bash -n ccc-bootstrap.sh
 ```
 Expected: all pass.
@@ -1084,7 +1084,7 @@ Expected: all pass.
 Update `HANDOFF.md` next steps:
 - Theme system implemented: 7 themes (green default), accessible via Settings page
 - Full Prism dark base applied (navy backgrounds, IBM Plex Mono font)
-- Themes persist in localStorage key `aw-theme`
+- Themes persist in localStorage key `ccc-theme`
 - Network graph RX line tracks active accent color
 - Next: push to origin/main; test on live LXC; validate theme picker in browser
 - Note: push to `origin/main` still needed before self-update validates on deployed LXC
@@ -1092,7 +1092,7 @@ Update `HANDOFF.md` next steps:
 - [ ] **Step 5: Push**
 
 ```bash
-git push origin agent-workstation-native-ui
+git push origin container-code-companion-native-ui
 ```
 
 ---

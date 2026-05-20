@@ -84,9 +84,9 @@ type FileContent struct {
 }
 
 type UpdateStatus struct {
-	AgentWorkstation string `json:"agentWorkstation"`
-	OS               string `json:"os"`
-	SelfUpdateLog    string `json:"selfUpdateLog"`
+	ContainerCodeCompanion string `json:"containerCodeCompanion"`
+	OS                     string `json:"os"`
+	SelfUpdateLog          string `json:"selfUpdateLog"`
 }
 
 type ProjectStatus struct {
@@ -200,8 +200,8 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 		return RunShellCommand("sudo ccc-os-update", workstationHome())
 	case "restart-code-server":
 		return RunShellCommand("sudo systemctl restart code-server@$(id -un).service", workstationHome())
-	case "restart-agent-workstation":
-		return RunShellCommand("sudo systemctl restart agent-workstation.service", workstationHome())
+	case "restart-container-code-companion":
+		return RunShellCommand("sudo systemctl restart container-code-companion.service", workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
 	}
@@ -449,7 +449,7 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 }
 
 func collectServices() []ServiceStatus {
-	names := []string{"agent-workstation.service", "code-server@" + currentUsername() + ".service", "ssh.service", "redis-server.service"}
+	names := []string{"container-code-companion.service", "code-server@" + currentUsername() + ".service", "ssh.service", "redis-server.service"}
 	services := make([]ServiceStatus, 0, len(names))
 	for _, name := range names {
 		services = append(services, ServiceStatus{
@@ -507,7 +507,7 @@ func shellQuote(value string) string {
 }
 
 func collectLogs() []LogBlock {
-	units := []string{"agent-workstation.service", "code-server@" + currentUsername() + ".service"}
+	units := []string{"container-code-companion.service", "code-server@" + currentUsername() + ".service"}
 	logs := make([]LogBlock, 0, len(units))
 	for _, unit := range units {
 		logs = append(logs, LogBlock{
@@ -584,9 +584,9 @@ func collectAccounts() []AccountStatus {
 
 func collectUpdates() UpdateStatus {
 	return UpdateStatus{
-		AgentWorkstation: runText("ccc-update-status"),
-		OS:               runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
-		SelfUpdateLog:    runText("bash", "-lc", "sudo tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
+		ContainerCodeCompanion: runText("ccc-update-status"),
+		OS:                     runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
+		SelfUpdateLog:          runText("bash", "-lc", "sudo tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
 	}
 }
 
@@ -762,7 +762,7 @@ func RunGitHubOperation(action string) (CommandResult, error) {
 		// Remove existing key pair so ssh-keygen doesn't prompt
 		os.Remove(keyPath)
 		os.Remove(keyPath + ".pub")
-		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", "", "-C", "agent-workstation")
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", "", "-C", "container-code-companion")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return CommandResult{Command: "ssh-keygen", Output: strings.TrimSpace(string(out)), ExitCode: 1}, err

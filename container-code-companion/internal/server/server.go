@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/oculus-pllx/ccc/agent-workstation/internal/system"
+	"github.com/oculus-pllx/ccc/container-code-companion/internal/system"
 )
 
 const SessionCookieName = "aw_session"
@@ -520,7 +520,7 @@ func (s *Server) staticHandler() http.Handler {
 	if s.webDir != "" {
 		webDir = s.webDir
 	}
-	if configured, ok := os.LookupEnv("AGENT_WORKSTATION_WEB_DIR"); ok && configured != "" {
+	if configured, ok := os.LookupEnv("CONTAINER_CODE_COMPANION_WEB_DIR"); ok && configured != "" {
 		webDir = configured
 	}
 	fileServer := http.FileServer(http.Dir(webDir))

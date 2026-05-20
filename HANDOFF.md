@@ -1,8 +1,8 @@
-# Agent Workstation Handoff
+# Container Code Companion Handoff
 
 **Repo:** https://github.com/oculus-pllx/CCC  
-**Branch:** `main` (dev work on `agent-workstation-native-ui`, fully merged)  
-**Date:** 2026-05-19  
+**Branch:** `main` (dev work on `container-code-companion-native-ui`, fully merged)
+**Date:** 2026-05-19
 **Status:** All features shipped, tested, and on `main`. Ready for live LXC validation.
 
 Do not commit this file unless explicitly requested.
@@ -11,21 +11,21 @@ Do not commit this file unless explicitly requested.
 
 ## Resumption Prompt
 
-> "Continue Agent Workstation development. Everything is on `main` at `0ba7990`. Last session completed: SSE self-update, visual polish (9 cyberpunk-glow effects), panel color fix, GitHub SSH section, Debian compatibility audit, README update. Next priority: live LXC validation via `sudo ccc-self-update` — confirm GUI update, gauge animations, themes, section fade, pulsing dot."
+> "Continue Container Code Companion development. Everything is on `main` at `0ba7990`. Last session completed: SSE self-update, visual polish (9 cyberpunk-glow effects), panel color fix, GitHub SSH section, Debian compatibility audit, README update. Next priority: live LXC validation via `sudo ccc-self-update` - confirm GUI update, gauge animations, themes, section fade, pulsing dot."
 
 ---
 
 ## Current Product Direction
 
-CCC is Agent Workstation: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
+CCC is Container Code Companion: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
 
 Hard constraints:
-- Agent Workstation native UI owns port `9090`; code-server on `8080`
+- Container Code Companion native UI owns port `9090`; code-server on `8080`
 - No Cockpit, no iframe wrappers, no `configure.py`, no `node-pty`, no port `4827`
 - No `/opt/ccc-dashboard`; keep all plugin/service code in `ccc-bootstrap.sh`
 - `CCC_SELF_UPDATE_REF="main"` in all three places in `ccc-bootstrap.sh`
 - Panel colors must be theme-derived via `applyTheme()`, not hardcoded hex
-- Do not hardcode `agent-workstation-native-ui` branch name in `ccc-bootstrap.sh`
+- Do not hardcode `container-code-companion-native-ui` branch name in `ccc-bootstrap.sh`
 
 ---
 
@@ -57,7 +57,7 @@ All effects use `rgba(var(--accent-rgb), alpha)` — theme-aware.
 `--panel`/`--panel2` were hardcoded blue. Now: `rgba(${rgb}, 0.04)` / `rgba(${rgb}, 0.07)` set in `applyTheme()`. Neutral dark fallbacks in `:root`.
 
 ### Pushed to `origin/main`
-Both `agent-workstation-native-ui` and `main` are at `0ba7990`. `ccc-self-update` deploys the full stack.
+Both `container-code-companion-native-ui` and `main` are at `0ba7990`. `ccc-self-update` deploys the full stack.
 
 ---
 
@@ -81,9 +81,9 @@ faa325b feat(polish): add --accent-rgb CSS var + static test stubs for visual ef
 ## Verified
 
 ```
-bash tests/agent-workstation-static.sh    → agent-workstation static checks passed
-go build -C agent-workstation ./cmd/server → BUILD OK
-node --check agent-workstation/web/app.js  → OK
+bash tests/container-code-companion-static.sh    -> Container Code Companion static checks passed
+go build -C container-code-companion ./cmd/server -> BUILD OK
+node --check container-code-companion/web/app.js  -> OK
 bash -n ccc-bootstrap.sh           → SYNTAX OK
 Debian 13 compatibility                    → all clear (no Ubuntu-only deps)
 ```
@@ -93,14 +93,14 @@ Debian 13 compatibility                    → all clear (no Ubuntu-only deps)
 ## Next Steps
 
 1. **Live LXC validation** — `sudo ccc-self-update` in the container, then smoke-test:
-   - Updates page: "Apply Agent Workstation Update" → streams output → reconnects
+   - Updates page: "Apply Container Code Companion Update" -> streams output -> reconnects
    - Overview: gauges sweep in on load; hover lifts tiles/cards
    - Topbar: pulsing green dot when Online
    - Settings: theme swatches change accent color site-wide
    - Navigation: section fades in on each sidebar click
    - GitHub section: generate SSH key, test connection to GitHub
 
-2. **Font bundling** (optional) — if LXC has no outbound internet, IBM Plex Mono won't load from Google Fonts. Download and serve from `agent-workstation/web/fonts/`.
+2. **Font bundling** (optional) - if LXC has no outbound internet, IBM Plex Mono won't load from Google Fonts. Download and serve from `container-code-companion/web/fonts/`.
 
 3. **DECISIONS.md** (optional) — document architecture decisions: SSE update pattern, theme system, port ownership, session token design.
 
@@ -109,7 +109,7 @@ Debian 13 compatibility                    → all clear (no Ubuntu-only deps)
 ## File Map
 
 ```
-agent-workstation/
+container-code-companion/
   cmd/server/main.go
   internal/server/server.go          ← HTTP routes, SSE self-update, GitHub, session
   internal/system/
@@ -119,7 +119,7 @@ agent-workstation/
     index.html                       ← shell, Google Fonts, sidebar nav
     styles.css                       ← Prism dark palette + all 9 visual polish effects
     app.js                           ← theme engine, SSE update, animateGauges, renderers
-tests/agent-workstation-static.sh    ← grep-based CI assertions
+tests/container-code-companion-static.sh    <- grep-based CI assertions
 ```
 
 ---
@@ -130,6 +130,6 @@ tests/agent-workstation-static.sh    ← grep-based CI assertions
 sudo ccc-self-update
 ccc-update-status
 sudo tail -160 /var/log/ccc-self-update.log
-sudo systemctl status agent-workstation.service --no-pager -l
-sudo systemctl restart agent-workstation.service
+sudo systemctl status container-code-companion.service --no-pager -l
+sudo systemctl restart container-code-companion.service
 ```

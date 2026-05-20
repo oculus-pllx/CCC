@@ -1,14 +1,14 @@
-# Agent Workstation Update Console Design
+# Container Code Companion Update Console Design
 
 ## Goal
 
-Replace the current Updates page with a single, understandable update console that separates Agent Workstation application updates from OS package updates. The flow must work from a fresh LXC container without Git dubious ownership failures for `/opt/agent-workstation-src`.
+Replace the current Updates page with a single, understandable update console that separates Container Code Companion application updates from OS package updates. The flow must work from a fresh LXC container without Git dubious ownership failures for `/opt/container-code-companion-src`.
 
 ## Current Problems
 
 - The Updates page presents app and OS update actions in one flat action row, then repeats status/output in separate blocks.
-- App updates depend on `/opt/agent-workstation-src`, which is created by the root installer but inspected by non-root UI commands and build tooling. Fresh containers can fail with `fatal: detected dubious ownership in repository at '/opt/agent-workstation-src'`.
-- The UI still feels like a leftover backend control panel instead of a purpose-built Agent Workstation maintenance screen.
+- App updates depend on `/opt/container-code-companion-src`, which is created by the root installer but inspected by non-root UI commands and build tooling. Fresh containers can fail with `fatal: detected dubious ownership in repository at '/opt/container-code-companion-src'`.
+- The UI still feels like a leftover backend control panel instead of a purpose-built Container Code Companion maintenance screen.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ The update system remains command-backed because the project already has the rig
 
 The GUI changes from one mixed update page to one tabbed update console:
 
-- `App` tab: Agent Workstation source/version status, one update action, and one live output stream.
+- `App` tab: Container Code Companion source/version status, one update action, and one live output stream.
 - `OS` tab: apt package status, one update action, and one command output area.
 
 The backend keeps the existing `/api/self-update` streaming endpoint for app updates and `/api/action` for OS updates. No new background job system is introduced in this pass.
@@ -36,7 +36,7 @@ The App tab shows:
 - The latest app status output.
 - The recent self-update log only when it is useful for diagnosis.
 - A primary `Update App` action that streams `ccc-self-update` output.
-- Reconnect status when `agent-workstation.service` restarts.
+- Reconnect status when `container-code-companion.service` restarts.
 
 The OS tab shows:
 
@@ -49,14 +49,14 @@ The page must not show duplicate windows containing the same update information.
 
 ## Git Ownership Fix
 
-The installer and self-update script must make `/opt/agent-workstation-src` safe for both root and the workstation user.
+The installer and self-update script must make `/opt/container-code-companion-src` safe for both root and the workstation user.
 
 Required behavior:
 
-- Configure `safe.directory` before any non-trivial Git command against `/opt/agent-workstation-src`.
+- Configure `safe.directory` before any non-trivial Git command against `/opt/container-code-companion-src`.
 - Keep inline `git -c safe.directory=...` usage for commands in helper scripts.
 - Add system-level `safe.directory` after cloning the source checkout.
-- Avoid Go VCS stamping failures caused by Git ownership checks during `go build` by building the Agent Workstation binary with `-buildvcs=false`.
+- Avoid Go VCS stamping failures caused by Git ownership checks during `go build` by building the Container Code Companion binary with `-buildvcs=false`.
 
 ## Error Handling
 
@@ -72,7 +72,7 @@ Add focused static and unit coverage around the new behavior:
 - Static test assertions for App/OS tab labels and action wiring.
 - Static test assertions that old mixed update button text is gone.
 - Static test assertions that installer/self-update builds use `-buildvcs=false`.
-- Static test assertions that installer setup writes system-level safe-directory for `/opt/agent-workstation-src`.
+- Static test assertions that installer setup writes system-level safe-directory for `/opt/container-code-companion-src`.
 - Existing Go tests must continue to pass.
 
 ## Out Of Scope

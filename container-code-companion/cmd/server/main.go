@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/oculus-pllx/ccc/agent-workstation/internal/server"
+	"github.com/oculus-pllx/ccc/container-code-companion/internal/server"
 )
 
 func main() {
-	addr := envDefault("AGENT_WORKSTATION_ADDR", ":9090")
-	token := os.Getenv("AGENT_WORKSTATION_SESSION_TOKEN")
-	username := envDefault("AGENT_WORKSTATION_USERNAME", "claude-code")
-	password := os.Getenv("AGENT_WORKSTATION_PASSWORD")
+	addr := envDefault("CONTAINER_CODE_COMPANION_ADDR", ":9090")
+	token := os.Getenv("CONTAINER_CODE_COMPANION_SESSION_TOKEN")
+	username := envDefault("CONTAINER_CODE_COMPANION_USERNAME", "claude-code")
+	password := os.Getenv("CONTAINER_CODE_COMPANION_PASSWORD")
 	if token == "" {
 		token = randomToken()
 		log.Printf("generated session token for this process")

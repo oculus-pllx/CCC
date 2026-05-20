@@ -190,8 +190,8 @@ ll    # ls -lah
 sudo systemctl status  code-server@claude-code
 sudo systemctl restart code-server@claude-code
 sudo systemctl start   redis-server
-sudo systemctl status  agent-workstation.service
-sudo systemctl restart agent-workstation.service
+sudo systemctl status  container-code-companion.service
+sudo systemctl restart container-code-companion.service
 ```
 
 ---
@@ -304,10 +304,10 @@ ha-manager add ct:<CT_ID> --state started --group <group>
 
 **Container Code Companion UI not loading (port 9090)**
 ```bash
-pct exec <CT_ID> -- systemctl status agent-workstation.service
-pct exec <CT_ID> -- systemctl restart agent-workstation.service
+pct exec <CT_ID> -- systemctl status container-code-companion.service
+pct exec <CT_ID> -- systemctl restart container-code-companion.service
 ```
-If `agent-workstation.service` cannot bind port 9090, check what owns the port:
+If `container-code-companion.service` cannot bind port 9090, check what owns the port:
 ```bash
 pct exec <CT_ID> -- ss -ltnp | grep ':9090'
 ```
@@ -316,9 +316,9 @@ Older CCC installers used a standalone Node dashboard on port 9090. Container Co
 pct exec <CT_ID> -- systemctl disable --now ccc-dashboard cockpit.socket cockpit.service
 pct exec <CT_ID> -- rm -f /etc/systemd/system/ccc-dashboard.service
 pct exec <CT_ID> -- systemctl daemon-reload
-pct exec <CT_ID> -- systemctl restart agent-workstation.service
+pct exec <CT_ID> -- systemctl restart container-code-companion.service
 ```
-Open `http://<container-ip>:9090` and sign in with the workstation username and the user password entered during install. The service stores those credentials in `/etc/agent-workstation/env` so the native UI and LXC user stay aligned.
+Open `http://<container-ip>:9090` and sign in with the workstation username and the user password entered during install. The service stores those credentials in `/etc/container-code-companion/env` so the native UI and LXC user stay aligned.
 
 **Self-update fails during "Building Container Code Companion binary"**
 The failing compiler output is the real error. Inspect the log:

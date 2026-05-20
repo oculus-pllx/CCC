@@ -1,4 +1,4 @@
-module github.com/oculus-pllx/ccc/agent-workstation
+module github.com/oculus-pllx/ccc/container-code-companion
 
 go 1.23
 

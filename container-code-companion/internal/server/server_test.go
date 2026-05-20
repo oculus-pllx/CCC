@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oculus-pllx/ccc/agent-workstation/internal/system"
+	"github.com/oculus-pllx/ccc/container-code-companion/internal/system"
 )
 
-func TestHealthReturnsAgentWorkstationStatus(t *testing.T) {
+func TestHealthReturnsContainerCodeCompanionStatus(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	res := httptest.NewRecorder()
@@ -164,7 +164,7 @@ func TestProtectedManagementSnapshotReturnsNativeSections(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
 		t.Fatalf("snapshot response is not JSON: %v", err)
 	}
-	if len(body.Services) == 0 || body.Services[0].Name != "agent-workstation.service" {
+	if len(body.Services) == 0 || body.Services[0].Name != "container-code-companion.service" {
 		t.Fatalf("expected service status in snapshot, got %#v", body.Services)
 	}
 	if len(body.Projects) == 0 || body.Projects[0].Name != "demo" {
@@ -407,7 +407,7 @@ func newTestServer() *Server {
 		},
 		Snapshot: func() (system.ManagementSnapshot, error) {
 			return system.ManagementSnapshot{
-				Services:      []system.ServiceStatus{{Name: "agent-workstation.service", Active: "active"}},
+				Services:      []system.ServiceStatus{{Name: "container-code-companion.service", Active: "active"}},
 				Projects:      []system.ProjectStatus{{Name: "demo", Path: "/home/oculus/projects/demo"}},
 				OculusConfigs: system.RepoStatus{Path: "/opt/oculus-configs", Branch: "main"},
 			}, nil

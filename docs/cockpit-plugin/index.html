@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Agent Workstation</title>
+  <title>Container Code Companion</title>
   <!-- In production Cockpit: loads PatternFly CSS for native theme inheritance.
        In local dev (mock-cockpit.js): falls back to hardcoded dark vars below. -->
   <link rel="stylesheet" href="../base1/patternfly.css">
@@ -238,7 +238,7 @@
 <body>
 
 <div class="ccc-header">
-  <span class="ccc-header-title">Agent Workstation</span>
+  <span class="ccc-header-title">Container Code Companion</span>
   <span class="ccc-header-user" id="nav-user"></span>
 </div>
 
@@ -447,7 +447,7 @@
       <button class="btn btn-primary btn-sm" onclick="runOSUpdate()">Run ccc-os-update</button>
     </div>
 
-    <div class="ccc-section-title">Agent Workstation</div>
+    <div class="ccc-section-title">Container Code Companion</div>
     <div class="ccc-output" id="ccc-update-output">Click refresh to check...</div>
     <div class="action-row" style="margin-bottom:28px">
       <button class="btn btn-secondary btn-sm" onclick="loadCCCStatus()">↺ Refresh</button>
@@ -1037,7 +1037,7 @@ async function runOSUpdate() {
 
 async function runCCCSelfUpdate() {
   if (!await confirm('Run ccc-self-update',
-    'Pull latest Agent Workstation tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
+    'Pull latest Container Code Companion tools from GitHub and re-apply MOTD, ccc-* scripts, and the Cockpit plugin. Continue?',
     'Update')) return;
   const box = document.getElementById('ccc-update-output');
   box.textContent = 'Running ccc-self-update...';

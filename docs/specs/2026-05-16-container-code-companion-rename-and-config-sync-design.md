@@ -1,15 +1,15 @@
-# Design: Agent Workstation Rename and oculus-configs Sync
+# Design: Container Code Companion Rename and oculus-configs Sync
 
 Date: 2026-05-16
 
 ## Goal
 
-Rename Claude Code Commander into Agent Workstation and make the product accurately describe what the repo builds: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
+Rename Claude Code Commander into Container Code Companion and make the product accurately describe what the repo builds: a headless Proxmox LXC dev workstation for Claude Code, OpenAI Codex, and Gemini CLI.
 
 The container remains headless. It must not install a desktop GUI, and it must not import the separate `oculus-configs` web UI/service. Browser-accessible tools are still allowed:
 
 - Port 8080: code-server / VS Code Web for editing and terminals.
-- Port 9090: Cockpit with the Agent Workstation management plugin.
+- Port 9090: Cockpit with the Container Code Companion management plugin.
 
 ## Non-Goals
 
@@ -20,7 +20,7 @@ The container remains headless. It must not install a desktop GUI, and it must n
 
 ## Naming
 
-User-facing names should become Agent Workstation:
+User-facing names should become Container Code Companion:
 
 - README title and descriptions.
 - Provisioning prompts and final summary text.
@@ -33,14 +33,14 @@ The old CCC abbreviation can remain as a compatibility layer in command names an
 
 ## Update Model
 
-Agent Workstation exposes three separate update paths:
+Container Code Companion exposes three separate update paths:
 
 1. OS updates
    - Command: `ccc-os-update`
    - Scope: apt package metadata, package upgrades, package cleanup.
    - Does not update the provisioner or agent config.
 
-2. Agent Workstation tooling updates
+2. Container Code Companion tooling updates
    - Command: `ccc-self-update`
    - Scope: this repo's updateable installer sections, MOTD, helper commands, Cockpit plugin, docs copied into the container.
    - Does not automatically change shared agent config unless explicitly wired through the third command.
@@ -52,9 +52,9 @@ Agent Workstation exposes three separate update paths:
 
 ## oculus-configs Role
 
-`oculus-configs` is the single upstream source of truth for shared agent behavior across normal installs and Agent Workstation containers.
+`oculus-configs` is the single upstream source of truth for shared agent behavior across normal installs and Container Code Companion containers.
 
-Agent Workstation consumes only data/config from that repo:
+Container Code Companion consumes only data/config from that repo:
 
 - `claude/CLAUDE.md`
 - `claude/rules/*.md`
@@ -101,14 +101,14 @@ Cockpit remains the management UI on port 9090.
 
 Required text updates:
 
-- Menu/title: Agent Workstation.
+- Menu/title: Container Code Companion.
 - Overview should mention Claude, Codex, and Gemini readiness rather than only Claude.
-- Updates tab should show three categories: OS, Agent Workstation, and oculus-configs.
+- Updates tab should show three categories: OS, Container Code Companion, and oculus-configs.
 
 The plugin may call the existing commands:
 
 - OS: `ccc-os-update`
-- Agent Workstation: `ccc-update-status` and `ccc-self-update`
+- Container Code Companion: `ccc-update-status` and `ccc-self-update`
 - oculus-configs: `ccc-sync-agent-configs`
 
 No terminal emulator or separate Node dashboard is introduced.
@@ -117,9 +117,9 @@ No terminal emulator or separate Node dashboard is introduced.
 
 README and HANDOFF should describe:
 
-- Agent Workstation as a headless Proxmox LXC dev workstation.
+- Container Code Companion as a headless Proxmox LXC dev workstation.
 - Port 8080 as VS Code Web / code-server.
-- Port 9090 as Cockpit plus Agent Workstation controls.
+- Port 9090 as Cockpit plus Container Code Companion controls.
 - The three update paths.
 - `oculus-configs` as shared upstream agent config, not an additional UI.
 - Claude Code, Codex, and Gemini CLI support.
@@ -140,6 +140,6 @@ Minimum verification before committing implementation:
 - Grep checks:
   - No references to the removed standalone dashboard remain.
   - No `oculus-configure`, `configure.py`, or `localhost:4827` service setup is added.
-  - Agent Workstation appears in user-facing product text.
+  - Container Code Companion appears in user-facing product text.
   - `ccc-sync-agent-configs` is present in script, README, and MOTD/help text.
 

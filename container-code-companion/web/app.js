@@ -24,7 +24,7 @@ const THEMES = {
   white:  '#e2e8f0',
 };
 const DEFAULT_THEME = 'green';
-const THEME_STORAGE_KEY = 'aw-theme';
+const THEME_STORAGE_KEY = 'ccc-theme';
 const CCC_CUSTOM_TITLE_STORAGE_KEY = 'ccc-custom-title';
 
 let currentSection = 'overview';
@@ -217,7 +217,7 @@ function renderOverview() {
   const activeServices = services.filter(service => service.active === 'active').length;
   const totalServices = services.length;
   const cpuPercent = loadPercent(data.load?.one, data.cpu?.cores);
-  const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
+  const updateText = stripANSI(snapshot.updates?.containerCodeCompanion || '');
   const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
   const updateBadge = updateStatusBadge(updateText, updateLog);
   const configs = snapshot.agentConfigs || [];
@@ -380,7 +380,7 @@ function renderUpdates() {
 }
 
 function renderUpdateConsole() {
-  const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
+  const updateText = stripANSI(snapshot.updates?.containerCodeCompanion || '');
   const osUpdateText = formatOSPackageStatus(snapshot.updates?.os || '');
   const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
   const isAppTab = activeUpdateTab === 'app';

@@ -1,10 +1,10 @@
-# Agent Workstation — Bugs, Polish & Branch Sync Plan
+# Container Code Companion — Bugs, Polish & Branch Sync Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix terminal reconnect, self-update GUI, agent configs inline editor, network graph, account management, overview navigation, all code-review findings, sync `CCC_SELF_UPDATE_REF` to `main`, and push the branch as `main` — leaving the codebase ready for a theme pass.
 
-**Architecture:** The service is a Go HTTP server (`agent-workstation/`) serving a vanilla JS SPA. Changes split cleanly between Go (server.go, terminal.go, management.go) and the frontend (app.js, styles.css). Tests live in server_test.go (Go table-style) and agent-workstation-static.sh (grep-based). Every backend fix gets a server_test.go test first; frontend fixes get static-check assertions.
+**Architecture:** The service is a Go HTTP server (`container-code-companion/`) serving a vanilla JS SPA. Changes split cleanly between Go (server.go, terminal.go, management.go) and the frontend (app.js, styles.css). Tests live in server_test.go (Go table-style) and container-code-companion-static.sh (grep-based). Every backend fix gets a server_test.go test first; frontend fixes get static-check assertions.
 
 **Tech Stack:** Go 1.22+, net/http, github.com/creack/pty, github.com/gorilla/websocket, vanilla JS (no bundler), Canvas API, CSS custom properties.
 
@@ -15,13 +15,13 @@
 | File | Responsibility |
 |------|---------------|
 | `ccc-bootstrap.sh` | Self-update ref (×2 locations), static Cockpit cleanup |
-| `agent-workstation/internal/system/management.go` | `StartSelfUpdate` daemonization; `ParseMemInfo` tolerance |
-| `agent-workstation/internal/server/server.go` | `handleOverview` method guard; cookie `Secure` flag |
-| `agent-workstation/internal/server/terminal.go` | WebSocket `CheckOrigin` host validation |
-| `agent-workstation/web/app.js` | Terminal reconnect; configs inline editor; overview badge link; `stripANSI`; `window.open` protocol; remove dead `formatPercent` |
-| `agent-workstation/web/styles.css` | Inline config-editor panel styles |
-| `agent-workstation/internal/server/server_test.go` | Tests for method guard, new endpoint behaviors |
-| `tests/agent-workstation-static.sh` | Updated grep assertions |
+| `container-code-companion/internal/system/management.go` | `StartSelfUpdate` daemonization; `ParseMemInfo` tolerance |
+| `container-code-companion/internal/server/server.go` | `handleOverview` method guard; cookie `Secure` flag |
+| `container-code-companion/internal/server/terminal.go` | WebSocket `CheckOrigin` host validation |
+| `container-code-companion/web/app.js` | Terminal reconnect; configs inline editor; overview badge link; `stripANSI`; `window.open` protocol; remove dead `formatPercent` |
+| `container-code-companion/web/styles.css` | Inline config-editor panel styles |
+| `container-code-companion/internal/server/server_test.go` | Tests for method guard, new endpoint behaviors |
+| `tests/container-code-companion-static.sh` | Updated grep assertions |
 
 ---
 
@@ -30,15 +30,15 @@
 **Files:**
 - Modify: `ccc-bootstrap.sh:546` (global constant)
 - Modify: `ccc-bootstrap.sh:1643` (embedded `ccc-self-update` default)
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `tests/container-code-companion-static.sh`
 
-The self-update scripts reference branch `agent-workstation-native-ui` in two places. Changing both to `main` makes every deployed workstation pull from `main` after merge. The static test must assert `main` and forbid the old branch name.
+The self-update scripts reference branch `container-code-companion-native-ui` in two places. Changing both to `main` makes every deployed workstation pull from `main` after merge. The static test must assert `main` and forbid the old branch name.
 
 - [ ] **Step 1: Change global constant (line 546)**
 
 In `ccc-bootstrap.sh`, find:
 ```bash
-CCC_SELF_UPDATE_REF="agent-workstation-native-ui"
+CCC_SELF_UPDATE_REF="container-code-companion-native-ui"
 ```
 Change to:
 ```bash
@@ -49,7 +49,7 @@ CCC_SELF_UPDATE_REF="main"
 
 Find inside the `SELFUPDATESCRIPT` heredoc:
 ```bash
-CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-agent-workstation-native-ui}"
+CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-container-code-companion-native-ui}"
 ```
 Change to:
 ```bash
@@ -58,18 +58,18 @@ CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
 
 - [ ] **Step 3: Update static checks**
 
-In `tests/agent-workstation-static.sh`, add after the existing `require_file_contains` block:
+In `tests/container-code-companion-static.sh`, add after the existing `require_file_contains` block:
 ```bash
 require_file_contains ccc-bootstrap.sh 'CCC_SELF_UPDATE_REF="main"'
-require_file_not_contains ccc-bootstrap.sh 'agent-workstation-native-ui'
+require_file_not_contains ccc-bootstrap.sh 'container-code-companion-native-ui'
 ```
 
 - [ ] **Step 4: Run static checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
-Expected: `agent-workstation static checks passed`
+Expected: `container-code-companion static checks passed`
 
 - [ ] **Step 5: Syntax checks**
 
@@ -82,7 +82,7 @@ Expected: no output (no errors)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add ccc-bootstrap.sh tests/agent-workstation-static.sh
+git add ccc-bootstrap.sh tests/container-code-companion-static.sh
 git commit -m "fix(update): set CCC_SELF_UPDATE_REF to main for post-merge self-update"
 ```
 
@@ -91,8 +91,8 @@ git commit -m "fix(update): set CCC_SELF_UPDATE_REF to main for post-merge self-
 ⚠️ **Confirm with user before running this step** — it force-pushes to `main`.
 
 ```bash
-git push origin agent-workstation-native-ui:main --force-with-lease
-git push origin agent-workstation-native-ui
+git push origin container-code-companion-native-ui:main --force-with-lease
+git push origin container-code-companion-native-ui
 ```
 
 The first push sets `origin/main` to the current branch tip. The second keeps the feature branch in sync.
@@ -102,8 +102,8 @@ The first push sets `origin/main` to the current branch tip. The second keeps th
 ## Task 2: Fix Terminal Reconnect on Refresh
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `tests/container-code-companion-static.sh`
 
 **Root cause:** `renderSection` replaces `body.innerHTML`, destroying terminal pane DOM elements. When the terminal section is re-rendered (via the Refresh button or navigating away and back), the existing xterm.js instance is still alive but attached to a detached DOM node. `connectTerminal()` sees the WebSocket as `OPEN` and returns early without re-attaching xterm to the new DOM. The user sees a blank terminal that won't accept input.
 
@@ -111,14 +111,14 @@ The first push sets `origin/main` to the current branch tip. The second keeps th
 
 - [ ] **Step 1: Write failing static assertion**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_not_contains agent-workstation/web/app.js "section !== 'terminal') {"
+require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL (`section !== 'terminal') {` is present in app.js)
 
@@ -148,7 +148,7 @@ function renderSection(section) {
 `bindTerminal()` already calls `connectTerminal()` at the end. After `stopTerminalSessions()` sets all `tab.socket = null`, `connectTerminal()` will not hit the early-return guards (`tab.socket.readyState === WebSocket.OPEN`). Confirm by reading:
 
 ```bash
-grep -n "connectTerminal\|bindTerminal\|stopTerminalSessions" agent-workstation/web/app.js
+grep -n "connectTerminal\|bindTerminal\|stopTerminalSessions" container-code-companion/web/app.js
 ```
 
 Expected output includes `bindTerminal()` calling `connectTerminal()` as the last action, and `stopTerminalSessions()` in `renderSection` with no condition.
@@ -156,15 +156,15 @@ Expected output includes `bindTerminal()` calling `connectTerminal()` as the las
 - [ ] **Step 4: Run static checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: both pass
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent-workstation/web/app.js tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js tests/container-code-companion-static.sh
 git commit -m "fix(terminal): always stop sessions before re-render to prevent blank terminal"
 ```
 
@@ -173,10 +173,10 @@ git commit -m "fix(terminal): always stop sessions before re-render to prevent b
 ## Task 3: Fix Self-Update GUI ("Failed to fetch")
 
 **Files:**
-- Modify: `agent-workstation/internal/system/management.go`
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/internal/server/server_test.go`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/internal/system/management.go`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/internal/server/server_test.go`
+- Modify: `tests/container-code-companion-static.sh`
 
 **Root cause (most likely):** The `StartSelfUpdate` command uses `nohup ... &` inside a `sudo bash -lc` shell. Some Linux/LXC environments configure sudo with `requiretty` or restrict running background processes without a controlling terminal. If the nohup fails silently, `ccc-self-update` never runs. The service remains up, but the log file is either empty or missing. The monitor never sees "Self-update successful" and eventually times out.
 
@@ -202,7 +202,7 @@ func TestSelfUpdateActionReturnsMonitorStartedMessage(t *testing.T) {
 				started = true
 				return system.CommandResult{
 					Command:  "ccc-self-update",
-					Output:   "Agent Workstation self-update monitor started.",
+					Output:   "Container Code Companion self-update monitor started.",
 					ExitCode: 0,
 				}, nil
 			}
@@ -232,19 +232,19 @@ Add `"fmt"` to imports if not already present.
 
 Run:
 ```bash
-cd agent-workstation && go test ./internal/server/ -run TestSelfUpdateActionReturnsMonitorStartedMessage -v
+cd container-code-companion && go test ./internal/server/ -run TestSelfUpdateActionReturnsMonitorStartedMessage -v
 ```
 Expected: FAIL (`fmt` import may be missing)
 
 - [ ] **Step 2: Add fmt import to server_test.go if missing**
 
-Check: `grep '"fmt"' agent-workstation/internal/server/server_test.go`
+Check: `grep '"fmt"' container-code-companion/internal/server/server_test.go`
 
 If missing, add `"fmt"` to the import block.
 
 Run test again:
 ```bash
-cd agent-workstation && go test ./internal/server/ -run TestSelfUpdateActionReturnsMonitorStartedMessage -v
+cd container-code-companion && go test ./internal/server/ -run TestSelfUpdateActionReturnsMonitorStartedMessage -v
 ```
 Expected: PASS (the action route is already wired correctly)
 
@@ -253,7 +253,7 @@ Expected: PASS (the action route is already wired correctly)
 Find in `management.go`:
 ```go
 func StartSelfUpdate() (CommandResult, error) {
-	command := "umask 022; touch /var/log/ccc-self-update.log; chmod 0644 /var/log/ccc-self-update.log; printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > /var/log/ccc-self-update.log; nohup env NO_COLOR=1 ccc-self-update >> /var/log/ccc-self-update.log 2>&1 < /dev/null &"
+	command := "umask 022; touch /var/log/ccc-self-update.log; chmod 0644 /var/log/ccc-self-update.log; printf 'Container Code Companion self-update started at %s\\n' \"$(date -Is)\" > /var/log/ccc-self-update.log; nohup env NO_COLOR=1 ccc-self-update >> /var/log/ccc-self-update.log 2>&1 < /dev/null &"
 	cmd := exec.Command("sudo", "bash", "-lc", command)
 ```
 Replace the `command` variable:
@@ -264,12 +264,12 @@ func StartSelfUpdate() (CommandResult, error) {
 		" && mkdir -p /var/log" +
 		" && touch " + logPath +
 		" && chmod 0644 " + logPath +
-		" && printf 'Agent Workstation self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
+		" && printf 'Container Code Companion self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
 		" && setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null &"
 	cmd := exec.Command("sudo", "bash", "-lc", command)
 ```
 
-`setsid` creates a new session, fully detaching the process from the controlling terminal so it survives the agent-workstation service restart.
+`setsid` creates a new session, fully detaching the process from the controlling terminal so it survives the container-code-companion service restart.
 
 - [ ] **Step 4: Improve self-update monitor in app.js — don't overwrite on initial POST failure**
 
@@ -277,7 +277,7 @@ Find in `app.js`:
 ```js
   } catch (error) {
     if (selfUpdate) {
-      output.textContent = formatSelfUpdateProgress('Update request is reconnecting. Agent Workstation may be restarting...', 0, '');
+      output.textContent = formatSelfUpdateProgress('Update request is reconnecting. Container Code Companion may be restarting...', 0, '');
       return;
     }
     output.textContent = stripANSI(error.message);
@@ -297,24 +297,24 @@ The monitor is already running in the background via `monitorSelfUpdate(output)`
 
 - [ ] **Step 5: Static check assertion**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_contains agent-workstation/internal/system/management.go "setsid env NO_COLOR=1 ccc-self-update"
+require_file_contains container-code-companion/internal/system/management.go "setsid env NO_COLOR=1 ccc-self-update"
 ```
 
 - [ ] **Step 6: Build and test**
 
 ```bash
-cd agent-workstation && go test ./... && go build ./cmd/server
-node --check agent-workstation/web/app.js
-bash tests/agent-workstation-static.sh
+cd container-code-companion && go test ./... && go build ./cmd/server
+node --check container-code-companion/web/app.js
+bash tests/container-code-companion-static.sh
 ```
 Expected: all pass
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add agent-workstation/internal/system/management.go agent-workstation/internal/server/server_test.go agent-workstation/web/app.js tests/agent-workstation-static.sh
+git add container-code-companion/internal/system/management.go container-code-companion/internal/server/server_test.go container-code-companion/web/app.js tests/container-code-companion-static.sh
 git commit -m "fix(update): use setsid for detached self-update; fix monitor not to overwrite progress"
 ```
 
@@ -323,24 +323,24 @@ git commit -m "fix(update): use setsid for detached self-update; fix monitor not
 ## Task 4: Agent Configs Inline Editor
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/web/styles.css`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
+- Modify: `tests/container-code-companion-static.sh`
 
 **Root cause:** The "Edit" button in Agent Configs navigates away to the Files section. The user expects to edit in-place on the Configs page. We need an inline editor that loads, edits, and saves config files without leaving the section.
 
 - [ ] **Step 1: Write failing static assertions**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_contains agent-workstation/web/app.js "config-editor-panel"
-require_file_contains agent-workstation/web/app.js "showConfigEditor"
-require_file_contains agent-workstation/web/app.js "saveConfigFile"
+require_file_contains container-code-companion/web/app.js "config-editor-panel"
+require_file_contains container-code-companion/web/app.js "showConfigEditor"
+require_file_contains container-code-companion/web/app.js "saveConfigFile"
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL (those identifiers don't exist yet)
 
@@ -529,15 +529,15 @@ Append to `styles.css`:
 - [ ] **Step 5: Run static checks and build**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: all pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agent-workstation/web/app.js agent-workstation/web/styles.css tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js container-code-companion/web/styles.css tests/container-code-companion-static.sh
 git commit -m "feat(configs): add inline editor for agent config files on configs page"
 ```
 
@@ -546,21 +546,21 @@ git commit -m "feat(configs): add inline editor for agent config files on config
 ## Task 5: Account Management — Validate and Verify
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `tests/container-code-companion-static.sh`
 
 The accounts section already has create/modify/delete handlers but provides no client-side validation before submitting. Empty username submissions produce backend validation errors that aren't surfaced clearly. Add basic client-side guards to give immediate feedback.
 
 - [ ] **Step 1: Write failing static assertion**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_contains agent-workstation/web/app.js "username is required"
+require_file_contains container-code-companion/web/app.js "username is required"
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL
 
@@ -644,15 +644,15 @@ async function runAccountOperation(payload) {
 - [ ] **Step 4: Run checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: pass
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agent-workstation/web/app.js tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js tests/container-code-companion-static.sh
 git commit -m "fix(accounts): add client-side username validation and clear form after create"
 ```
 
@@ -661,27 +661,27 @@ git commit -m "fix(accounts): add client-side username validation and clear form
 ## Task 6: Overview Update Badge → Clickable Navigation
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `tests/container-code-companion-static.sh`
 
 The Overview dashboard shows an update status badge. When the status is not "Current", users should be able to click it to jump to the Updates section.
 
 - [ ] **Step 1: Write failing static assertion**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_contains agent-workstation/web/app.js "selectSection('updates')"
+require_file_contains container-code-companion/web/app.js "selectSection('updates')"
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL (not yet in app.js, or only in bindProjects — need it in the overview context)
 
 Actually `selectSection('updates')` might not exist anywhere yet. Check:
 ```bash
-grep "selectSection('updates')" agent-workstation/web/app.js
+grep "selectSection('updates')" container-code-companion/web/app.js
 ```
 
 - [ ] **Step 2: Replace the static badge in renderOverview with a button**
@@ -728,15 +728,15 @@ Find in `styles.css` the `.badge` rule (or add near it):
 - [ ] **Step 5: Run checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agent-workstation/web/app.js agent-workstation/web/styles.css tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js container-code-companion/web/styles.css tests/container-code-companion-static.sh
 git commit -m "feat(overview): make update badge a clickable link to the Updates section"
 ```
 
@@ -745,15 +745,15 @@ git commit -m "feat(overview): make update badge a clickable link to the Updates
 ## Task 7: Network Graph — Verify and Improve
 
 **Files:**
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/web/styles.css`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/web/styles.css`
 
 The network graph already exists as a Canvas element polled every 2s. Ensure it is visually clear: add a legend, verify the canvas dimensions are responsive, and confirm polling resumes correctly when re-entering the Network section.
 
 - [ ] **Step 1: Check current graph render**
 
 ```bash
-grep -n "network-graph\|drawNetworkGraph\|drawNetworkSeries\|canvas" agent-workstation/web/app.js | head -20
+grep -n "network-graph\|drawNetworkGraph\|drawNetworkSeries\|canvas" container-code-companion/web/app.js | head -20
 ```
 
 Verify that `drawNetworkGraph` and `drawNetworkSeries` exist and the canvas background/colors are set.
@@ -816,29 +816,29 @@ Add after `.network-graph-wrap` (or append at end):
 The `stopNetworkGraph` / `bindNetwork` pair was already verified as correct. Confirm that navigating away from Network stops polling and navigating back starts fresh:
 
 ```bash
-grep -n "stopNetworkGraph\|bindNetwork\|networkPollTimer" agent-workstation/web/app.js
+grep -n "stopNetworkGraph\|bindNetwork\|networkPollTimer" container-code-companion/web/app.js
 ```
 
 Expected: `stopNetworkGraph` is called in `renderSection` (now unconditionally after Task 2), and `bindNetwork` starts fresh polling.
 
 - [ ] **Step 5: Static check**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_contains agent-workstation/web/app.js "network-legend"
+require_file_contains container-code-companion/web/app.js "network-legend"
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agent-workstation/web/app.js agent-workstation/web/styles.css tests/agent-workstation-static.sh
+git add container-code-companion/web/app.js container-code-companion/web/styles.css tests/container-code-companion-static.sh
 git commit -m "feat(network): add RX/TX legend and improve graph layout"
 ```
 
@@ -847,12 +847,12 @@ git commit -m "feat(network): add RX/TX legend and improve graph layout"
 ## Task 8: Code Review Fixes — Security and Correctness
 
 **Files:**
-- Modify: `agent-workstation/internal/server/server.go`
-- Modify: `agent-workstation/internal/server/terminal.go`
-- Modify: `agent-workstation/internal/system/management.go`
-- Modify: `agent-workstation/web/app.js`
-- Modify: `agent-workstation/internal/server/server_test.go`
-- Modify: `tests/agent-workstation-static.sh`
+- Modify: `container-code-companion/internal/server/server.go`
+- Modify: `container-code-companion/internal/server/terminal.go`
+- Modify: `container-code-companion/internal/system/management.go`
+- Modify: `container-code-companion/web/app.js`
+- Modify: `container-code-companion/internal/server/server_test.go`
+- Modify: `tests/container-code-companion-static.sh`
 
 Eight discrete fixes grouped in one commit for efficiency.
 
@@ -878,7 +878,7 @@ func TestOverviewRejectsNonGetMethod(t *testing.T) {
 
 Run:
 ```bash
-cd agent-workstation && go test ./internal/server/ -run TestOverviewRejectsNonGetMethod -v
+cd container-code-companion && go test ./internal/server/ -run TestOverviewRejectsNonGetMethod -v
 ```
 Expected: FAIL (currently returns 200)
 
@@ -901,7 +901,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 Run:
 ```bash
-cd agent-workstation && go test ./internal/server/ -run TestOverviewRejectsNonGetMethod -v
+cd container-code-companion && go test ./internal/server/ -run TestOverviewRejectsNonGetMethod -v
 ```
 Expected: PASS
 
@@ -909,15 +909,15 @@ Expected: PASS
 
 - [ ] **Step 3: Write failing static assertion**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_contains agent-workstation/web/app.js '\x1b\['
-require_file_not_contains agent-workstation/web/app.js '(?:\x1b)?'
+require_file_contains container-code-companion/web/app.js '\x1b\['
+require_file_not_contains container-code-companion/web/app.js '(?:\x1b)?'
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL
 
@@ -942,14 +942,14 @@ This correctly matches `ESC[` followed by optional params and a terminal letter,
 
 - [ ] **Step 5: Write failing static assertion**
 
-In `tests/agent-workstation-static.sh`, add:
+In `tests/container-code-companion-static.sh`, add:
 ```bash
-require_file_not_contains agent-workstation/web/app.js '`http://${location.hostname}'
+require_file_not_contains container-code-companion/web/app.js '`http://${location.hostname}'
 ```
 
 Run:
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
 Expected: FAIL
 
@@ -977,7 +977,7 @@ function formatPercent(value) {
 
 Verify it's not called anywhere:
 ```bash
-grep "formatPercent" agent-workstation/web/app.js
+grep "formatPercent" container-code-companion/web/app.js
 ```
 Expected: no output after deletion.
 
@@ -1107,9 +1107,9 @@ MemTotal being absent is still a hard error (checked below). All other non-numer
 - [ ] **Step 11: Run all tests and static checks**
 
 ```bash
-cd agent-workstation && go test ./... && go build ./cmd/server
-bash tests/agent-workstation-static.sh
-node --check agent-workstation/web/app.js
+cd container-code-companion && go test ./... && go build ./cmd/server
+bash tests/container-code-companion-static.sh
+node --check container-code-companion/web/app.js
 ```
 Expected: all pass
 
@@ -1117,12 +1117,12 @@ Expected: all pass
 
 ```bash
 git add \
-  agent-workstation/internal/server/server.go \
-  agent-workstation/internal/server/terminal.go \
-  agent-workstation/internal/system/overview.go \
-  agent-workstation/web/app.js \
-  agent-workstation/internal/server/server_test.go \
-  tests/agent-workstation-static.sh
+  container-code-companion/internal/server/server.go \
+  container-code-companion/internal/server/terminal.go \
+  container-code-companion/internal/system/overview.go \
+  container-code-companion/web/app.js \
+  container-code-companion/internal/server/server_test.go \
+  tests/container-code-companion-static.sh
 git commit -m "fix(security): method guard, WebSocket origin check, cookie Secure flag, stripANSI, window.open protocol, remove dead formatPercent"
 ```
 
@@ -1135,14 +1135,14 @@ git commit -m "fix(security): method guard, WebSocket origin check, cookie Secur
 - [ ] **Step 1: Full test suite**
 
 ```bash
-cd agent-workstation && go test ./... -v 2>&1 | tail -30
+cd container-code-companion && go test ./... -v 2>&1 | tail -30
 ```
 Expected: all PASS, no FAIL lines.
 
 - [ ] **Step 2: Build**
 
 ```bash
-cd agent-workstation && go build ./cmd/server
+cd container-code-companion && go build ./cmd/server
 rm -f server
 ```
 Expected: binary produced, no errors.
@@ -1150,14 +1150,14 @@ Expected: binary produced, no errors.
 - [ ] **Step 3: Static checks**
 
 ```bash
-bash tests/agent-workstation-static.sh
+bash tests/container-code-companion-static.sh
 ```
-Expected: `agent-workstation static checks passed`
+Expected: `container-code-companion static checks passed`
 
 - [ ] **Step 4: JS syntax**
 
 ```bash
-node --check agent-workstation/web/app.js
+node --check container-code-companion/web/app.js
 ```
 Expected: no output
 
@@ -1186,7 +1186,7 @@ Update `HANDOFF.md` to reflect completed work:
 - [ ] **Step 7: Final push**
 
 ```bash
-git push origin agent-workstation-native-ui
+git push origin container-code-companion-native-ui
 ```
 
 If Task 1 Step 7 (push to main) was done earlier, also verify:
