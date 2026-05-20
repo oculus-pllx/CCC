@@ -55,6 +55,19 @@ require_file_contains README.md "ccc-sync-agent-configs"
 require_file_contains ccc-bootstrap.sh "codex/AGENTS.md"
 require_file_contains ccc-bootstrap.sh "gemini/GEMINI.md"
 require_file_contains ccc-bootstrap.sh "mcp.template.json"
+require_file_contains ccc-bootstrap.sh "bubblewrap"
+require_file_contains ccc-bootstrap.sh "GitHub CLI"
+require_file_contains ccc-bootstrap.sh "githubcli-archive-keyring.gpg"
+require_file_contains ccc-bootstrap.sh "/etc/apt/sources.list.d/github-cli.list"
+require_file_contains ccc-bootstrap.sh "https://cli.github.com/packages"
+require_file_contains ccc-bootstrap.sh "apt-get install -y -qq gh"
+require_file_contains ccc-bootstrap.sh 'command -v bwrap'
+require_file_contains ccc-bootstrap.sh 'command -v gh'
+require_file_contains ccc-bootstrap.sh 'command -v npm'
+require_file_contains ccc-bootstrap.sh 'command -v tmux'
+require_file_contains ccc-bootstrap.sh 'command -v code-server'
+require_file_contains README.md "bubblewrap"
+require_file_contains README.md "GitHub CLI"
 require_file_contains ccc-bootstrap.sh "CCC Statusline"
 require_file_contains ccc-bootstrap.sh 'sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"'
 require_file_contains ccc-bootstrap.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'

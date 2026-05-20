@@ -130,6 +130,8 @@ ccc
 ### Tools
 - **Search** — ripgrep (`rg`), fd (`fdfind`), fzf, bat (`batcat`)
 - **Data** — jq, yq (mikefarah Go binary), sqlite3
+- **GitHub CLI** — official `gh` package from `cli.github.com`
+- **Codex sandboxing** — bubblewrap (`bwrap`) installed for Codex sandbox prerequisites
 - **DB clients** — psql, redis-cli
 - **Env** — direnv (per-directory `.envrc`)
 - **Terminal** — tmux, screen, nano, vim, htop

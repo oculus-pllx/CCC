@@ -422,7 +422,7 @@ provision_container() {
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-_STEPS=28
+_STEPS=29
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
@@ -463,6 +463,7 @@ apt-get install -y -qq \
   jq tree \
   net-tools iproute2 iputils-ping dnsutils \
   openssh-server \
+  bubblewrap \
   sudo \
   cron logrotate \
   httpie \
@@ -470,8 +471,20 @@ apt-get install -y -qq \
   entr \
   xvfb
 
+# ── GitHub CLI ────────────────────────────────────────────────────────────────
+step 4 "GitHub CLI"
+mkdir -p -m 755 /etc/apt/keyrings
+wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+  | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+  | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+apt-get update -qq
+apt-get install -y -qq gh
+echo "    gh $(gh --version | head -1 | awk '{print $3}')"
+
 # ── Build tools & dev libraries ───────────────────────────────────────────────
-step 4 "Build tools & dev libraries"
+step 5 "Build tools & dev libraries"
 apt-get install -y -qq \
   build-essential clang make cmake pkg-config autoconf automake libtool \
   python3 python3-pip python3-venv python3-dev \
@@ -479,14 +492,14 @@ apt-get install -y -qq \
   libreadline-dev libbz2-dev libncurses-dev liblzma-dev libxml2-dev libxslt-dev
 
 # ── Search & productivity tools ───────────────────────────────────────────────
-step 5 "Search & productivity tools"
+step 6 "Search & productivity tools"
 apt-get install -y -qq \
   ripgrep fd-find fzf bat \
   rsync \
   sqlite3
 
 # ── Database clients + local test servers ─────────────────────────────────────
-step 6 "Database clients"
+step 7 "Database clients"
 apt-get install -y -qq \
   postgresql-client \
   redis-tools \
@@ -497,7 +510,7 @@ systemctl disable redis-server 2>/dev/null || true
 systemctl stop    redis-server 2>/dev/null || true
 
 # ── yq — mikefarah Go binary (not the apt Python wrapper) ────────────────────
-step 7 "yq (mikefarah Go binary)"
+step 8 "yq (mikefarah Go binary)"
 YQ_VERSION=$(curl -fsSL "https://api.github.com/repos/mikefarah/yq/releases/latest" \
   | grep '"tag_name":' | cut -d'"' -f4)
 curl -fsSL \
@@ -507,17 +520,17 @@ chmod +x /usr/local/bin/yq
 echo "    yq $(/usr/local/bin/yq --version | awk '{print $NF}')"
 
 # ── Node.js 22 LTS ───────────────────────────────────────────────────────────
-step 8 "Node.js 22 LTS"
+step 9 "Node.js 22 LTS"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y -qq nodejs
 echo "    Node $(node --version) / npm $(npm --version)"
 
 # ── Global npm: TypeScript runtime only ───────────────────────────────────────
-step 9 "Global npm packages"
+step 10 "Global npm packages"
 npm install -g typescript ts-node tsx
 
 # ── Go ────────────────────────────────────────────────────────────────────────
-step 10 "Go"
+step 11 "Go"
 GO_VERSION=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1)
 curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
 rm -rf /usr/local/go
@@ -527,11 +540,11 @@ echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
 echo "    $(/usr/local/go/bin/go version | awk '{print $3}')"
 
 # ── Rust (system — build tooling) ─────────────────────────────────────────────
-step 11 "Rust (system)"
+step 12 "Rust (system)"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # ── claude-code user ─────────────────────────────────────────────────────────
-step 12 "Creating claude-code user"
+step 13 "Creating claude-code user"
 useradd -m -s /bin/bash -d /home/claude-code claude-code 2>/dev/null || true
 usermod -aG sudo claude-code
 echo "claude-code ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-code
@@ -552,17 +565,17 @@ CCCONFIG
 chmod 0644 /etc/ccc/config
 
 # ── Rust for claude-code user ─────────────────────────────────────────────────
-step 13 "Rust (claude-code user)"
+step 14 "Rust (claude-code user)"
 sudo -u claude-code bash -c '
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 '
 
 # ── Python testing & linting ecosystem ───────────────────────────────────────
-step 14 "Python ecosystem"
+step 15 "Python ecosystem"
 echo "    pip3 available — install packages per-project with: pip install --break-system-packages <pkg>"
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
-step 15 "Claude Code"
+step 16 "Claude Code"
 sudo -u claude-code bash -c '
   export HOME=/home/claude-code
   curl -fsSL https://claude.ai/install.sh | bash
@@ -581,11 +594,11 @@ fi
 # ── Playwright (headless browser testing) ────────────────────────────────────
 # Skipped at provision time — hangs in LXC due to Chromium download size/networking.
 # Install manually after provision: npx --yes playwright install --with-deps chromium
-step 16 "Playwright (skipped — install manually after provision)"
+step 17 "Playwright (skipped — install manually after provision)"
 echo "    Run after provision: npx --yes playwright install --with-deps chromium"
 
 # ── Claude Code settings.json ─────────────────────────────────────────────────
-step 17 "Claude Code settings.json"
+step 18 "Claude Code settings.json"
 sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
 
 sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << 'SETTINGS'
@@ -733,11 +746,11 @@ AGENTCONFIGSYNCSCRIPT
 chmod +x /usr/local/bin/ccc-sync-agent-configs
 
 # ── oculus-configs ────────────────────────────────────────────────────────────
-step 18 "oculus-configs agent config"
+step 19 "oculus-configs agent config"
 /usr/local/bin/ccc-sync-agent-configs
 
 # ── Statusline ────────────────────────────────────────────────────────────────
-step 19 "Statusline"
+step 20 "Statusline"
 sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"
 cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'STATUSLINE'
 #!/bin/bash
@@ -801,7 +814,7 @@ chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
 echo "    Statusline: ~/.claude/bin/statusline-command.sh"
 
 # ── code-server (web VS Code) ─────────────────────────────────────────────────
-step 20 "code-server (web VS Code)"
+step 21 "code-server (web VS Code)"
 curl -fsSL https://code-server.dev/install.sh | sh
 echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
@@ -895,7 +908,7 @@ systemctl enable code-server@claude-code
 echo "    code-server service enabled (config injected next step)"
 
 # ── SSH hardening ─────────────────────────────────────────────────────────────
-step 21 "SSH hardening"
+step 22 "SSH hardening"
 sed -i "s/^#*PermitRootLogin.*/PermitRootLogin no/"               /etc/ssh/sshd_config
 sed -i "s/^#*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
 sed -i "s/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/"     /etc/ssh/sshd_config
@@ -906,7 +919,7 @@ systemctl enable ssh
 systemctl restart ssh
 
 # ── Shell environment ─────────────────────────────────────────────────────────
-step 22 "Shell environment & aliases"
+step 23 "Shell environment & aliases"
 cat >> /home/claude-code/.bashrc << 'BASHRC'
 
 # ── Container Code Companion ─────────────────────────────────────────────────────
@@ -1372,9 +1385,17 @@ echo ""
 
 echo -e "${C}── Runtimes ──────────────────────────────────${N}"
 command -v node &>/dev/null   && ok "Node.js $(node --version)" || fail "Node.js missing"
+command -v npm &>/dev/null    && ok "npm $(npm --version)" || fail "npm missing"
 command -v python3 &>/dev/null && ok "Python $(python3 --version)" || fail "Python3 missing"
 command -v go &>/dev/null     && ok "Go $(go version | awk '{print $3}')" || fail "Go missing"
 command -v cargo &>/dev/null  && ok "Rust $(cargo --version)" || fail "Rust missing"
+echo ""
+
+echo -e "${C}── Developer Tools ───────────────────────────${N}"
+command -v bwrap &>/dev/null  && ok "bubblewrap: $(which bwrap)" || fail "bubblewrap missing"
+command -v gh &>/dev/null     && ok "GitHub CLI $(gh --version | head -1 | awk '{print $3}')" || fail "GitHub CLI missing"
+command -v tmux &>/dev/null   && ok "tmux $(tmux -V | awk '{print $2}')" || fail "tmux missing"
+command -v code-server &>/dev/null && ok "code-server $(code-server --version | head -1)" || fail "code-server missing"
 echo ""
 
 echo -e "${C}── Claude Code ───────────────────────────────${N}"
@@ -1403,7 +1424,7 @@ DOCTORSCRIPT
 chmod +x /usr/local/bin/ccc-doctor
 
 # ── ccc-install-playwright (standalone script) ───────────────────────────────
-step 23 "ccc-install-playwright script"
+step 24 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
@@ -1662,7 +1683,7 @@ SELFUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-self-update
 
 # ── MOTD ─────────────────────────────────────────────────────────────────────
-step 24 "MOTD"
+step 25 "MOTD"
 chmod -x /etc/update-motd.d/* 2>/dev/null || true
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
@@ -1698,14 +1719,14 @@ MOTD
 chmod +x /etc/update-motd.d/00-ccc
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
-step 25 "Git defaults"
+step 26 "Git defaults"
 sudo -u "$CCC_USER" git config --global init.defaultBranch main
 sudo -u "$CCC_USER" git config --global core.editor nano
 sudo -u "$CCC_USER" git config --global pull.rebase false
 sudo -u "$CCC_USER" git config --global core.autocrlf false
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-step 26 "Application auto-update cron"
+step 27 "Application auto-update cron"
 rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
 cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
@@ -1726,7 +1747,7 @@ cat > /etc/logrotate.d/ccc-app-update << 'LOGROTATE'
 LOGROTATE
 
 # ── Container Code Companion native web UI ───────────────────────────────────────────
-step 27 "Container Code Companion native web UI"
+step 28 "Container Code Companion native web UI"
 
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 systemctl disable --now cockpit.socket 2>/dev/null || true
@@ -1856,7 +1877,7 @@ systemctl reset-failed motd-news.service motd-news.timer 2>/dev/null || true
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 28 "Cleanup"
+step 29 "Cleanup"
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*
