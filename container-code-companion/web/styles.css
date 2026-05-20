@@ -21,6 +21,17 @@ body {
   font: 13px/1.5 'IBM Plex Mono', monospace;
 }
 
+body.effect-flicker::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(var(--accent-rgb), 0.025);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 9998;
+  animation: crt-flicker 5.8s infinite steps(1, end);
+}
+
 /* scanlines */
 body::after {
   content: '';
@@ -35,6 +46,60 @@ body::after {
   );
   pointer-events: none;
   z-index: 9999;
+}
+
+body.effect-sync-drift .layout {
+  position: relative;
+}
+
+body.effect-sync-drift .layout::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: -12px;
+  height: 10px;
+  background:
+    linear-gradient(
+      180deg,
+      transparent,
+      rgba(var(--accent-rgb), 0.25),
+      rgba(255, 255, 255, 0.10),
+      transparent
+    );
+  box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.30);
+  pointer-events: none;
+  z-index: 9997;
+  animation: crt-sync-drift 9s infinite linear;
+}
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 0.20; }
+  4% { opacity: 0.34; }
+  5% { opacity: 0.12; }
+  6% { opacity: 0.30; }
+  44% { opacity: 0.18; }
+  45% { opacity: 0.32; }
+  46% { opacity: 0.16; }
+  72% { opacity: 0.24; }
+  73% { opacity: 0.10; }
+  74% { opacity: 0.28; }
+}
+
+@keyframes crt-sync-drift {
+  0% { transform: translateY(-8vh); opacity: 0; }
+  6% { opacity: 0; }
+  8% { opacity: 1; }
+  14% { transform: translateY(108vh); opacity: 0; }
+  100% { transform: translateY(108vh); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.effect-flicker::before,
+  body.effect-sync-drift .layout::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 input, select, textarea, button { font: inherit; }
@@ -937,6 +1002,7 @@ td {
 
 .settings-section {
   max-width: 480px;
+  margin-bottom: 22px;
 }
 
 .settings-swatch-grid {
@@ -1000,6 +1066,38 @@ td {
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 1px 6px;
+}
+
+.settings-toggle-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.settings-toggle-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.settings-toggle-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-toggle-row small {
+  color: var(--muted);
 }
 
 .muted {

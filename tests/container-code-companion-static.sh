@@ -256,6 +256,19 @@ require_file_contains container-code-companion/web/app.js 'renderSettings'
 require_file_contains container-code-companion/web/app.js 'bindSettings'
 require_file_contains container-code-companion/web/app.js 'settings-swatch'
 require_file_contains container-code-companion/web/app.js "settings: 'Settings'"
+require_file_contains container-code-companion/web/app.js 'DISPLAY_EFFECTS_STORAGE_KEY'
+require_file_contains container-code-companion/web/app.js 'ccc-display-effects'
+require_file_contains container-code-companion/web/app.js 'loadDisplayEffects'
+require_file_contains container-code-companion/web/app.js 'applyDisplayEffects'
+require_file_contains container-code-companion/web/app.js 'effect-flicker'
+require_file_contains container-code-companion/web/app.js 'effect-sync-drift'
+require_file_contains container-code-companion/web/app.js 'data-display-effect="flicker"'
+require_file_contains container-code-companion/web/app.js 'data-display-effect="syncDrift"'
+require_file_contains container-code-companion/web/styles.css 'crt-flicker'
+require_file_contains container-code-companion/web/styles.css 'crt-sync-drift'
+require_file_contains container-code-companion/web/styles.css 'body.effect-flicker::before'
+require_file_contains container-code-companion/web/styles.css 'body.effect-sync-drift .layout::after'
+require_file_contains container-code-companion/web/styles.css '@media (prefers-reduced-motion: reduce)'
 
 # Task 5: Network graph accent
 require_file_not_contains container-code-companion/web/app.js "'#68a6f8'"

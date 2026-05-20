@@ -26,6 +26,11 @@ const THEMES = {
 const DEFAULT_THEME = 'green';
 const THEME_STORAGE_KEY = 'ccc-theme';
 const CCC_CUSTOM_TITLE_STORAGE_KEY = 'ccc-custom-title';
+const DISPLAY_EFFECTS_STORAGE_KEY = 'ccc-display-effects';
+const DEFAULT_DISPLAY_EFFECTS = {
+  flicker: true,
+  syncDrift: false,
+};
 
 let currentSection = 'overview';
 let snapshot = null;
@@ -567,6 +572,7 @@ function renderGitHub() {
 
 function renderSettings() {
   const current = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME;
+  const effects = loadDisplayEffects();
   return `
     <div class="settings-section">
       <h3>Theme</h3>
@@ -581,6 +587,25 @@ function renderSettings() {
         `).join('')}
       </div>
     </div>
+    <div class="settings-section">
+      <h3>Display Effects</h3>
+      <div class="settings-toggle-grid">
+        <label class="settings-toggle-row">
+          <input type="checkbox" data-display-effect="flicker" ${effects.flicker ? 'checked' : ''}>
+          <span>
+            <strong>Monitor flicker</strong>
+            <small>Subtle CRT brightness drift</small>
+          </span>
+        </label>
+        <label class="settings-toggle-row">
+          <input type="checkbox" data-display-effect="syncDrift" ${effects.syncDrift ? 'checked' : ''}>
+          <span>
+            <strong>Sync drift</strong>
+            <small>Occasional horizontal roll line</small>
+          </span>
+        </label>
+      </div>
+    </div>
   `;
 }
 
@@ -589,6 +614,13 @@ function bindSettings() {
     button.addEventListener('click', () => {
       applyTheme(button.dataset.theme);
       renderSection('settings');
+    });
+  });
+  document.querySelectorAll('[data-display-effect]').forEach(input => {
+    input.addEventListener('change', () => {
+      const effects = loadDisplayEffects();
+      effects[input.dataset.displayEffect] = input.checked;
+      applyDisplayEffects(effects);
     });
   });
 }
@@ -1624,6 +1656,24 @@ function loadTheme() {
   applyTheme(saved && THEMES[saved] ? saved : DEFAULT_THEME);
 }
 
+function loadDisplayEffects() {
+  try {
+    return {
+      ...DEFAULT_DISPLAY_EFFECTS,
+      ...JSON.parse(localStorage.getItem(DISPLAY_EFFECTS_STORAGE_KEY) || '{}'),
+    };
+  } catch {
+    return { ...DEFAULT_DISPLAY_EFFECTS };
+  }
+}
+
+function applyDisplayEffects(effects = loadDisplayEffects()) {
+  const next = { ...DEFAULT_DISPLAY_EFFECTS, ...effects };
+  document.body.classList.toggle('effect-flicker', next.flicker);
+  document.body.classList.toggle('effect-sync-drift', next.syncDrift);
+  localStorage.setItem(DISPLAY_EFFECTS_STORAGE_KEY, JSON.stringify(next));
+}
+
 function bindCustomTitle() {
   const input = document.getElementById('custom-title-input');
   if (!input) return;
@@ -1670,6 +1720,7 @@ function escapeAttribute(value) {
 }
 
 loadTheme();
+applyDisplayEffects();
 bindCustomTitle();
 loadHealth();
 refresh();
