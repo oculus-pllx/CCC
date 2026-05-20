@@ -1624,6 +1624,8 @@ else
 fi
 COMMIT=$(_git -C "$SRC" rev-parse HEAD)
 echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%s')"
+# Allow all users to run git on this directory (ccc-update-status runs as non-root).
+git config --system --add safe.directory "$SRC" 2>/dev/null || true
 
 # [2/4] Build binary
 echo ""
