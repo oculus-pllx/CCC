@@ -849,19 +849,10 @@ async function loadGitHubStatus() {
         <p class="section-description">Copy the public key above, then <a href="https://github.com/settings/ssh/new" target="_blank" rel="noopener">add it to GitHub</a>.</p>
         <button class="small-button" id="github-copy-btn">Copy Public Key</button>
       `;
-      document.getElementById('github-copy-btn')?.addEventListener('click', () => {
+      document.getElementById('github-copy-btn')?.addEventListener('click', async () => {
         const btn = document.getElementById('github-copy-btn');
-        const text = status.publicKey;
-        const done = () => { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Public Key'; }, 2000); };
-        if (navigator.clipboard && window.isSecureContext) {
-          navigator.clipboard.writeText(text).then(done).catch(() => {});
-        } else {
-          const el = Object.assign(document.createElement('textarea'), { value: text });
-          Object.assign(el.style, { position: 'fixed', opacity: '0' });
-          document.body.appendChild(el);
-          el.select();
-          try { document.execCommand('copy'); done(); } finally { document.body.removeChild(el); }
-        }
+        const copied = await copyTextToClipboard(status.publicKey);
+        showCopyButtonState(btn, copied ? 'Copied!' : 'Copy Failed');
       });
     } else {
       panel.innerHTML = `<p class="muted">No SSH key found at <code>${escapeHTML(status.keyPath)}</code>. Generate one below.</p>`;
@@ -869,6 +860,49 @@ async function loadGitHubStatus() {
   } catch (err) {
     panel.innerHTML = `<p class="error-text">Failed to load SSH key status: ${escapeHTML(err.message)}</p>`;
   }
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return fallbackCopyText(text);
+    }
+  }
+  return fallbackCopyText(text);
+}
+
+function fallbackCopyText(text) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.setAttribute('readonly', '');
+  Object.assign(el.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '1px',
+    height: '1px',
+    opacity: '0',
+  });
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  el.setSelectionRange(0, el.value.length);
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(el);
+  }
+}
+
+function showCopyButtonState(button, label) {
+  if (!button) return;
+  button.textContent = label;
+  setTimeout(() => { button.textContent = 'Copy Public Key'; }, 2000);
 }
 
 async function generateGitHubKey() {
