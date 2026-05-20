@@ -56,6 +56,8 @@ require_file_contains container-code-companion/web/app.js "document.getElementBy
 require_file_contains container-code-companion/web/styles.css ".brand-lockup"
 require_file_contains container-code-companion/web/styles.css ".login-shell"
 require_file_contains container-code-companion/web/styles.css ".login-brand-lockup"
+require_file_contains container-code-companion/web/styles.css "[hidden]"
+require_file_contains container-code-companion/web/styles.css "display: none !important"
 require_file_contains container-code-companion/web/styles.css "body.signed-out .topbar"
 require_file_contains container-code-companion/web/styles.css ".custom-title-input"
 require_file_contains container-code-companion/web/styles.css ".app-footer"
