@@ -1065,6 +1065,10 @@ chown claude-code:claude-code /home/claude-code/.tmux.conf
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
+# Patch stale script name written by older provisioners (oculus-commander.sh → claude-code-commander.sh)
+if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT=' /etc/ccc/config; then
+  sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="claude-code-commander.sh"|' /etc/ccc/config
+fi
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 if ! id "$CCC_USER" &>/dev/null; then
@@ -1664,21 +1668,42 @@ run_as_user() {
   fi
 }
 
+# Copies the provisioner script from a cloned repo dir.
+# Falls back to claude-code-commander.sh if the configured name is stale.
+_copy_from_clone() {
+  local dir="$1" target="$CCC_SELF_UPDATE_SCRIPT"
+  if [[ ! -f "$dir/$target" && "$target" != "claude-code-commander.sh" && -f "$dir/claude-code-commander.sh" ]]; then
+    echo -e "  ${Y}Config has stale script name '${target}'; using claude-code-commander.sh.${N}"
+    target="claude-code-commander.sh"
+  fi
+  if [[ -f "$dir/$target" ]]; then
+    cp "$dir/$target" "$TMP"
+    return 0
+  fi
+  echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
+  return 1
+}
+
 download_latest() {
   echo -e "  Raw URL: ${C}${CCC_SELF_UPDATE_RAW_URL}${N}"
   if curl -fsSL "$CCC_SELF_UPDATE_RAW_URL" -o "$TMP"; then
     return 0
+  fi
+  # Canonical name fallback: stale config may reference a renamed script
+  if [[ "$CCC_SELF_UPDATE_SCRIPT" != "claude-code-commander.sh" ]]; then
+    local _raw_canonical="https://raw.githubusercontent.com/oculus-pllx/CCC/${CCC_SELF_UPDATE_REF}/claude-code-commander.sh"
+    echo -e "  ${Y}Trying canonical script name: ${_raw_canonical}${N}"
+    if curl -fsSL "$_raw_canonical" -o "$TMP"; then
+      echo -e "  ${Y}Config has stale script name; update will correct it.${N}"
+      return 0
+    fi
   fi
 
   echo -e "  ${Y}Raw download failed; trying Git clone fallback.${N}"
   # mktemp -u: reserve a unique name without creating the dir so git clone can create it
   CLONE_DIR=$(mktemp -u /tmp/ccc-self-update.XXXXXX)
   if run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$CCC_SELF_UPDATE_REPO" "$CLONE_DIR"; then
-    if [[ -f "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" ]]; then
-      cp "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" "$TMP"
-      return 0
-    fi
-    echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
+    _copy_from_clone "$CLONE_DIR" && return 0
     return 1
   fi
 
@@ -1687,12 +1712,10 @@ download_latest() {
   echo -e "  ${Y}SSH clone failed; trying HTTPS clone: ${https_repo}${N}"
   rm -rf "$CLONE_DIR"
   CLONE_DIR=$(mktemp -u /tmp/ccc-self-update.XXXXXX)
-  run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$CLONE_DIR"
-  [[ -f "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" ]] || {
-    echo -e "${R}Script not found in repo: ${CCC_SELF_UPDATE_SCRIPT}${N}"
+  if ! run_as_user git clone --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$https_repo" "$CLONE_DIR"; then
     return 1
-  }
-  cp "$CLONE_DIR/$CCC_SELF_UPDATE_SCRIPT" "$TMP"
+  fi
+  _copy_from_clone "$CLONE_DIR"
 }
 
 resolve_latest_commit() {

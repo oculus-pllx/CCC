@@ -801,7 +801,18 @@ async function loadGitHubStatus() {
         <button class="small-button" id="github-copy-btn">Copy Public Key</button>
       `;
       document.getElementById('github-copy-btn')?.addEventListener('click', () => {
-        navigator.clipboard.writeText(status.publicKey).catch(() => {});
+        const btn = document.getElementById('github-copy-btn');
+        const text = status.publicKey;
+        const done = () => { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Public Key'; }, 2000); };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done).catch(() => {});
+        } else {
+          const el = Object.assign(document.createElement('textarea'), { value: text });
+          Object.assign(el.style, { position: 'fixed', opacity: '0' });
+          document.body.appendChild(el);
+          el.select();
+          try { document.execCommand('copy'); done(); } finally { document.body.removeChild(el); }
+        }
       });
     } else {
       panel.innerHTML = `<p class="muted">No SSH key found at <code>${escapeHTML(status.keyPath)}</code>. Generate one below.</p>`;
