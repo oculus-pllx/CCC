@@ -76,6 +76,8 @@ require_file_contains ccc-bootstrap.sh 'CCC_INSTALLED_COMMIT'
 require_file_contains ccc-bootstrap.sh 'Update available'
 require_file_contains ccc-bootstrap.sh "Self-update successful"
 require_file_contains ccc-bootstrap.sh "-buildvcs=false"
+require_file_contains ccc-bootstrap.sh 'timeout 600 "$GO" build -C "$SRC/agent-workstation" -buildvcs=false'
+require_file_contains ccc-bootstrap.sh '-C "$AGENT_WORKSTATION_SRC/agent-workstation"'
 require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$AGENT_WORKSTATION_SRC"'
 require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$SRC"'
 require_file_contains agent-workstation/web/app.js "let activeUpdateTab = 'app'"

@@ -1630,7 +1630,7 @@ echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%
 # [2/4] Build binary
 echo ""
 echo -e "${C}[2/4]${N} Building Container Code Companion binary..."
-timeout 600 "$GO" build -buildvcs=false -C "$SRC/agent-workstation" -o "$BIN" ./cmd/server
+timeout 600 "$GO" build -C "$SRC/agent-workstation" -buildvcs=false -o "$BIN" ./cmd/server
 chmod +x "$BIN"
 echo -e "  OK: $BIN"
 
@@ -1758,8 +1758,8 @@ git config --system --add safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null ||
 
 echo "    Building Container Code Companion binary..."
 timeout 600 /usr/local/go/bin/go build \
-  -buildvcs=false \
   -C "$AGENT_WORKSTATION_SRC/agent-workstation" \
+  -buildvcs=false \
   -o /usr/local/bin/agent-workstation \
   ./cmd/server
 chmod +x /usr/local/bin/agent-workstation
