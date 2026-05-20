@@ -1546,6 +1546,7 @@ installed_date=""
 }
 
 # Use the persistent source clone if available; otherwise clone fresh via HTTPS.
+git config --global --add safe.directory "$SRC" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
   git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null || true
   REPO="$SRC"
@@ -1613,6 +1614,7 @@ echo ""
 
 # [1/4] Sync source
 echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
+git config --global --add safe.directory "$SRC" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
   git -C "$SRC" fetch origin "$REF" --quiet
   git -C "$SRC" reset --hard "origin/$REF" --quiet
