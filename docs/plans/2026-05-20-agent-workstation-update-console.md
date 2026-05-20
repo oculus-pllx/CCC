@@ -30,8 +30,8 @@ require_file_not_contains agent-workstation/web/app.js "Refresh Agent Workstatio
 require_file_contains agent-workstation/web/styles.css ".update-tabs"
 require_file_contains agent-workstation/web/styles.css ".update-console"
 require_file_contains claude-code-commander.sh "-buildvcs=false"
-require_file_contains claude-code-commander.sh "git config --system --replace-all safe.directory \"$AGENT_WORKSTATION_SRC\""
-require_file_contains claude-code-commander.sh "git config --system --replace-all safe.directory \"$SRC\""
+require_file_contains claude-code-commander.sh "git config --system --add safe.directory \"$AGENT_WORKSTATION_SRC\""
+require_file_contains claude-code-commander.sh "git config --system --add safe.directory \"$SRC\""
 ```
 
 - [ ] **Step 2: Run static test and verify failure**
@@ -99,7 +99,7 @@ timeout 600 "$GO" build -buildvcs=false -C "$SRC/agent-workstation" -o "$BIN" ./
 After the fresh clone to `$AGENT_WORKSTATION_SRC`, configure:
 
 ```bash
-git config --system --replace-all safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null || true
+git config --system --add safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null || true
 ```
 
 Build with:

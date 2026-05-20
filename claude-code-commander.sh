@@ -1615,22 +1615,22 @@ echo ""
 # [1/4] Sync source
 echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
 _git() { git -c "safe.directory=$SRC" "$@"; }
+git config --system --add safe.directory "$SRC" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
   _git -C "$SRC" fetch origin "$REF" --quiet
   _git -C "$SRC" reset --hard "origin/$REF" --quiet
 else
   rm -rf "$SRC"
   git clone --depth 1 --branch "$REF" "$REPO_URL" "$SRC"
+  git config --system --add safe.directory "$SRC" 2>/dev/null || true
 fi
 COMMIT=$(_git -C "$SRC" rev-parse HEAD)
 echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%s')"
-# Allow all users to run git on this directory (ccc-update-status runs as non-root).
-git config --system --add safe.directory "$SRC" 2>/dev/null || true
 
 # [2/4] Build binary
 echo ""
 echo -e "${C}[2/4]${N} Building Agent Workstation binary..."
-timeout 600 "$GO" build -C "$SRC/agent-workstation" -o "$BIN" ./cmd/server
+timeout 600 "$GO" build -buildvcs=false -C "$SRC/agent-workstation" -o "$BIN" ./cmd/server
 chmod +x "$BIN"
 echo -e "  OK: $BIN"
 
@@ -1754,9 +1754,11 @@ if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" 
   echo "[WARN] Could not clone $_agent_repo branch $CCC_SELF_UPDATE_REF; trying main."
   git clone --quiet --depth 1 --branch main "$_agent_repo" "$AGENT_WORKSTATION_SRC"
 fi
+git config --system --add safe.directory "$AGENT_WORKSTATION_SRC" 2>/dev/null || true
 
 echo "    Building Agent Workstation binary..."
 timeout 600 /usr/local/go/bin/go build \
+  -buildvcs=false \
   -C "$AGENT_WORKSTATION_SRC/agent-workstation" \
   -o /usr/local/bin/agent-workstation \
   ./cmd/server

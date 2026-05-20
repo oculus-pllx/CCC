@@ -37,6 +37,7 @@ let terminalTabs = [];
 let activeTerminalTabId = null;
 let nextTerminalTabId = 1;
 let updatePollTimer = null;
+let activeUpdateTab = 'app';
 let networkPollTimer = null;
 let lastNetworkSample = null;
 let networkHistory = [];
@@ -374,23 +375,64 @@ function renderFiles() {
 }
 
 function renderUpdates() {
+  return renderUpdateConsole();
+}
+
+function renderUpdateConsole() {
   const updateText = stripANSI(snapshot.updates?.agentWorkstation || '');
   const osUpdateText = formatOSPackageStatus(snapshot.updates?.os || '');
-  const updateBadge = updateStatusBadge(updateText, '');
+  const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
+  const isAppTab = activeUpdateTab === 'app';
   return `
+    <div class="update-console">
+      <div class="update-tabs" role="tablist" aria-label="Update sections">
+        <button class="update-tab ${isAppTab ? 'active' : ''}" type="button" role="tab" aria-selected="${isAppTab}" data-update-tab="app">App</button>
+        <button class="update-tab ${!isAppTab ? 'active' : ''}" type="button" role="tab" aria-selected="${!isAppTab}" data-update-tab="os">OS</button>
+      </div>
+      ${isAppTab ? renderAppUpdateTab(updateText, updateLog) : renderOSUpdateTab(osUpdateText)}
+    </div>
+  `;
+}
+
+function renderAppUpdateTab(updateText, updateLog) {
+  const updateBadge = updateStatusBadge(updateText, updateLog);
+  const logPreview = firstUsefulLines(updateLog, 10);
+  return `
+    <div class="update-summary">
+      <div>
+        <h3>Agent Workstation</h3>
+        <p class="section-description">Pull the latest Agent Workstation source from GitHub, rebuild the native UI, sync web assets, and restart the service.</p>
+      </div>
+      <span class="badge ${updateBadgeClass(updateBadge)}">${escapeHTML(updateBadge)}</span>
+    </div>
     <div class="action-row">
-      <button class="small-button" data-action="update-status">Refresh Agent Workstation Status</button>
-      <button class="small-button" id="self-update-btn">Apply Agent Workstation Update</button>
-      <button class="small-button" data-action="os-update">Run OS Update</button>
+      <button class="small-button" id="self-update-btn">Update App</button>
     </div>
-    <div class="update-state">
-      <span class="badge ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' || updateBadge === 'Not recorded' ? 'warn' : updateBadge === 'Update failed' ? 'fail' : ''}">${escapeHTML(updateBadge)}</span>
-    </div>
-    <h3>Agent Workstation</h3>
     <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Agent Workstation update status.')}</pre>
-    <h3>OS Packages</h3>
-    <pre class="output">${escapeHTML(osUpdateText)}</pre>
+    ${logPreview ? `
+      <div class="update-log-panel">
+        <h3>Recent App Update Log</h3>
+        <pre class="output">${escapeHTML(logPreview)}</pre>
+      </div>
+    ` : ''}
     <pre id="self-update-output" class="output" hidden></pre>
+  `;
+}
+
+function renderOSUpdateTab(osUpdateText) {
+  const osBadge = osUpdateText === 'No OS package updates available.' ? 'Current' : 'Updates available';
+  return `
+    <div class="update-summary">
+      <div>
+        <h3>OS Packages</h3>
+        <p class="section-description">Run apt package updates for the LXC operating system without changing Agent Workstation application code.</p>
+      </div>
+      <span class="badge ${updateBadgeClass(osBadge)}">${escapeHTML(osBadge)}</span>
+    </div>
+    <div class="action-row">
+      <button class="small-button" id="os-update-btn">Update OS</button>
+    </div>
+    <pre class="output">${escapeHTML(osUpdateText)}</pre>
     <pre id="action-output" class="output" hidden></pre>
   `;
 }
@@ -695,7 +737,14 @@ async function controlService(service, operation) {
 }
 
 function bindUpdates() {
+  document.querySelectorAll('[data-update-tab]').forEach(button => {
+    button.addEventListener('click', () => {
+      activeUpdateTab = button.dataset.updateTab === 'os' ? 'os' : 'app';
+      renderSection('updates');
+    });
+  });
   document.getElementById('self-update-btn')?.addEventListener('click', runSelfUpdateStream);
+  document.getElementById('os-update-btn')?.addEventListener('click', () => runAction('os-update'));
 }
 
 function bindAccounts() {
@@ -1419,6 +1468,13 @@ function updateStatusBadge(statusText, logText) {
   if (statusText.includes('commit(s) behind') || statusText.includes('Update available')) return 'Updates available';
   if (statusText.includes('installed commit is not recorded') || statusText.includes('Installed: not recorded')) return 'Not recorded';
   return 'Unknown';
+}
+
+function updateBadgeClass(label) {
+  if (label === 'Current') return 'ok';
+  if (label === 'Update failed') return 'fail';
+  if (label === 'Updates available' || label === 'Not recorded') return 'warn';
+  return '';
 }
 
 function updatePanelText(statusText, logText) {

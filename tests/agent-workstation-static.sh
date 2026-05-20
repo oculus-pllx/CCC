@@ -54,7 +54,16 @@ require_file_contains claude-code-commander.sh 'setsid systemctl restart agent-w
 require_file_contains claude-code-commander.sh 'CCC_INSTALLED_COMMIT'
 require_file_contains claude-code-commander.sh 'Update available'
 require_file_contains claude-code-commander.sh "Self-update successful"
-require_file_contains agent-workstation/web/app.js "Apply Agent Workstation Update"
+require_file_contains claude-code-commander.sh "-buildvcs=false"
+require_file_contains claude-code-commander.sh 'git config --system --add safe.directory "$AGENT_WORKSTATION_SRC"'
+require_file_contains claude-code-commander.sh 'git config --system --add safe.directory "$SRC"'
+require_file_contains agent-workstation/web/app.js "let activeUpdateTab = 'app'"
+require_file_contains agent-workstation/web/app.js "data-update-tab=\"app\""
+require_file_contains agent-workstation/web/app.js "data-update-tab=\"os\""
+require_file_contains agent-workstation/web/app.js "Update App"
+require_file_contains agent-workstation/web/app.js "Update OS"
+require_file_contains agent-workstation/web/app.js "renderUpdateConsole"
+require_file_not_contains agent-workstation/web/app.js "Refresh Agent Workstation Status"
 require_file_contains agent-workstation/web/app.js "/api/self-update"
 require_file_contains agent-workstation/web/app.js 'stripANSI'
 require_file_contains agent-workstation/web/app.js "updateStatusBadge"
@@ -138,6 +147,8 @@ require_file_contains agent-workstation/web/styles.css '--accent-bg'
 require_file_contains agent-workstation/web/styles.css '#060d16'
 require_file_contains agent-workstation/web/styles.css 'IBM Plex Mono'
 require_file_contains agent-workstation/web/styles.css 'settings-swatch-row'
+require_file_contains agent-workstation/web/styles.css '.update-tabs'
+require_file_contains agent-workstation/web/styles.css '.update-console'
 require_file_not_contains agent-workstation/web/styles.css '#17191c'
 require_file_not_contains agent-workstation/web/styles.css '#24282d'
 require_file_not_contains agent-workstation/web/styles.css '#3f454d'

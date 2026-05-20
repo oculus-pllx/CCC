@@ -305,6 +305,54 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   margin-bottom: 12px;
 }
 
+.update-console {
+  display: grid;
+  gap: 16px;
+}
+
+.update-tabs {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--topbar);
+}
+
+.update-tab {
+  min-width: 76px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.update-tab.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.10);
+}
+
+.update-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.update-summary h3 {
+  margin-top: 0;
+}
+
+.update-log-panel h3 {
+  margin-top: 0;
+}
+
 .mini-row {
   display: flex;
   justify-content: space-between;
