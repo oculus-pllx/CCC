@@ -23,7 +23,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 - **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, terminal, projects, updates, provider configs, and GitHub SSH key management
+- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, mobile drawer navigation, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, notes, terminal, projects, updates, app catalog, map drives, provider configs, and GitHub SSH key management
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -166,22 +166,34 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 
 - **Overview** — host, IP, uptime, services, projects, resource gauges, update status, and recent logs
 - **Updates** — separate App and OS tabs; App updates stream `ccc-self-update` output and reconnect after service restart
+- **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
+- **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
 - **Projects** — create projects from templates, initialize git, open in Files, open in code-server, rename, and delete
-- **Terminal** — browser PTY tabs backed by xterm.js, with tmux-capable shells
+- **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
+- **Notes** — persistent notes stored in the workstation home directory
 - **Accounts** — create users, change passwords, shells, groups, and delete users
-- **Logs, Network, Services** — inspect service state, network activity, and system logs
+- **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
-- **GitHub** — generate an SSH key, copy the public key, and test GitHub SSH access
-- **Settings** — theme swatches, editable header message, time/location, and CRT display effects
+- **GitHub** — copy the public key, test GitHub SSH access, and generate a new SSH key
+- **Settings** — theme swatches, editable header message, time/location, mobile-friendly controls, and CRT display effects
 
 Display effects are local browser preferences. Monitor flicker is enabled by default; sync drift can be enabled from Settings.
 
 ---
 
-## Current Roadmap
+## Project Status
 
-The original GUI punchlist has been implemented. Future work should come from fresh issues or field testing notes.
+The original GUI punchlist is implemented and the current build is functional for daily workstation use. The remaining work should come from fresh field-testing notes, not the original cleanup list.
+
+Current state:
+- Bootstrap provisions the LXC, native UI, code-server, shell helpers, update scripts, and agent config sync.
+- Native UI replaces the old Cockpit-style/backend remnants.
+- App and OS updates are separated.
+- App Catalog can query installed tools and run install/update actions.
+- Mobile navigation uses a collapsible drawer.
+- GitHub SSH key workflow is ordered copy, test, generate.
+- Map Drives documents the Proxmox/LXC mount limitation and reports CIFS permission failures clearly.
 
 ---
 
@@ -359,6 +371,15 @@ Then rerun:
 sudo ccc-self-update
 ccc-update-status
 ```
+
+**Map Drives fails with `mount: /mnt/share: permission denied`**
+This usually means the LXC container is not allowed to perform CIFS mounts. The GUI can call `sudo mount`, but Proxmox controls whether the container has the required mount capability.
+
+Recommended options:
+- Mount the SMB/CIFS share on the Proxmox host and bind-mount it into the container.
+- Or update the LXC configuration on the Proxmox side to allow the needed mount behavior.
+
+If the error mentions `unknown filesystem type` or `bad option`, confirm `cifs-utils` is installed inside the container.
 
 ## Notes
 
