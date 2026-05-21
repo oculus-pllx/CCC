@@ -206,6 +206,8 @@ require_file_contains container-code-companion/web/app.js "TERMINAL_HEIGHT_STORA
 require_file_contains container-code-companion/web/app.js "terminal-height-slider"
 require_file_contains container-code-companion/web/app.js "applyTerminalHeight"
 require_file_contains container-code-companion/web/app.js "bindTerminalHeightControls"
+require_file_contains container-code-companion/web/app.js "fitTerminalToPane"
+require_file_contains container-code-companion/web/app.js "tab.terminal.resize(cols, rows)"
 require_file_contains container-code-companion/web/styles.css "--terminal-height"
 require_file_contains container-code-companion/web/app.js "addExistingProject"
 require_file_contains container-code-companion/web/app.js "add-existing"

@@ -821,11 +821,12 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 }
 
 .terminal-pane {
-  min-height: var(--terminal-height);
+  height: var(--terminal-height);
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--topbar);
+  overflow: hidden;
 }
 
 #terminal-status {

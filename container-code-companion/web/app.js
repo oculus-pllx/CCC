@@ -1535,7 +1535,22 @@ function sendTerminalInput(data) {
 function resizeTerminal() {
   const tab = activeTerminalTab();
   if (!tab?.socket || tab.socket.readyState !== WebSocket.OPEN || !tab.terminal) return;
+  fitTerminalToPane(tab);
   tab.socket.send(JSON.stringify({ type: 'resize', cols: tab.terminal.cols || 100, rows: tab.terminal.rows || 30 }));
+}
+
+function fitTerminalToPane(tab = activeTerminalTab()) {
+  if (!tab?.terminal) return;
+  const pane = document.getElementById(`terminal-pane-${tab.id}`);
+  if (!pane) return;
+  const sample = pane.querySelector('.xterm-rows span');
+  const cellWidth = sample?.getBoundingClientRect().width || 8;
+  const cellHeight = sample?.getBoundingClientRect().height || 17;
+  const cols = Math.max(40, Math.floor((pane.clientWidth - 16) / cellWidth));
+  const rows = Math.max(10, Math.floor((pane.clientHeight - 16) / cellHeight));
+  if (cols !== tab.terminal.cols || rows !== tab.terminal.rows) {
+    tab.terminal.resize(cols, rows);
+  }
 }
 
 function ensureTerminalTab() {
