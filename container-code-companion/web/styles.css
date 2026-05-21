@@ -244,24 +244,20 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 
 .content-heading h2 { margin: 0; }
 
-.custom-title-input {
+.custom-title-display {
   width: 100%;
   margin: 0 0 16px;
   padding: 10px 0 12px;
   border: 0;
   border-bottom: 1px solid rgba(var(--accent-rgb), 0.32);
-  outline: none;
   background: transparent;
   color: var(--accent);
   font-family: 'Syne', 'IBM Plex Mono', monospace;
   font-size: 34px;
   font-weight: 800;
   line-height: 1.1;
+  overflow-wrap: anywhere;
   text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.18);
-}
-
-.custom-title-input::placeholder {
-  color: rgba(var(--accent-rgb), 0.48);
 }
 
 .panel {
@@ -1318,6 +1314,22 @@ td {
   grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 8px;
   margin-top: 12px;
+}
+
+.settings-title-form {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-title-form input {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--text);
+  padding: 8px 10px;
 }
 
 .settings-swatch-row {

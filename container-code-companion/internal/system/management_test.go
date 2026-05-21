@@ -105,7 +105,7 @@ func TestRunFileOperationCopiesAndChangesMode(t *testing.T) {
 }
 
 func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
-	for _, tool := range []string{"nodejs", "go", "python", "uv", "playwright", "codex", "claude", "gemini", "gh", "bubblewrap", "ripgrep", "jq", "fzf", "build-essential", "ollama", "aider"} {
+	for _, tool := range []string{"nodejs", "go", "python", "uv", "playwright", "codex", "claude", "gemini", "gh", "bubblewrap", "ripgrep", "jq", "fzf", "build-essential", "aider"} {
 		command, err := toolInstallCommand(tool)
 		if err != nil {
 			t.Fatalf("expected %s install operation to be allowed: %v", tool, err)

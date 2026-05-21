@@ -56,6 +56,7 @@
     </a>
     <div class="topbar-actions">
       <span id="health">Checking...</span>
+      <button id="top-preferences-button" class="small-button">Preferences</button>
       <button id="logout-button" class="small-button" hidden>Log Out</button>
     </div>
     </header>
@@ -68,12 +69,12 @@
       </div>
       <div class="nav-group">
         <div class="nav-heading">Workstation</div>
+        <button data-section="apps">App Catalog</button>
         <button data-section="files">Files</button>
+        <button data-section="drives">Map Drives</button>
         <button data-section="notes">Notes</button>
         <button data-section="projects">Projects</button>
         <button data-section="terminal">Terminal</button>
-        <button data-section="apps">App Catalog</button>
-        <button data-section="drives">Map Drives</button>
       </div>
       <div class="nav-group">
         <div class="nav-heading">System</div>
@@ -84,10 +85,10 @@
       </div>
       <div class="nav-group">
         <div class="nav-heading">Settings</div>
-        <button data-section="configs">Provider Configs</button>
-        <button data-section="oculus">oculus-configs</button>
         <button data-section="github">GitHub</button>
+        <button data-section="oculus">oculus-configs</button>
         <button data-section="settings">Preferences</button>
+        <button data-section="configs">Provider Configs</button>
       </div>
     </nav>
     <section class="content">
@@ -95,7 +96,7 @@
         <h2 id="section-title">Overview</h2>
         <button id="refresh-button" class="small-button" hidden>Refresh</button>
       </div>
-      <input id="custom-title-input" class="custom-title-input" type="text" maxlength="96" autocomplete="off" spellcheck="false" aria-label="Custom dashboard title" placeholder="Container Code Companion">
+      <div id="custom-title-display" class="custom-title-display">Container Code Companion</div>
       <div id="section-body" class="panel">Loading system overview...</div>
       <div id="terminal-container" class="panel" hidden></div>
     </section>

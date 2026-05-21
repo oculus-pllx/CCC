@@ -42,7 +42,8 @@ require_file_contains container-code-companion/web/index.html "C.C.C"
 require_file_contains container-code-companion/web/index.html "by Parallax Group"
 require_file_contains container-code-companion/web/index.html "pllx.group"
 require_file_contains container-code-companion/web/index.html "MIT License"
-require_file_contains container-code-companion/web/index.html "custom-title-input"
+require_file_contains container-code-companion/web/index.html "custom-title-display"
+require_file_contains container-code-companion/web/index.html "top-preferences-button"
 require_file_contains container-code-companion/web/index.html "login-shell"
 require_file_contains container-code-companion/web/index.html "login-brand-lockup"
 require_file_contains container-code-companion/web/index.html "app-shell"
@@ -61,7 +62,7 @@ require_file_contains container-code-companion/web/styles.css ".login-brand-lock
 require_file_contains container-code-companion/web/styles.css "[hidden]"
 require_file_contains container-code-companion/web/styles.css "display: none !important"
 require_file_contains container-code-companion/web/styles.css "body.signed-out .topbar"
-require_file_contains container-code-companion/web/styles.css ".custom-title-input"
+require_file_contains container-code-companion/web/styles.css ".custom-title-display"
 require_file_contains container-code-companion/web/styles.css ".app-footer"
 require_file_contains ccc-bootstrap.sh "ccc-sync-agent-configs"
 require_file_contains README.md "ccc-sync-agent-configs"
@@ -250,7 +251,7 @@ require_file_contains container-code-companion/internal/system/management.go 'fu
 require_file_contains container-code-companion/internal/system/management.go 'Name: "uv"'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "claude"'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "gemini"'
-require_file_contains container-code-companion/internal/system/management.go 'Name: "ollama"'
+require_file_not_contains container-code-companion/internal/system/management.go 'Name: "ollama"'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "aider"'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "ripgrep"'
 require_file_contains container-code-companion/internal/system/management.go "func RunDriveOperation"
@@ -307,9 +308,9 @@ require_ordered_patterns() {
 
 require_ordered_patterns container-code-companion/web/index.html \
   '<div class="nav-heading">Dashboard</div>' 'data-section="overview"' 'data-section="updates"' \
-  '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' 'data-section="apps"' 'data-section="drives"' \
+  '<div class="nav-heading">Workstation</div>' 'data-section="apps"' 'data-section="files"' 'data-section="drives"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
-  '<div class="nav-heading">Settings</div>' 'data-section="configs"' 'data-section="oculus"' 'data-section="github"' 'data-section="settings"'
+  '<div class="nav-heading">Settings</div>' 'data-section="github"' 'data-section="oculus"' 'data-section="settings"' 'data-section="configs"'
 
 require_ordered_patterns container-code-companion/web/app.js \
   '<p id="tool-status"' '<pre id="tool-output"' '<div id="tool-catalog"'
@@ -388,6 +389,10 @@ require_file_contains container-code-companion/web/app.js 'tmux split-window -h'
 require_file_contains container-code-companion/web/app.js 'updateOverviewLive'
 require_file_contains container-code-companion/web/app.js 'updateGauge'
 require_file_contains container-code-companion/web/app.js 'settings-swatch'
+require_file_contains container-code-companion/web/app.js 'bindCustomTitleEditor'
+require_file_contains container-code-companion/web/app.js 'custom-title-input'
+require_file_contains container-code-companion/web/app.js 'custom-title-reset'
+require_file_contains container-code-companion/web/app.js 'top-preferences-button'
 require_file_contains container-code-companion/web/app.js "settings: 'Preferences'"
 require_file_contains container-code-companion/web/app.js "configs: 'Provider Configs'"
 require_file_contains container-code-companion/web/app.js "apps: 'App Catalog'"
@@ -400,6 +405,7 @@ require_file_contains container-code-companion/web/app.js 'loadDisplayEffects'
 require_file_contains container-code-companion/web/app.js 'applyDisplayEffects'
 require_file_contains container-code-companion/web/styles.css '.tool-catalog'
 require_file_contains container-code-companion/web/styles.css '.tool-meta'
+require_file_contains container-code-companion/web/styles.css '.settings-title-form'
 require_file_contains container-code-companion/web/styles.css '.drive-form'
 require_file_contains container-code-companion/web/app.js 'effect-flicker'
 require_file_contains container-code-companion/web/app.js 'effect-sync-drift'

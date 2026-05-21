@@ -756,7 +756,6 @@ func toolSpecs() []toolSpec {
 		{Name: "jq", Label: "jq", Command: "jq", Version: "jq --version", Install: "sudo apt-get update && sudo apt-get install -y jq", UpdateCheck: aptUpdateCheck("jq"), Description: "JSON processing for scripts and API work"},
 		{Name: "fzf", Label: "fzf", Command: "fzf", Version: "fzf --version", Install: "sudo apt-get update && sudo apt-get install -y fzf", UpdateCheck: aptUpdateCheck("fzf"), Description: "Interactive fuzzy finder for terminal workflows"},
 		{Name: "build-essential", Label: "Build Essential", Command: "gcc", Version: "gcc --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y build-essential pkg-config", UpdateCheck: aptUpdateCheck("build-essential"), Description: "Compiler and native build prerequisites"},
-		{Name: "ollama", Label: "Ollama", Command: "ollama", Version: "ollama --version", Install: "curl -fsSL https://ollama.com/install.sh | sh", UpdateCheck: "ollama --version 2>/dev/null && echo 'Manual check: compare with latest Ollama release channel.'", Description: "Local model runtime"},
 		{Name: "aider", Label: "Aider", Command: "aider", Version: "aider --version", Install: "python3 -m pip install --user -U aider-chat", UpdateCheck: "python3 -m pip list --outdated --user 2>/dev/null | grep -E '^aider-chat\\s' || echo 'No update detected.'", Description: "Provider-agnostic AI coding assistant"},
 	}
 }

@@ -694,7 +694,16 @@ function renderGitHub() {
 function renderSettings() {
   const current = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME;
   const effects = loadDisplayEffects();
+  const customTitle = customTitleValue();
   return `
+    <div class="settings-section settings-section-wide">
+      <h3>Header Message</h3>
+      <p class="section-description">This text appears near the top of every main view.</p>
+      <div class="settings-title-form">
+        <input id="custom-title-input" type="text" maxlength="96" autocomplete="off" spellcheck="false" value="${escapeAttribute(customTitle)}" placeholder="Container Code Companion">
+        <button id="custom-title-reset" class="small-button">Reset</button>
+      </div>
+    </div>
     <div class="settings-section">
       <h3>Theme</h3>
       <div class="settings-swatch-grid">
@@ -783,6 +792,7 @@ function renderMapDrives() {
 }
 
 function bindSettings() {
+  bindCustomTitleEditor();
   document.querySelectorAll('[data-theme]').forEach(button => {
     button.addEventListener('click', () => {
       applyTheme(button.dataset.theme);
@@ -2337,12 +2347,26 @@ function applyDisplayEffects(effects = loadDisplayEffects()) {
   localStorage.setItem(DISPLAY_EFFECTS_STORAGE_KEY, JSON.stringify(next));
 }
 
-function bindCustomTitle() {
+function customTitleValue() {
+  return localStorage.getItem(CCC_CUSTOM_TITLE_STORAGE_KEY) || 'Container Code Companion';
+}
+
+function applyCustomTitle() {
+  const display = document.getElementById('custom-title-display');
+  if (display) display.textContent = customTitleValue();
+}
+
+function bindCustomTitleEditor() {
   const input = document.getElementById('custom-title-input');
   if (!input) return;
-  input.value = localStorage.getItem(CCC_CUSTOM_TITLE_STORAGE_KEY) || '';
   input.addEventListener('input', () => {
     localStorage.setItem(CCC_CUSTOM_TITLE_STORAGE_KEY, input.value.trim());
+    applyCustomTitle();
+  });
+  document.getElementById('custom-title-reset')?.addEventListener('click', () => {
+    localStorage.removeItem(CCC_CUSTOM_TITLE_STORAGE_KEY);
+    input.value = '';
+    applyCustomTitle();
   });
 }
 
@@ -2384,12 +2408,13 @@ function escapeAttribute(value) {
 
 loadTheme();
 applyDisplayEffects();
-bindCustomTitle();
+applyCustomTitle();
 loadHealth();
 refresh();
 document.getElementById('login-panel').addEventListener('submit', login);
 document.getElementById('logout-button').addEventListener('click', logout);
 document.getElementById('refresh-button').addEventListener('click', refresh);
+document.getElementById('top-preferences-button').addEventListener('click', () => selectSection('settings'));
 document.querySelectorAll('.sidebar button').forEach(button => {
   button.addEventListener('click', () => selectSection(button.dataset.section));
 });

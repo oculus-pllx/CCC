@@ -173,7 +173,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Logs, Network, Services** — inspect service state, network activity, and system logs
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
 - **GitHub** — generate an SSH key, copy the public key, and test GitHub SSH access
-- **Settings** — theme swatches, editable top title, and CRT display effects
+- **Settings** — theme swatches, editable header message, time/location, and CRT display effects
 
 Display effects are local browser preferences. Monitor flicker is enabled by default; sync drift can be enabled from Settings.
 
