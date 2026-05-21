@@ -85,9 +85,11 @@ require_file_contains README.md "GitHub CLI"
 require_file_contains ccc-bootstrap.sh '"$schema": "https://json.schemastore.org/claude-code-settings.json"'
 require_file_not_contains ccc-bootstrap.sh "oculus-settings.json"
 require_file_contains ccc-bootstrap.sh '"statusLine": {'
-require_file_contains ccc-bootstrap.sh '"type": "command"'
 require_file_contains ccc-bootstrap.sh '"command": "~/.claude/bin/statusline-command.sh"'
 require_file_not_contains ccc-bootstrap.sh '"statusLine": "~/.claude/bin/statusline-command.sh"'
+require_file_contains ccc-bootstrap.sh 'CLAUDE_SETTINGS="$CCC_HOME/.claude/settings.json"'
+require_file_contains ccc-bootstrap.sh 'data["statusLine"] = {"command": status_line}'
+require_file_contains ccc-bootstrap.sh 'data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"'
 require_file_contains ccc-bootstrap.sh "CCC Statusline"
 require_file_contains ccc-bootstrap.sh 'step 20 "Statusline"'
 require_file_contains ccc-bootstrap.sh 'CCC_USER="${CCC_USER:-claude-code}"'

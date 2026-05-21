@@ -630,7 +630,6 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
   "statusLine": {
-    "type": "command",
     "command": "~/.claude/bin/statusline-command.sh"
   }
 }
@@ -1108,6 +1107,41 @@ fi
 if ! id "$CCC_USER" &>/dev/null; then
   echo "Could not determine Container Code Companion user. Set CCC_USER in /etc/ccc/config." >&2
   exit 1
+fi
+
+CLAUDE_SETTINGS="$CCC_HOME/.claude/settings.json"
+if [[ -f "$CLAUDE_SETTINGS" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 - "$CLAUDE_SETTINGS" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    raise SystemExit(0)
+
+changed = False
+if data.get("$schema") != "https://json.schemastore.org/claude-code-settings.json":
+    data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"
+    changed = True
+
+status_line = data.get("statusLine")
+if isinstance(status_line, str):
+    data["statusLine"] = {"command": status_line}
+    changed = True
+elif isinstance(status_line, dict):
+    command = status_line.get("command") or "~/.claude/bin/statusline-command.sh"
+    next_status_line = {"command": command}
+    if status_line != next_status_line:
+        data["statusLine"] = next_status_line
+        changed = True
+
+if changed:
+    path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+  chown "$CCC_USER:$CCC_USER" "$CLAUDE_SETTINGS"
 fi
 
 # Remove retired Cockpit kit and standalone dashboard helpers before Cockpit claims 9090.
