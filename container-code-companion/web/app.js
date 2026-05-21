@@ -346,6 +346,7 @@ function renderLogs() {
 
 function renderNetwork() {
   return `
+    <p class="section-description">This page reflects the network state visible from inside the LXC container. Persistent network changes such as IP address, bridge, gateway, VLAN, and DNS settings should be managed from the Proxmox host so the container configuration and running system stay aligned.</p>
     <h3>Activity</h3>
     <div class="network-graph-wrap">
       <canvas id="network-graph" width="900" height="220"></canvas>
