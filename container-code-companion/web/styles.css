@@ -141,9 +141,10 @@ input, select, textarea, button { font: inherit; }
 
 .mobile-menu-button {
   display: none;
+  position: relative;
   width: 38px;
   height: 38px;
-  padding: 8px;
+  padding: 0;
   border: 1px solid var(--accent);
   border-radius: 4px;
   background: transparent;
@@ -152,12 +153,18 @@ input, select, textarea, button { font: inherit; }
 }
 
 .mobile-menu-button span {
-  display: block;
+  position: absolute;
+  left: 9px;
+  right: 9px;
   height: 2px;
-  margin: 4px 0;
   border-radius: 999px;
-  background: currentColor;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.28);
 }
+
+.mobile-menu-button span:nth-child(1) { top: 11px; }
+.mobile-menu-button span:nth-child(2) { top: 18px; }
+.mobile-menu-button span:nth-child(3) { top: 25px; }
 
 h1 { font-size: 18px; margin: 0; }
 h2 { font-size: 18px; margin: 0 0 16px; }

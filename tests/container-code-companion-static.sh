@@ -428,6 +428,7 @@ require_file_contains container-code-companion/web/styles.css '.settings-title-f
 require_file_contains container-code-companion/web/styles.css '.github-action-row'
 require_file_contains container-code-companion/web/styles.css '.small-button:disabled'
 require_file_contains container-code-companion/web/styles.css '.mobile-menu-button'
+require_file_contains container-code-companion/web/styles.css '.mobile-menu-button span:nth-child(1)'
 require_file_contains container-code-companion/web/styles.css '.mobile-nav-overlay'
 require_file_contains container-code-companion/web/styles.css 'body.mobile-nav-open .sidebar'
 require_file_contains container-code-companion/web/styles.css 'transform: translateX(-104%)'
