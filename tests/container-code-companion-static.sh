@@ -101,7 +101,10 @@ require_file_contains container-code-companion/web/index.html "oculus-configs"
 require_file_contains container-code-companion/web/index.html "Dashboard"
 require_file_contains container-code-companion/web/index.html "Workstation"
 require_file_contains container-code-companion/web/index.html "System"
-require_file_contains container-code-companion/web/index.html "Agents"
+require_file_not_contains container-code-companion/web/index.html "Agents"
+require_file_not_contains container-code-companion/web/index.html "Connections"
+require_file_contains container-code-companion/web/index.html "Settings"
+require_file_contains container-code-companion/web/index.html "Preferences"
 require_file_contains ccc-bootstrap.sh "container-code-companion.service"
 require_file_contains ccc-bootstrap.sh "/usr/local/bin/container-code-companion"
 require_file_contains ccc-bootstrap.sh "CONTAINER_CODE_COMPANION_USERNAME"
@@ -292,7 +295,7 @@ require_ordered_patterns container-code-companion/web/index.html \
   '<div class="nav-heading">Dashboard</div>' 'data-section="overview"' 'data-section="updates"' \
   '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
-  '<div class="nav-heading">Agents</div>' 'data-section="configs"' 'data-section="oculus"'
+  '<div class="nav-heading">Settings</div>' 'data-section="configs"' 'data-section="oculus"' 'data-section="github"' 'data-section="settings"'
 
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
@@ -363,7 +366,7 @@ require_file_contains container-code-companion/web/app.js 'tmux split-window -h'
 require_file_contains container-code-companion/web/app.js 'updateOverviewLive'
 require_file_contains container-code-companion/web/app.js 'updateGauge'
 require_file_contains container-code-companion/web/app.js 'settings-swatch'
-require_file_contains container-code-companion/web/app.js "settings: 'Settings'"
+require_file_contains container-code-companion/web/app.js "settings: 'Preferences'"
 require_file_contains container-code-companion/web/app.js 'DISPLAY_EFFECTS_STORAGE_KEY'
 require_file_contains container-code-companion/web/app.js 'ccc-display-effects'
 require_file_contains container-code-companion/web/app.js 'loadDisplayEffects'

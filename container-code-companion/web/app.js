@@ -12,7 +12,7 @@ const titles = {
   configs: 'Agent Configs',
   oculus: 'oculus-configs',
   github: 'GitHub',
-  settings: 'Settings',
+  settings: 'Preferences',
 };
 
 const THEMES = {
