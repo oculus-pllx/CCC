@@ -632,6 +632,18 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   margin-bottom: 16px;
 }
 
+.github-action-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  max-width: 560px;
+}
+
+.small-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .project-create,
 .account-create {
   display: grid;
@@ -1236,6 +1248,14 @@ td {
   .drive-form,
   .tool-row {
     grid-template-columns: 1fr;
+  }
+
+  .github-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .github-action-row .small-button {
+    width: 100%;
   }
 }
 

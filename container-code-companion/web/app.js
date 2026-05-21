@@ -684,9 +684,10 @@ function renderGitHub() {
     <div id="github-key-panel">
       <p class="muted">Loading SSH key status...</p>
     </div>
-    <div class="action-row">
-      <button class="small-button" id="github-generate-btn">Generate New SSH Key</button>
+    <div class="action-row github-action-row">
+      <button class="small-button" id="github-copy-btn" disabled>Copy Public Key</button>
       <button class="small-button" id="github-test-btn">Test GitHub Connection</button>
+      <button class="small-button" id="github-generate-btn">Generate New SSH Key</button>
     </div>
     <pre id="github-output" class="output" hidden></pre>
   `;
@@ -1172,6 +1173,7 @@ async function runAccountOperation(payload) {
 
 function bindGitHub() {
   loadGitHubStatus();
+  document.getElementById('github-copy-btn').addEventListener('click', copyGitHubPublicKey);
   document.getElementById('github-generate-btn').addEventListener('click', generateGitHubKey);
   document.getElementById('github-test-btn').addEventListener('click', testGitHubConnection);
 }
@@ -1190,19 +1192,36 @@ async function loadGitHubStatus() {
           <dt>Public key</dt><dd><code class="pubkey">${escapeHTML(status.publicKey)}</code></dd>
         </dl>
         <p class="section-description">Copy the public key above, then <a href="https://github.com/settings/ssh/new" target="_blank" rel="noopener">add it to GitHub</a>.</p>
-        <button class="small-button" id="github-copy-btn">Copy Public Key</button>
       `;
-      document.getElementById('github-copy-btn')?.addEventListener('click', async () => {
-        const btn = document.getElementById('github-copy-btn');
-        const copied = await copyTextToClipboard(status.publicKey);
-        showCopyButtonState(btn, copied ? 'Copied!' : 'Copy Failed');
-      });
+      const copyButton = document.getElementById('github-copy-btn');
+      if (copyButton) {
+        copyButton.disabled = false;
+        copyButton.dataset.publicKey = status.publicKey;
+      }
     } else {
       panel.innerHTML = `<p class="muted">No SSH key found at <code>${escapeHTML(status.keyPath)}</code>. Generate one below.</p>`;
+      const copyButton = document.getElementById('github-copy-btn');
+      if (copyButton) {
+        copyButton.disabled = true;
+        delete copyButton.dataset.publicKey;
+      }
     }
   } catch (err) {
     panel.innerHTML = `<p class="error-text">Failed to load SSH key status: ${escapeHTML(err.message)}</p>`;
+    const copyButton = document.getElementById('github-copy-btn');
+    if (copyButton) {
+      copyButton.disabled = true;
+      delete copyButton.dataset.publicKey;
+    }
   }
+}
+
+async function copyGitHubPublicKey() {
+  const button = document.getElementById('github-copy-btn');
+  const publicKey = button?.dataset.publicKey || '';
+  if (!button || !publicKey) return;
+  const copied = await copyTextToClipboard(publicKey);
+  showCopyButtonState(button, copied ? 'Copied!' : 'Copy Failed');
 }
 
 async function copyTextToClipboard(text) {

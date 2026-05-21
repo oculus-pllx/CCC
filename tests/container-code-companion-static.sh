@@ -261,6 +261,9 @@ require_file_contains container-code-companion/web/app.js "data-nav-updates"
 require_file_contains container-code-companion/web/app.js "copyTextToClipboard"
 require_file_contains container-code-companion/web/app.js "fallbackCopyText"
 require_file_contains container-code-companion/web/app.js "Copy Failed"
+require_file_contains container-code-companion/web/app.js "copyGitHubPublicKey"
+require_file_contains container-code-companion/web/app.js "github-action-row"
+require_file_contains container-code-companion/web/app.js '<button class="small-button" id="github-copy-btn" disabled>Copy Public Key</button>'
 require_file_not_contains container-code-companion/web/app.js ".catch(() => {})"
 require_file_contains container-code-companion/web/app.js "network-legend"
 require_file_contains container-code-companion/web/app.js "Persistent network changes"
@@ -316,6 +319,9 @@ require_ordered_patterns container-code-companion/web/index.html \
 
 require_ordered_patterns container-code-companion/web/app.js \
   '<p id="tool-status"' '<pre id="tool-output"' '<div id="tool-catalog"'
+
+require_ordered_patterns container-code-companion/web/app.js \
+  'id="github-copy-btn"' 'id="github-test-btn"' 'id="github-generate-btn"'
 
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
@@ -408,6 +414,8 @@ require_file_contains container-code-companion/web/app.js 'applyDisplayEffects'
 require_file_contains container-code-companion/web/styles.css '.tool-catalog'
 require_file_contains container-code-companion/web/styles.css '.tool-meta'
 require_file_contains container-code-companion/web/styles.css '.settings-title-form'
+require_file_contains container-code-companion/web/styles.css '.github-action-row'
+require_file_contains container-code-companion/web/styles.css '.small-button:disabled'
 require_file_contains container-code-companion/web/styles.css '.drive-form'
 require_file_contains container-code-companion/web/app.js 'effect-flicker'
 require_file_contains container-code-companion/web/app.js 'effect-sync-drift'
