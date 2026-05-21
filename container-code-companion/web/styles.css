@@ -1305,17 +1305,17 @@ td {
 .network-legend-tx { color: #34d399; }
 
 .settings-section {
-  max-width: 480px;
+  max-width: 780px;
   margin-bottom: 22px;
 }
 
 .settings-section-wide {
-  max-width: 720px;
+  max-width: 780px;
 }
 
 .settings-swatch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 8px;
   margin-top: 12px;
 }
@@ -1326,7 +1326,7 @@ td {
   align-items: center;
   gap: 6px;
   min-height: 88px;
-  padding: 10px 8px;
+  padding: 10px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel2);
