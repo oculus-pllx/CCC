@@ -410,11 +410,23 @@ function renderFiles() {
     </div>
     <div class="file-browser">
       <div>
-        <h3>Directory</h3>
+        <div class="file-section-header">
+          <h3>Directory</h3>
+          <span id="file-count" class="muted">Loading...</span>
+        </div>
+        <div class="file-table-header" aria-hidden="true">
+          <span>Type</span>
+          <span>Name</span>
+          <span>Size</span>
+          <span>Modified</span>
+        </div>
         <div id="file-list" class="file-list">Loading...</div>
       </div>
       <div>
-        <h3>Editor</h3>
+        <div class="file-section-header">
+          <h3>Editor</h3>
+          <span id="file-selected-detail" class="file-selected-detail">No file selected</span>
+        </div>
         <div class="file-toolbar">
           <input id="current-file" type="text" value="${escapeAttribute(currentFile)}" placeholder="Select a file">
           <button id="save-file-button" class="small-button">Save</button>
@@ -1172,7 +1184,9 @@ function bindFileBrowser() {
 
 async function loadFiles(path) {
   const list = document.getElementById('file-list');
+  const count = document.getElementById('file-count');
   list.textContent = 'Loading...';
+  if (count) count.textContent = 'Loading...';
   try {
     const response = await fetch(`/api/files?path=${encodeURIComponent(path)}`, { credentials: 'include' });
     const data = await response.json();
@@ -1181,6 +1195,7 @@ async function loadFiles(path) {
     }
     filePath = data.path;
     selectedFilePath = '';
+    updateSelectedFileDetail();
     document.getElementById('file-path').value = data.path;
     document.getElementById('file-breadcrumbs').innerHTML = renderFileBreadcrumbs(data.path);
     document.querySelectorAll('[data-file-breadcrumb]').forEach(button => {
@@ -1189,14 +1204,9 @@ async function loadFiles(path) {
         loadFiles(filePath);
       });
     });
-    list.innerHTML = (data.entries || []).map(entry => `
-      <button class="file-entry" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}">
-        <span>${entry.type === 'dir' ? 'dir' : 'file'}</span>
-        <strong>${escapeHTML(entry.name)}</strong>
-        <small>${escapeHTML(formatBytes(entry.size))}</small>
-        <small>${escapeHTML(entry.mtime || '')}</small>
-      </button>
-    `).join('') || '<p>No files found.</p>';
+    const entries = data.entries || [];
+    if (count) count.textContent = `${entries.length} item${entries.length === 1 ? '' : 's'}`;
+    list.innerHTML = entries.map(renderFileEntry).join('') || '<p class="file-empty">No files found.</p>';
     list.querySelectorAll('.file-entry').forEach(button => {
       button.addEventListener('click', () => {
         if (button.dataset.type === 'dir') {
@@ -1209,7 +1219,20 @@ async function loadFiles(path) {
     });
   } catch (error) {
     list.textContent = error.message;
+    if (count) count.textContent = 'Unavailable';
   }
+}
+
+function renderFileEntry(entry) {
+  const isDir = entry.type === 'dir';
+  return `
+    <button class="file-entry ${isDir ? 'directory' : 'regular-file'}" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}" data-name="${escapeAttribute(entry.name)}" data-size="${escapeAttribute(formatBytes(entry.size))}" data-mtime="${escapeAttribute(entry.mtime || '')}">
+      <span class="file-entry-icon">${isDir ? 'DIR' : 'FILE'}</span>
+      <strong>${escapeHTML(entry.name)}</strong>
+      <small>${isDir ? '-' : escapeHTML(formatBytes(entry.size))}</small>
+      <small>${escapeHTML(entry.mtime || '')}</small>
+    </button>
+  `;
 }
 
 function selectFileEntry(button) {
@@ -1219,7 +1242,18 @@ function selectFileEntry(button) {
     entry.classList.toggle('selected', entry === button);
   });
   document.getElementById('current-file').value = selectedFilePath;
+  updateSelectedFileDetail(button);
   openFile(selectedFilePath);
+}
+
+function updateSelectedFileDetail(button) {
+  const detail = document.getElementById('file-selected-detail');
+  if (!detail) return;
+  if (!button) {
+    detail.textContent = 'No file selected';
+    return;
+  }
+  detail.textContent = `${button.dataset.name || 'Selected'} · ${button.dataset.size || '0 B'} · ${button.dataset.mtime || 'no timestamp'}`;
 }
 
 async function openFile(path) {
