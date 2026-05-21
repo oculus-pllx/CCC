@@ -629,7 +629,10 @@ sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << '
   },
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
-  "statusLine": "~/.claude/bin/statusline-command.sh"
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/bin/statusline-command.sh"
+  }
 }
 SETTINGS
 
