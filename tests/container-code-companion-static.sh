@@ -83,6 +83,9 @@ require_file_contains ccc-bootstrap.sh 'command -v code-server'
 require_file_contains README.md "bubblewrap"
 require_file_contains README.md "GitHub CLI"
 require_file_contains ccc-bootstrap.sh "CCC Statusline"
+require_file_contains ccc-bootstrap.sh 'step 20 "Statusline"'
+require_file_contains ccc-bootstrap.sh 'CCC_USER="${CCC_USER:-claude-code}"'
+require_file_contains ccc-bootstrap.sh "Statusline user"
 require_file_contains ccc-bootstrap.sh 'sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"'
 require_file_contains ccc-bootstrap.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
 require_file_contains ccc-bootstrap.sh 'chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'

@@ -751,6 +751,13 @@ step 19 "oculus-configs agent config"
 
 # ── Statusline ────────────────────────────────────────────────────────────────
 step 20 "Statusline"
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+if ! id "$CCC_USER" &>/dev/null; then
+  echo "[ERROR] Statusline user '$CCC_USER' does not exist. Check /etc/ccc/config." >&2
+  exit 1
+fi
 sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"
 cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'STATUSLINE'
 #!/bin/bash
