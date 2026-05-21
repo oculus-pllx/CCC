@@ -96,7 +96,11 @@ require_file_contains ccc-bootstrap.sh 'CTX_WARN="!!"'
 require_file_contains ccc-bootstrap.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"
 require_file_contains container-code-companion/web/index.html "Projects"
+require_file_contains container-code-companion/web/index.html "App Catalog"
+require_file_contains container-code-companion/web/index.html "Map Drives"
 require_file_contains container-code-companion/web/index.html 'data-section="notes"'
+require_file_contains container-code-companion/web/index.html 'data-section="apps"'
+require_file_contains container-code-companion/web/index.html 'data-section="drives"'
 require_file_contains container-code-companion/web/index.html "oculus-configs"
 require_file_contains container-code-companion/web/index.html "Dashboard"
 require_file_contains container-code-companion/web/index.html "Workstation"
@@ -293,7 +297,7 @@ require_ordered_patterns() {
 
 require_ordered_patterns container-code-companion/web/index.html \
   '<div class="nav-heading">Dashboard</div>' 'data-section="overview"' 'data-section="updates"' \
-  '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' \
+  '<div class="nav-heading">Workstation</div>' 'data-section="files"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' 'data-section="apps"' 'data-section="drives"' \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
   '<div class="nav-heading">Settings</div>' 'data-section="configs"' 'data-section="oculus"' 'data-section="github"' 'data-section="settings"'
 
@@ -368,6 +372,8 @@ require_file_contains container-code-companion/web/app.js 'updateGauge'
 require_file_contains container-code-companion/web/app.js 'settings-swatch'
 require_file_contains container-code-companion/web/app.js "settings: 'Preferences'"
 require_file_contains container-code-companion/web/app.js "configs: 'Provider Configs'"
+require_file_contains container-code-companion/web/app.js "apps: 'App Catalog'"
+require_file_contains container-code-companion/web/app.js "drives: 'Map Drives'"
 require_file_contains container-code-companion/web/index.html "Provider Configs"
 require_file_not_contains container-code-companion/web/index.html "Agent Configs"
 require_file_contains container-code-companion/web/app.js 'DISPLAY_EFFECTS_STORAGE_KEY'

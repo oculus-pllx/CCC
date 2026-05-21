@@ -8,6 +8,8 @@ const titles = {
   notes: 'Notes',
   updates: 'Updates',
   terminal: 'Terminal',
+  apps: 'App Catalog',
+  drives: 'Map Drives',
   projects: 'Projects',
   configs: 'Provider Configs',
   oculus: 'oculus-configs',
@@ -230,7 +232,7 @@ function renderSection(section) {
   body.hidden = false;
   termContainer.hidden = true;
 
-  if (!snapshot && section !== 'settings' && section !== 'github') {
+  if (!snapshot && section !== 'settings' && section !== 'github' && section !== 'apps' && section !== 'drives') {
     body.textContent = 'Sign in is required before management data is shown.';
     return;
   }
@@ -243,6 +245,8 @@ function renderSection(section) {
     files: renderFiles,
     notes: renderNotes,
     updates: renderUpdates,
+    apps: renderAppCatalog,
+    drives: renderMapDrives,
     projects: renderProjects,
     configs: renderConfigs,
     oculus: renderOculus,
@@ -705,8 +709,6 @@ function renderSettings() {
       </div>
     </div>
     ${renderTimeSettings()}
-    ${renderAppCatalog()}
-    ${renderMapDrives()}
     <div class="settings-section">
       <h3>Display Effects</h3>
       <div class="settings-toggle-grid">
@@ -770,6 +772,7 @@ function renderMapDrives() {
         <input id="drive-password" type="password" placeholder="password">
         <button id="drive-mount-button" class="small-button">Mount CIFS</button>
       </div>
+      <p class="section-description">Mounted drives appear at the mount point above. If left blank, the backend uses /mnt/&lt;share-name&gt;; open that path from Files to browse it.</p>
       <pre id="drive-output" class="output" hidden></pre>
     </div>
   `;
@@ -790,8 +793,6 @@ function bindSettings() {
     });
   });
   bindTimeSettings();
-  bindToolCatalog();
-  bindMapDrives();
 }
 
 function bindTimeSettings() {
@@ -934,6 +935,12 @@ function bindSectionActions(section) {
   }
   if (section === 'network') {
     bindNetwork();
+  }
+  if (section === 'apps') {
+    bindToolCatalog();
+  }
+  if (section === 'drives') {
+    bindMapDrives();
   }
   if (section === 'overview') {
     requestAnimationFrame(animateGauges);
