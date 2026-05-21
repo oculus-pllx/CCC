@@ -189,6 +189,7 @@ Display effects are local browser preferences. Monitor flicker is enabled by def
 - Map drives wizard
 - App catalog / recommended tool visibility
 - Codex device authorization flow
+- Time, timezone, and location settings
 - Live dashboard gauge updates without full section repaint
 - Sidebar/menu polish
 
