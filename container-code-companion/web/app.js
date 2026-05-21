@@ -1743,6 +1743,8 @@ function connectTerminal() {
       tab.terminal.focus();
       tab.terminal.onData(sendTerminalInput);
       resizeTerminal();
+      requestAnimationFrame(resizeTerminal);
+      setTimeout(resizeTerminal, 120);
       window.addEventListener('resize', resizeTerminal);
     } else {
       document.getElementById('terminal-fallback').hidden = false;
@@ -1823,14 +1825,37 @@ function fitTerminalToPane(tab = activeTerminalTab()) {
   if (!tab?.terminal) return;
   const pane = document.getElementById(`terminal-pane-${tab.id}`);
   if (!pane) return;
-  const sample = pane.querySelector('.xterm-rows span');
-  const cellWidth = sample?.getBoundingClientRect().width || 8;
-  const cellHeight = sample?.getBoundingClientRect().height || 17;
+  const { width: cellWidth, height: cellHeight } = terminalCellSize(tab);
   const cols = Math.max(40, Math.floor((pane.clientWidth - 16) / cellWidth));
   const rows = Math.max(10, Math.floor((pane.clientHeight - 16) / cellHeight));
   if (cols !== tab.terminal.cols || rows !== tab.terminal.rows) {
     tab.terminal.resize(cols, rows);
   }
+}
+
+function terminalCellSize(tab) {
+  const dimensions = tab.terminal?._core?._renderService?.dimensions?.css?.cell;
+  if (dimensions?.width > 0 && dimensions?.height > 0) {
+    return { width: dimensions.width, height: dimensions.height };
+  }
+  const pane = document.getElementById(`terminal-pane-${tab.id}`);
+  const xterm = pane?.querySelector('.xterm');
+  const style = xterm ? getComputedStyle(xterm) : null;
+  const probe = document.createElement('span');
+  probe.textContent = 'W';
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.style.whiteSpace = 'pre';
+  probe.style.fontFamily = style?.fontFamily || 'monospace';
+  probe.style.fontSize = style?.fontSize || '13px';
+  probe.style.lineHeight = style?.lineHeight || 'normal';
+  pane?.appendChild(probe);
+  const rect = probe.getBoundingClientRect();
+  probe.remove();
+  return {
+    width: rect.width > 0 ? rect.width : 8,
+    height: rect.height > 0 ? rect.height : 17,
+  };
 }
 
 function ensureTerminalTab() {
@@ -1887,7 +1912,10 @@ function switchTerminalTab(id) {
   const tab = activeTerminalTab();
   const status = document.getElementById('terminal-status');
   if (status) status.textContent = tab?.status || 'Disconnected';
-  if (tab?.terminal) tab.terminal.focus();
+  if (tab?.terminal) {
+    tab.terminal.focus();
+    requestAnimationFrame(resizeTerminal);
+  }
 }
 
 function bindConfigs() {

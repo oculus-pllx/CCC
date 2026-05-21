@@ -868,6 +868,16 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   overflow: hidden;
 }
 
+.terminal-pane .xterm,
+.terminal-pane .xterm-viewport,
+.terminal-pane .xterm-screen {
+  width: 100% !important;
+}
+
+.terminal-pane .xterm {
+  height: 100%;
+}
+
 #terminal-status {
   color: var(--muted);
   align-self: center;
