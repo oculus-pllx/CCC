@@ -9,7 +9,7 @@ const titles = {
   updates: 'Updates',
   terminal: 'Terminal',
   projects: 'Projects',
-  configs: 'Agent Configs',
+  configs: 'Provider Configs',
   oculus: 'oculus-configs',
   github: 'GitHub',
   settings: 'Preferences',
@@ -292,7 +292,7 @@ function renderOverview() {
           <pre class="mini-output">${escapeHTML(firstUsefulLines(updatePanelText(updateText, updateLog), 8))}</pre>
         </div>
         <div class="dash-panel">
-          <h3>Agent Configs</h3>
+          <h3>Provider Configs</h3>
           <span class="badge ${presentConfigs === configs.length ? 'ok' : 'warn'}">${presentConfigs}/${configs.length} present</span>
           ${configs.map(config => `<div class="mini-row"><span>${escapeHTML(config.name)}</span><strong>${config.exists ? 'ready' : 'missing'}</strong></div>`).join('')}
         </div>

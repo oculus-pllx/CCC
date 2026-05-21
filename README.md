@@ -23,7 +23,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 - **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, terminal, projects, updates, agent configs, and GitHub SSH key management
+- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, terminal, projects, updates, provider configs, and GitHub SSH key management
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -171,7 +171,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Terminal** — browser PTY tabs backed by xterm.js, with tmux-capable shells
 - **Accounts** — create users, change passwords, shells, groups, and delete users
 - **Logs, Network, Services** — inspect service state, network activity, and system logs
-- **Agent Configs** — edit Claude, Codex, Gemini, and MCP config files inline
+- **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
 - **GitHub** — generate an SSH key, copy the public key, and test GitHub SSH access
 - **Settings** — theme swatches, editable top title, and CRT display effects
 

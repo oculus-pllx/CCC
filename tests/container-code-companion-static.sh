@@ -367,6 +367,9 @@ require_file_contains container-code-companion/web/app.js 'updateOverviewLive'
 require_file_contains container-code-companion/web/app.js 'updateGauge'
 require_file_contains container-code-companion/web/app.js 'settings-swatch'
 require_file_contains container-code-companion/web/app.js "settings: 'Preferences'"
+require_file_contains container-code-companion/web/app.js "configs: 'Provider Configs'"
+require_file_contains container-code-companion/web/index.html "Provider Configs"
+require_file_not_contains container-code-companion/web/index.html "Agent Configs"
 require_file_contains container-code-companion/web/app.js 'DISPLAY_EFFECTS_STORAGE_KEY'
 require_file_contains container-code-companion/web/app.js 'ccc-display-effects'
 require_file_contains container-code-companion/web/app.js 'loadDisplayEffects'
