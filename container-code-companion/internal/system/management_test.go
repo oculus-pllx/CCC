@@ -119,6 +119,18 @@ func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
 	}
 }
 
+func TestProviderNPMToolsInstallToUserPrefix(t *testing.T) {
+	for _, tool := range []string{"claude", "gemini"} {
+		command, err := toolInstallCommand(tool)
+		if err != nil {
+			t.Fatalf("expected %s install command: %v", tool, err)
+		}
+		if !strings.Contains(command, `--prefix "$HOME/.local"`) {
+			t.Fatalf("expected %s to install under user npm prefix, got %q", tool, command)
+		}
+	}
+}
+
 func TestToolUpdateAvailableIgnoresNeutralStatuses(t *testing.T) {
 	for _, status := range []string{"", "No update detected.", "No automatic update check.", "Manual check: compare with latest release."} {
 		if toolUpdateAvailable(status) {
