@@ -757,8 +757,9 @@ function renderAppCatalog() {
         <h3>App Catalog</h3>
         <button id="tool-refresh-button" class="small-button">Refresh Updates</button>
       </div>
-      <div id="tool-catalog" class="tool-catalog">Loading tool status...</div>
+      <p id="tool-status" class="section-description">Checking installed tools and updates...</p>
       <pre id="tool-output" class="output" hidden></pre>
+      <div id="tool-catalog" class="tool-catalog">Loading tool status...</div>
     </div>
   `;
 }
@@ -849,8 +850,9 @@ function bindToolCatalog() {
 
 async function loadToolCatalog() {
   const panel = document.getElementById('tool-catalog');
+  const status = document.getElementById('tool-status');
   if (!panel) return;
-  panel.textContent = 'Checking installed tools and updates...';
+  if (status) status.textContent = 'Checking installed tools and updates...';
   try {
     const response = await fetch('/api/tools', { credentials: 'include' });
     const data = await response.json();
@@ -868,8 +870,10 @@ async function loadToolCatalog() {
         <button class="small-button" data-tool-install="${escapeAttribute(tool.name)}">${tool.installed ? 'Update' : 'Install'}</button>
       </section>
     `).join('');
+    if (status) status.textContent = 'Tool status current.';
   } catch (error) {
-    panel.textContent = error.message;
+    if (status) status.textContent = error.message;
+    if (!panel.children.length) panel.textContent = error.message;
   }
 }
 

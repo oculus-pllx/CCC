@@ -311,6 +311,9 @@ require_ordered_patterns container-code-companion/web/index.html \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
   '<div class="nav-heading">Settings</div>' 'data-section="configs"' 'data-section="oculus"' 'data-section="github"' 'data-section="settings"'
 
+require_ordered_patterns container-code-companion/web/app.js \
+  '<p id="tool-status"' '<pre id="tool-output"' '<div id="tool-catalog"'
+
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
 
@@ -373,8 +376,10 @@ require_file_contains container-code-companion/web/app.js 'renderAppCatalog'
 require_file_contains container-code-companion/web/app.js 'renderMapDrives'
 require_file_contains container-code-companion/web/app.js 'loadToolCatalog'
 require_file_contains container-code-companion/web/app.js 'tool-refresh-button'
+require_file_contains container-code-companion/web/app.js 'tool-status'
 require_file_contains container-code-companion/web/app.js 'tool.updateStatus'
 require_file_contains container-code-companion/web/app.js 'tool.updateAvailable'
+require_file_not_contains container-code-companion/web/app.js "panel.textContent = 'Checking installed tools and updates...'"
 require_file_contains container-code-companion/web/app.js 'mountDrive'
 require_file_contains container-code-companion/web/app.js '/api/tools'
 require_file_contains container-code-companion/web/app.js '/api/drive'
