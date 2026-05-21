@@ -97,6 +97,9 @@ require_file_contains ccc-bootstrap.sh 'CTX_WARN="!!"'
 require_file_contains ccc-bootstrap.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"
 require_file_contains container-code-companion/web/index.html "Projects"
+require_file_contains container-code-companion/web/index.html "mobile-menu-button"
+require_file_contains container-code-companion/web/index.html "mobile-nav-overlay"
+require_file_contains container-code-companion/web/index.html 'aria-controls="mobile-sidebar"'
 require_file_contains container-code-companion/web/index.html "App Catalog"
 require_file_contains container-code-companion/web/index.html "Map Drives"
 require_file_contains container-code-companion/web/index.html 'data-section="notes"'
@@ -406,6 +409,9 @@ require_file_contains container-code-companion/web/app.js 'bindCustomTitleEditor
 require_file_contains container-code-companion/web/app.js 'custom-title-input'
 require_file_contains container-code-companion/web/app.js 'custom-title-reset'
 require_file_contains container-code-companion/web/app.js 'top-preferences-button'
+require_file_contains container-code-companion/web/app.js 'toggleMobileNav'
+require_file_contains container-code-companion/web/app.js 'closeMobileNav'
+require_file_contains container-code-companion/web/app.js 'mobile-nav-open'
 require_file_contains container-code-companion/web/app.js "settings: 'Preferences'"
 require_file_contains container-code-companion/web/app.js "configs: 'Provider Configs'"
 require_file_contains container-code-companion/web/app.js "apps: 'App Catalog'"
@@ -421,6 +427,10 @@ require_file_contains container-code-companion/web/styles.css '.tool-meta'
 require_file_contains container-code-companion/web/styles.css '.settings-title-form'
 require_file_contains container-code-companion/web/styles.css '.github-action-row'
 require_file_contains container-code-companion/web/styles.css '.small-button:disabled'
+require_file_contains container-code-companion/web/styles.css '.mobile-menu-button'
+require_file_contains container-code-companion/web/styles.css '.mobile-nav-overlay'
+require_file_contains container-code-companion/web/styles.css 'body.mobile-nav-open .sidebar'
+require_file_contains container-code-companion/web/styles.css 'transform: translateX(-104%)'
 require_file_contains container-code-companion/web/styles.css '.drive-form'
 require_file_contains container-code-companion/web/app.js 'effect-flicker'
 require_file_contains container-code-companion/web/app.js 'effect-sync-drift'

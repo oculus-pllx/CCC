@@ -189,6 +189,7 @@ function setSignedIn(signedIn) {
   document.getElementById('login-shell').hidden = signedIn;
   document.getElementById('logout-button').hidden = !signedIn;
   document.getElementById('refresh-button').hidden = !signedIn;
+  if (!signedIn) closeMobileNav();
   if (signedIn) startNetworkBackground();
   else stopNetworkGraph();
 }
@@ -205,7 +206,27 @@ function selectSection(section) {
   document.querySelectorAll('.sidebar button').forEach(button => {
     button.classList.toggle('active', button.dataset.section === section);
   });
+  closeMobileNav();
   renderSection(section);
+}
+
+function openMobileNav() {
+  document.body.classList.add('mobile-nav-open');
+  document.getElementById('mobile-nav-overlay').hidden = false;
+  document.getElementById('mobile-menu-button').setAttribute('aria-expanded', 'true');
+}
+
+function closeMobileNav() {
+  document.body.classList.remove('mobile-nav-open');
+  const overlay = document.getElementById('mobile-nav-overlay');
+  if (overlay) overlay.hidden = true;
+  const button = document.getElementById('mobile-menu-button');
+  if (button) button.setAttribute('aria-expanded', 'false');
+}
+
+function toggleMobileNav() {
+  if (document.body.classList.contains('mobile-nav-open')) closeMobileNav();
+  else openMobileNav();
 }
 
 function renderSection(section) {
@@ -2436,6 +2457,8 @@ document.getElementById('login-panel').addEventListener('submit', login);
 document.getElementById('logout-button').addEventListener('click', logout);
 document.getElementById('refresh-button').addEventListener('click', refresh);
 document.getElementById('top-preferences-button').addEventListener('click', () => selectSection('settings'));
+document.getElementById('mobile-menu-button').addEventListener('click', toggleMobileNav);
+document.getElementById('mobile-nav-overlay').addEventListener('click', closeMobileNav);
 document.querySelectorAll('.sidebar button').forEach(button => {
   button.addEventListener('click', () => selectSection(button.dataset.section));
 });

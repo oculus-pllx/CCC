@@ -139,6 +139,26 @@ input, select, textarea, button { font: inherit; }
   align-items: center;
 }
 
+.mobile-menu-button {
+  display: none;
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.mobile-menu-button span {
+  display: block;
+  height: 2px;
+  margin: 4px 0;
+  border-radius: 999px;
+  background: currentColor;
+}
+
 h1 { font-size: 18px; margin: 0; }
 h2 { font-size: 18px; margin: 0 0 16px; }
 
@@ -231,6 +251,10 @@ h2 { font-size: 18px; margin: 0 0 16px; }
 .sidebar button:hover {
   background: var(--panel2);
   color: var(--text);
+}
+
+.mobile-nav-overlay {
+  display: none;
 }
 
 .content { padding: 20px; min-width: 0; }
@@ -1197,21 +1221,73 @@ td {
 }
 
 @media (max-width: 760px) {
+  .topbar {
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  .brand-lockup {
+    min-width: 0;
+  }
+
+  .brand-text span {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .topbar-actions #health,
+  .topbar-actions #top-preferences-button {
+    display: none;
+  }
+
+  .mobile-menu-button {
+    display: inline-grid;
+    place-content: center;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+    position: fixed;
+    top: 64px;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(86vw, 320px);
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+    background: var(--topbar);
+    box-shadow: 18px 0 36px rgba(0, 0, 0, 0.38);
+    transform: translateX(-104%);
+    transition: transform 0.18s ease;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
 
-  .nav-heading {
-    padding-left: 4px;
-    padding-right: 4px;
+  body.mobile-nav-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .mobile-nav-overlay {
+    display: block;
+    position: fixed;
+    inset: 64px 0 0;
+    z-index: 35;
+    background: rgba(0, 0, 0, 0.48);
+  }
+
+  .mobile-nav-overlay[hidden] {
+    display: none !important;
+  }
+
+  .content {
+    padding: 14px;
   }
 
   .service-row,

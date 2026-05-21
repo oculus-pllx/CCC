@@ -56,12 +56,18 @@
     </a>
     <div class="topbar-actions">
       <span id="health">Checking...</span>
+      <button id="mobile-menu-button" class="mobile-menu-button" type="button" aria-label="Open navigation menu" aria-controls="mobile-sidebar" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <button id="top-preferences-button" class="small-button">Preferences</button>
       <button id="logout-button" class="small-button" hidden>Log Out</button>
     </div>
     </header>
     <main class="layout">
-    <nav class="sidebar" aria-label="Sections">
+    <div id="mobile-nav-overlay" class="mobile-nav-overlay" hidden></div>
+    <nav id="mobile-sidebar" class="sidebar" aria-label="Sections">
       <div class="nav-group">
         <div class="nav-heading">Dashboard</div>
         <button class="active" data-section="overview">Overview</button>
