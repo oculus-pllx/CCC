@@ -143,6 +143,7 @@ type ProjectOperation struct {
 	Operation string `json:"operation"`
 	Name      string `json:"name"`
 	NewName   string `json:"newName"`
+	Path      string `json:"path"`
 	Template  string `json:"template"`
 	Remote    string `json:"remote"`
 }
@@ -492,6 +493,31 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 			return RunShellCommand("gh repo create "+shellQuote(operation.Remote)+" --private --source=. --push", path)
 		}
 		return CommandResult{Command: "create " + operation.Name, Output: "created " + operation.Name}, nil
+	case "add-existing":
+		if !safeProjectName(operation.Name) {
+			return CommandResult{}, errors.New("invalid project name")
+		}
+		target, err := filepath.Abs(strings.TrimSpace(operation.Path))
+		if err != nil {
+			return CommandResult{}, err
+		}
+		info, err := os.Stat(target)
+		if err != nil {
+			return CommandResult{}, err
+		}
+		if !info.IsDir() {
+			return CommandResult{}, errors.New("existing project path must be a directory")
+		}
+		linkPath := filepath.Join(projectsRoot, operation.Name)
+		if _, err := os.Lstat(linkPath); err == nil {
+			return CommandResult{}, errors.New("project already exists")
+		} else if !os.IsNotExist(err) {
+			return CommandResult{}, err
+		}
+		if err := os.Symlink(target, linkPath); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "add-existing " + operation.Name, Output: "added " + operation.Name}, nil
 	case "rename":
 		if !safeProjectName(operation.Name) || !safeProjectName(operation.NewName) {
 			return CommandResult{}, errors.New("invalid project name")
@@ -662,10 +688,14 @@ func collectProjects(root string) []ProjectStatus {
 	}
 	var projects []ProjectStatus
 	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+		if strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
 		path := filepath.Join(root, entry.Name())
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() {
+			continue
+		}
 		projects = append(projects, ProjectStatus{
 			Name:      entry.Name(),
 			Path:      path,

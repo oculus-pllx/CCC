@@ -194,6 +194,14 @@ require_file_contains container-code-companion/web/app.js "removeEventListener('
 require_file_contains container-code-companion/web/app.js "terminalTabs"
 require_file_contains container-code-companion/web/app.js "New Tab"
 require_file_contains container-code-companion/web/app.js "stopTerminalSessions"
+require_file_contains container-code-companion/web/app.js "addExistingProject"
+require_file_contains container-code-companion/web/app.js "add-existing"
+require_file_contains container-code-companion/web/app.js "existing-project-name"
+require_file_contains container-code-companion/web/app.js "existing-project-path"
+require_file_contains container-code-companion/web/app.js "Add Existing Directory"
+require_file_contains container-code-companion/internal/system/management.go 'Path      string `json:"path"`'
+require_file_contains container-code-companion/internal/system/management.go 'case "add-existing"'
+require_file_contains container-code-companion/internal/system/management.go "os.Symlink"
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"
 require_file_contains container-code-companion/web/app.js "data-nav-updates"

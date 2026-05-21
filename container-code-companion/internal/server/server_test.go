@@ -415,6 +415,36 @@ func TestProtectedProjectOperationRunsConfiguredOperator(t *testing.T) {
 	}
 }
 
+func TestProtectedProjectOperationAcceptsExistingDirectoryPath(t *testing.T) {
+	var received system.ProjectOperation
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		ProjectOperation: func(operation system.ProjectOperation) (system.CommandResult, error) {
+			received = operation
+			return system.CommandResult{Command: operation.Operation, Output: "added existing-project"}, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/project", strings.NewReader(`{"operation":"add-existing","name":"existing-project","path":"/srv/work/existing-project"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if received.Operation != "add-existing" || received.Name != "existing-project" || received.Path != "/srv/work/existing-project" {
+		t.Fatalf("expected existing project operation with path, got %#v", received)
+	}
+	if !strings.Contains(res.Body.String(), "added existing-project") {
+		t.Fatalf("expected add existing response, got %q", res.Body.String())
+	}
+}
+
 func TestProtectedAccountOperationRunsConfiguredOperator(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest(http.MethodPost, "/api/account", strings.NewReader(`{"operation":"create","username":"newuser","shell":"/bin/bash"}`))

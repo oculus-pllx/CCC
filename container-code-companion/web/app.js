@@ -567,6 +567,11 @@ function renderProjects() {
       </select>
       <button id="create-project-button" class="small-button">Create</button>
     </div>
+    <div class="project-create project-add-existing">
+      <input id="existing-project-name" type="text" placeholder="project-name">
+      <input id="existing-project-path" type="text" placeholder="/path/to/existing/directory">
+      <button id="add-existing-project-button" class="small-button">Add Existing Directory</button>
+    </div>
     <div class="project-list">
       ${(snapshot.projects || []).map(project => `
         <section class="project-row">
@@ -1594,6 +1599,7 @@ function openAgentConfig(path) {
 
 function bindProjects() {
   document.getElementById('create-project-button').addEventListener('click', createProject);
+  document.getElementById('add-existing-project-button').addEventListener('click', addExistingProject);
   document.querySelectorAll('[data-project-browse]').forEach(button => {
     button.addEventListener('click', () => {
       filePath = button.dataset.projectBrowse;
@@ -1622,6 +1628,21 @@ async function createProject() {
   try {
     const result = await postJSON('/api/project', { operation: 'create', name, template });
     output.textContent = result.output || 'created';
+    await refresh();
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function addExistingProject() {
+  const output = document.getElementById('project-output');
+  const name = document.getElementById('existing-project-name').value.trim();
+  const path = document.getElementById('existing-project-path').value.trim();
+  output.hidden = false;
+  output.textContent = 'Adding existing directory...';
+  try {
+    const result = await postJSON('/api/project', { operation: 'add-existing', name, path });
+    output.textContent = result.output || 'added';
     await refresh();
   } catch (error) {
     output.textContent = error.message;
