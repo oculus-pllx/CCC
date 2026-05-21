@@ -28,6 +28,7 @@ const DEFAULT_THEME = 'green';
 const THEME_STORAGE_KEY = 'ccc-theme';
 const CCC_CUSTOM_TITLE_STORAGE_KEY = 'ccc-custom-title';
 const DISPLAY_EFFECTS_STORAGE_KEY = 'ccc-display-effects';
+const TERMINAL_HEIGHT_STORAGE_KEY = 'ccc-terminal-height';
 const DEFAULT_DISPLAY_EFFECTS = {
   flicker: true,
   syncDrift: false,
@@ -556,6 +557,11 @@ function renderTerminal() {
       <button id="terminal-disconnect" class="small-button">Disconnect</button>
       <button id="terminal-tmux" class="small-button">tmux</button>
       <span id="terminal-status">${escapeHTML(activeTerminalTab()?.status || 'Disconnected')}</span>
+    </div>
+    <div class="terminal-size-control">
+      <label for="terminal-height-slider">Terminal height</label>
+      <input id="terminal-height-slider" type="range" min="360" max="900" step="20" value="${escapeAttribute(loadTerminalHeight())}">
+      <span id="terminal-height-value">${escapeHTML(loadTerminalHeight())}px</span>
     </div>
     <div id="terminal-panes">
       ${terminalTabs.map(tab => `<div id="terminal-pane-${tab.id}" class="terminal-pane" ${tab.id === activeTerminalTabId ? '' : 'hidden'}></div>`).join('')}
@@ -1385,6 +1391,8 @@ async function deleteCurrentFile() {
 }
 
 function bindTerminal() {
+  applyTerminalHeight();
+  bindTerminalHeightControls();
   document.getElementById('terminal-new-tab').addEventListener('click', createTerminalTab);
   document.querySelectorAll('[data-terminal-tab]').forEach(button => {
     button.addEventListener('click', () => switchTerminalTab(Number(button.dataset.terminalTab)));
@@ -1398,6 +1406,31 @@ function bindTerminal() {
     input.value = '';
   });
   connectTerminal();
+}
+
+function bindTerminalHeightControls() {
+  const slider = document.getElementById('terminal-height-slider');
+  if (!slider) return;
+  slider.addEventListener('input', () => {
+    applyTerminalHeight(slider.value);
+    resizeTerminal();
+  });
+}
+
+function loadTerminalHeight() {
+  const saved = Number(localStorage.getItem(TERMINAL_HEIGHT_STORAGE_KEY));
+  if (Number.isFinite(saved)) {
+    return Math.max(360, Math.min(900, saved));
+  }
+  return 560;
+}
+
+function applyTerminalHeight(value = loadTerminalHeight()) {
+  const height = Math.max(360, Math.min(900, Number(value) || 560));
+  document.documentElement.style.setProperty('--terminal-height', `${height}px`);
+  localStorage.setItem(TERMINAL_HEIGHT_STORAGE_KEY, String(height));
+  const label = document.getElementById('terminal-height-value');
+  if (label) label.textContent = `${height}px`;
 }
 
 function connectTerminal() {

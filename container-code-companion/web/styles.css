@@ -11,6 +11,7 @@
   --accent:    #4ade80;
   --border:    rgba(74, 222, 128, 0.12);
   --accent-bg: rgba(74, 222, 128, 0.10);
+  --terminal-height: 560px;
 }
 
 * { box-sizing: border-box; }
@@ -806,8 +807,21 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   color: var(--text);
 }
 
+.terminal-size-control {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 320px) 56px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.terminal-size-control input {
+  accent-color: var(--accent);
+}
+
 .terminal-pane {
-  min-height: 560px;
+  min-height: var(--terminal-height);
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1215,6 +1229,10 @@ td {
 
   .file-entry small {
     grid-column: 2;
+  }
+
+  .terminal-size-control {
+    grid-template-columns: 1fr;
   }
 }
 
