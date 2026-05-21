@@ -39,6 +39,8 @@ type Config struct {
 	ListNotes        func() ([]system.Note, error)
 	SaveNote         func(note system.Note) (system.Note, error)
 	DeleteNote       func(id string) error
+	TimeSettings     func() (system.TimeSettings, error)
+	SetTimezone      func(timezone string) (system.CommandResult, error)
 	SecureCookies    bool // set true when serving behind HTTPS
 }
 
@@ -65,6 +67,8 @@ type Server struct {
 	listNotes        func() ([]system.Note, error)
 	saveNote         func(note system.Note) (system.Note, error)
 	deleteNote       func(id string) error
+	timeSettings     func() (system.TimeSettings, error)
+	setTimezone      func(timezone string) (system.CommandResult, error)
 	secureCookies    bool
 }
 
@@ -92,6 +96,8 @@ func New(config Config) *Server {
 		listNotes:        config.ListNotes,
 		saveNote:         config.SaveNote,
 		deleteNote:       config.DeleteNote,
+		timeSettings:     config.TimeSettings,
+		setTimezone:      config.SetTimezone,
 		secureCookies:    config.SecureCookies,
 	}
 	if s.overview == nil {
@@ -145,6 +151,12 @@ func New(config Config) *Server {
 	if s.deleteNote == nil {
 		s.deleteNote = system.DeleteNote
 	}
+	if s.timeSettings == nil {
+		s.timeSettings = system.CollectTimeSettings
+	}
+	if s.setTimezone == nil {
+		s.setTimezone = system.SetTimezone
+	}
 	s.routes()
 	return s
 }
@@ -173,6 +185,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/github", s.requireSession(http.HandlerFunc(s.handleGitHub)))
 	s.mux.Handle("/api/network-activity", s.requireSession(http.HandlerFunc(s.handleNetworkActivity)))
 	s.mux.Handle("/api/notes", s.requireSession(http.HandlerFunc(s.handleNotes)))
+	s.mux.Handle("/api/time-settings", s.requireSession(http.HandlerFunc(s.handleTimeSettings)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
 	s.mux.Handle("/", s.staticHandler())
 }
@@ -552,6 +565,34 @@ func (s *Server) handleNotes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleTimeSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		settings, err := s.timeSettings()
+		if err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	case http.MethodPost:
+		var body struct {
+			Timezone string `json:"timezone"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid time settings request", http.StatusBadRequest)
+			return
+		}
+		result, err := s.setTimezone(body.Timezone)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "output": result.Output})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}

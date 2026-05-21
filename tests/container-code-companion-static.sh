@@ -48,6 +48,10 @@ require_file_contains container-code-companion/web/index.html "login-brand-locku
 require_file_contains container-code-companion/web/index.html "app-shell"
 require_file_contains container-code-companion/web/app.js "CCC_CUSTOM_TITLE_STORAGE_KEY"
 require_file_contains container-code-companion/web/app.js "bindCustomTitle"
+require_file_contains container-code-companion/web/app.js "/api/time-settings"
+require_file_contains container-code-companion/web/app.js "renderTimeSettings"
+require_file_contains container-code-companion/web/app.js "bindTimeSettings"
+require_file_contains container-code-companion/web/app.js "timezone-input"
 require_file_contains container-code-companion/web/app.js "document.body.classList.toggle('signed-out'"
 require_file_contains container-code-companion/web/app.js "document.getElementById('app-shell').hidden = !signedIn"
 require_file_contains container-code-companion/web/app.js "document.getElementById('login-shell').hidden = signedIn"
@@ -194,9 +198,13 @@ require_file_contains container-code-companion/web/styles.css ".notes-layout"
 require_file_contains container-code-companion/web/styles.css ".note-row.active"
 require_file_contains container-code-companion/internal/server/server.go "/api/notes"
 require_file_contains container-code-companion/internal/server/server.go "handleNotes"
+require_file_contains container-code-companion/internal/server/server.go "/api/time-settings"
+require_file_contains container-code-companion/internal/server/server.go "handleTimeSettings"
 require_file_contains container-code-companion/internal/system/notes.go "type Note struct"
 require_file_contains container-code-companion/internal/system/notes.go 'filepath.Join(workstationHome(), ".ccc", "notes.json")'
 require_file_contains container-code-companion/internal/system/notes.go "os.Rename"
+require_file_contains container-code-companion/internal/system/time.go "type TimeSettings struct"
+require_file_contains container-code-companion/internal/system/time.go "sudo timedatectl set-timezone"
 require_file_contains container-code-companion/web/app.js "resetTerminalConnection"
 require_file_contains container-code-companion/web/app.js "removeEventListener('resize', resizeTerminal)"
 require_file_contains container-code-companion/web/app.js "terminalTabs"
@@ -306,6 +314,8 @@ require_file_contains container-code-companion/web/styles.css '--accent-bg'
 require_file_contains container-code-companion/web/styles.css '#060d16'
 require_file_contains container-code-companion/web/styles.css 'IBM Plex Mono'
 require_file_contains container-code-companion/web/styles.css 'settings-swatch-row'
+require_file_contains container-code-companion/web/styles.css 'grid-template-columns: repeat(auto-fit'
+require_file_contains container-code-companion/web/styles.css '.time-settings-grid'
 require_file_contains container-code-companion/web/styles.css '.update-tabs'
 require_file_contains container-code-companion/web/styles.css '.update-console'
 require_file_not_contains container-code-companion/web/styles.css '#17191c'

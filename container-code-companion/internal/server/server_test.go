@@ -478,6 +478,48 @@ func TestProtectedNetworkActivityReturnsCounters(t *testing.T) {
 	}
 }
 
+func TestProtectedTimeSettingsReturnsAndUpdatesTimezone(t *testing.T) {
+	timezone := "UTC"
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		TimeSettings: func() (system.TimeSettings, error) {
+			return system.TimeSettings{Timezone: timezone, LocalTime: "2026-05-21 12:00:00"}, nil
+		},
+		SetTimezone: func(next string) (system.CommandResult, error) {
+			timezone = next
+			return system.CommandResult{Command: "timedatectl set-timezone " + next, Output: "timezone updated"}, nil
+		},
+	})
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/time-settings", nil)
+	getReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	getRes := httptest.NewRecorder()
+	srv.ServeHTTP(getRes, getReq)
+
+	if getRes.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", getRes.Code, getRes.Body.String())
+	}
+	if !strings.Contains(getRes.Body.String(), "UTC") {
+		t.Fatalf("expected timezone in response, got %q", getRes.Body.String())
+	}
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/time-settings", strings.NewReader(`{"timezone":"America/New_York"}`))
+	postReq.Header.Set("Content-Type", "application/json")
+	postReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	postRes := httptest.NewRecorder()
+	srv.ServeHTTP(postRes, postReq)
+
+	if postRes.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", postRes.Code, postRes.Body.String())
+	}
+	if timezone != "America/New_York" {
+		t.Fatalf("expected timezone update, got %q", timezone)
+	}
+}
+
 func TestProtectedNotesLifecycleUsesConfiguredStore(t *testing.T) {
 	notes := []system.Note{}
 	srv := New(Config{

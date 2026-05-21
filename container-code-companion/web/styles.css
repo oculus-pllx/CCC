@@ -1235,6 +1235,10 @@ td {
   .terminal-size-control {
     grid-template-columns: 1fr;
   }
+
+  .time-settings-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .config-editor-panel {
@@ -1303,23 +1307,30 @@ td {
   margin-bottom: 22px;
 }
 
+.settings-section-wide {
+  max-width: 720px;
+}
+
 .settings-swatch-grid {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 8px;
   margin-top: 12px;
 }
 
 .settings-swatch-row {
-  display: flex;
+  display: grid;
+  justify-items: center;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 6px;
+  min-height: 88px;
+  padding: 10px 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel2);
   color: var(--text);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   width: 100%;
   transition: border-color 0.15s;
 }
@@ -1348,7 +1359,6 @@ td {
 
 .settings-swatch-name {
   font-weight: 600;
-  min-width: 64px;
 }
 
 .settings-swatch-hex {
@@ -1357,13 +1367,35 @@ td {
 }
 
 .settings-swatch-default {
-  margin-left: auto;
   font-size: 10px;
   letter-spacing: 0.08em;
   color: var(--muted);
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 1px 6px;
+}
+
+.time-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.time-settings-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.time-settings-form input {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--text);
+  padding: 8px 10px;
 }
 
 .settings-toggle-grid {

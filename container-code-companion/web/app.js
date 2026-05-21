@@ -693,6 +693,7 @@ function renderSettings() {
         `).join('')}
       </div>
     </div>
+    ${renderTimeSettings()}
     <div class="settings-section">
       <h3>Display Effects</h3>
       <div class="settings-toggle-grid">
@@ -715,6 +716,25 @@ function renderSettings() {
   `;
 }
 
+function renderTimeSettings() {
+  return `
+    <div class="settings-section settings-section-wide">
+      <h3>Time & Location</h3>
+      <div id="time-settings-panel" class="time-settings-grid">
+        <div class="mini-row"><span>Local time</span><strong id="time-local">Loading...</strong></div>
+        <div class="mini-row"><span>Timezone</span><strong id="time-timezone">Loading...</strong></div>
+        <div class="mini-row"><span>UTC</span><strong id="time-utc">Loading...</strong></div>
+      </div>
+      <div class="time-settings-form">
+        <input id="timezone-input" type="text" placeholder="America/New_York" autocomplete="off">
+        <button id="timezone-save-button" class="small-button">Set Timezone</button>
+        <button id="timezone-refresh-button" class="small-button">Refresh</button>
+      </div>
+      <pre id="timezone-output" class="output" hidden></pre>
+    </div>
+  `;
+}
+
 function bindSettings() {
   document.querySelectorAll('[data-theme]').forEach(button => {
     button.addEventListener('click', () => {
@@ -729,6 +749,47 @@ function bindSettings() {
       applyDisplayEffects(effects);
     });
   });
+  bindTimeSettings();
+}
+
+function bindTimeSettings() {
+  document.getElementById('timezone-refresh-button')?.addEventListener('click', loadTimeSettings);
+  document.getElementById('timezone-save-button')?.addEventListener('click', saveTimezone);
+  loadTimeSettings();
+}
+
+async function loadTimeSettings() {
+  const output = document.getElementById('timezone-output');
+  try {
+    const response = await fetch('/api/time-settings', { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
+    document.getElementById('time-local').textContent = data.localTime || 'unknown';
+    document.getElementById('time-timezone').textContent = data.timezone || 'unknown';
+    document.getElementById('time-utc').textContent = data.utc || 'unknown';
+    const input = document.getElementById('timezone-input');
+    if (input && !input.value.trim()) input.value = data.timezone || '';
+    if (output) output.hidden = true;
+  } catch (error) {
+    if (output) {
+      output.hidden = false;
+      output.textContent = error.message;
+    }
+  }
+}
+
+async function saveTimezone() {
+  const output = document.getElementById('timezone-output');
+  const timezone = document.getElementById('timezone-input').value.trim();
+  output.hidden = false;
+  output.textContent = 'Setting timezone...';
+  try {
+    const result = await postJSON('/api/time-settings', { timezone });
+    output.textContent = result.output || 'timezone updated';
+    await loadTimeSettings();
+  } catch (error) {
+    output.textContent = error.message;
+  }
 }
 
 function bindSectionActions(section) {
