@@ -753,7 +753,10 @@ function renderTimeSettings() {
 function renderAppCatalog() {
   return `
     <div class="settings-section settings-section-wide">
-      <h3>App Catalog</h3>
+      <div class="section-title-row">
+        <h3>App Catalog</h3>
+        <button id="tool-refresh-button" class="small-button">Refresh Updates</button>
+      </div>
       <div id="tool-catalog" class="tool-catalog">Loading tool status...</div>
       <pre id="tool-output" class="output" hidden></pre>
     </div>
@@ -836,6 +839,7 @@ async function saveTimezone() {
 }
 
 function bindToolCatalog() {
+  document.getElementById('tool-refresh-button')?.addEventListener('click', loadToolCatalog);
   document.getElementById('tool-catalog')?.addEventListener('click', event => {
     const button = event.target.closest('[data-tool-install]');
     if (button) installTool(button.dataset.toolInstall);
@@ -846,6 +850,7 @@ function bindToolCatalog() {
 async function loadToolCatalog() {
   const panel = document.getElementById('tool-catalog');
   if (!panel) return;
+  panel.textContent = 'Checking installed tools and updates...';
   try {
     const response = await fetch('/api/tools', { credentials: 'include' });
     const data = await response.json();
@@ -855,7 +860,10 @@ async function loadToolCatalog() {
         <div>
           <strong>${escapeHTML(tool.label || tool.name)}</strong>
           <p>${escapeHTML(tool.description || '')}</p>
-          <span class="${tool.installed ? 'ok-text' : 'warn-text'}">${tool.installed ? escapeHTML(tool.version || 'installed') : 'missing'}</span>
+          <div class="tool-meta">
+            <span class="${tool.installed ? 'ok-text' : 'warn-text'}">${tool.installed ? escapeHTML(tool.version || 'installed') : 'missing'}</span>
+            <span class="${tool.updateAvailable ? 'warn-text' : 'muted'}">${escapeHTML(tool.updateStatus || (tool.installed ? 'No update detected.' : 'not installed'))}</span>
+          </div>
         </div>
         <button class="small-button" data-tool-install="${escapeAttribute(tool.name)}">${tool.installed ? 'Update' : 'Install'}</button>
       </section>

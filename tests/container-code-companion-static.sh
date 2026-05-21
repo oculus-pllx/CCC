@@ -243,6 +243,16 @@ require_file_contains container-code-companion/internal/server/server.go "/api/t
 require_file_contains container-code-companion/internal/server/server.go "/api/drive"
 require_file_contains container-code-companion/internal/system/management.go "type ToolStatus struct"
 require_file_contains container-code-companion/internal/system/management.go "func CollectToolStatuses"
+require_file_contains container-code-companion/internal/system/management.go 'UpdateAvailable bool'
+require_file_contains container-code-companion/internal/system/management.go 'UpdateStatus    string'
+require_file_contains container-code-companion/internal/system/management.go 'func aptUpdateCheck'
+require_file_contains container-code-companion/internal/system/management.go 'func toolUpdateAvailable'
+require_file_contains container-code-companion/internal/system/management.go 'Name: "uv"'
+require_file_contains container-code-companion/internal/system/management.go 'Name: "claude"'
+require_file_contains container-code-companion/internal/system/management.go 'Name: "gemini"'
+require_file_contains container-code-companion/internal/system/management.go 'Name: "ollama"'
+require_file_contains container-code-companion/internal/system/management.go 'Name: "aider"'
+require_file_contains container-code-companion/internal/system/management.go 'Name: "ripgrep"'
 require_file_contains container-code-companion/internal/system/management.go "func RunDriveOperation"
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"
@@ -362,6 +372,9 @@ require_file_contains container-code-companion/web/app.js 'bindSettings'
 require_file_contains container-code-companion/web/app.js 'renderAppCatalog'
 require_file_contains container-code-companion/web/app.js 'renderMapDrives'
 require_file_contains container-code-companion/web/app.js 'loadToolCatalog'
+require_file_contains container-code-companion/web/app.js 'tool-refresh-button'
+require_file_contains container-code-companion/web/app.js 'tool.updateStatus'
+require_file_contains container-code-companion/web/app.js 'tool.updateAvailable'
 require_file_contains container-code-companion/web/app.js 'mountDrive'
 require_file_contains container-code-companion/web/app.js '/api/tools'
 require_file_contains container-code-companion/web/app.js '/api/drive'
@@ -381,6 +394,7 @@ require_file_contains container-code-companion/web/app.js 'ccc-display-effects'
 require_file_contains container-code-companion/web/app.js 'loadDisplayEffects'
 require_file_contains container-code-companion/web/app.js 'applyDisplayEffects'
 require_file_contains container-code-companion/web/styles.css '.tool-catalog'
+require_file_contains container-code-companion/web/styles.css '.tool-meta'
 require_file_contains container-code-companion/web/styles.css '.drive-form'
 require_file_contains container-code-companion/web/app.js 'effect-flicker'
 require_file_contains container-code-companion/web/app.js 'effect-sync-drift'

@@ -3,6 +3,7 @@ package system
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -104,7 +105,7 @@ func TestRunFileOperationCopiesAndChangesMode(t *testing.T) {
 }
 
 func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
-	for _, tool := range []string{"nodejs", "go", "playwright", "codex", "gh", "bubblewrap"} {
+	for _, tool := range []string{"nodejs", "go", "python", "uv", "playwright", "codex", "claude", "gemini", "gh", "bubblewrap", "ripgrep", "jq", "fzf", "build-essential", "ollama", "aider"} {
 		command, err := toolInstallCommand(tool)
 		if err != nil {
 			t.Fatalf("expected %s install operation to be allowed: %v", tool, err)
@@ -115,6 +116,24 @@ func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
 	}
 	if _, err := toolInstallCommand("unknown"); err == nil {
 		t.Fatal("expected unknown tool to be rejected")
+	}
+}
+
+func TestToolUpdateAvailableIgnoresNeutralStatuses(t *testing.T) {
+	for _, status := range []string{"", "No update detected.", "No automatic update check.", "Manual check: compare with latest release."} {
+		if toolUpdateAvailable(status) {
+			t.Fatalf("expected neutral status %q to not mark an update available", status)
+		}
+	}
+	if !toolUpdateAvailable("jq/stable 1.7.1 amd64 [upgradable from: 1.6]") {
+		t.Fatal("expected package-manager output to mark an update available")
+	}
+}
+
+func TestAptUpdateCheckTargetsPackage(t *testing.T) {
+	command := aptUpdateCheck("jq")
+	if !strings.Contains(command, "apt list --upgradable 'jq'") {
+		t.Fatalf("expected apt update check to target package, got %q", command)
 	}
 }
 

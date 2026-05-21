@@ -142,12 +142,14 @@ type FileOperation struct {
 }
 
 type ToolStatus struct {
-	Name        string `json:"name"`
-	Label       string `json:"label"`
-	Command     string `json:"command"`
-	Installed   bool   `json:"installed"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
+	Name            string `json:"name"`
+	Label           string `json:"label"`
+	Command         string `json:"command"`
+	Installed       bool   `json:"installed"`
+	Version         string `json:"version"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+	UpdateStatus    string `json:"updateStatus"`
+	Description     string `json:"description"`
 }
 
 type ToolOperation struct {
@@ -515,13 +517,24 @@ func CollectToolStatuses() []ToolStatus {
 	statuses := make([]ToolStatus, 0, len(specs))
 	for _, spec := range specs {
 		version := strings.TrimSpace(runText("bash", "-lc", "command -v "+shellQuote(spec.Command)+" >/dev/null 2>&1 && "+spec.Version+" || true"))
+		updateStatus := "not installed"
+		updateAvailable := false
+		if version != "" {
+			updateStatus = strings.TrimSpace(runText("bash", "-lc", spec.UpdateCheck+" || true"))
+			if updateStatus == "" {
+				updateStatus = "No update detected."
+			}
+			updateAvailable = toolUpdateAvailable(updateStatus)
+		}
 		statuses = append(statuses, ToolStatus{
-			Name:        spec.Name,
-			Label:       spec.Label,
-			Command:     spec.Command,
-			Installed:   version != "",
-			Version:     version,
-			Description: spec.Description,
+			Name:            spec.Name,
+			Label:           spec.Label,
+			Command:         spec.Command,
+			Installed:       version != "",
+			Version:         version,
+			UpdateAvailable: updateAvailable,
+			UpdateStatus:    updateStatus,
+			Description:     spec.Description,
 		})
 	}
 	return statuses
@@ -723,18 +736,44 @@ type toolSpec struct {
 	Command     string
 	Version     string
 	Install     string
+	UpdateCheck string
 	Description string
 }
 
 func toolSpecs() []toolSpec {
 	return []toolSpec{
-		{Name: "nodejs", Label: "Node.js", Command: "node", Version: "node --version", Install: "sudo apt-get update && sudo apt-get install -y nodejs npm", Description: "JavaScript runtime and npm"},
-		{Name: "go", Label: "Go", Command: "go", Version: "go version", Install: "sudo ccc-update-go || sudo apt-get install -y golang-go", Description: "Go toolchain for native builds"},
-		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", Description: "Browser automation/test dependencies"},
-		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "codex --version", Install: "ccc-install-codex", Description: "OpenAI Codex CLI"},
-		{Name: "gh", Label: "GitHub CLI", Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", Description: "GitHub auth and repo operations"},
-		{Name: "bubblewrap", Label: "Bubblewrap", Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", Description: "Codex sandbox prerequisite"},
+		{Name: "nodejs", Label: "Node.js", Command: "node", Version: "node --version", Install: "sudo apt-get update && sudo apt-get install -y nodejs npm", UpdateCheck: aptUpdateCheck("nodejs"), Description: "JavaScript runtime and npm"},
+		{Name: "go", Label: "Go", Command: "go", Version: "go version", Install: "sudo ccc-update-go || sudo apt-get install -y golang-go", UpdateCheck: "ccc-update-go --check 2>/dev/null || echo 'No update detected.'", Description: "Go toolchain for native builds"},
+		{Name: "python", Label: "Python", Command: "python3", Version: "python3 --version", Install: "sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv pipx", UpdateCheck: aptUpdateCheck("python3"), Description: "Python runtime, venv, pip, and pipx"},
+		{Name: "uv", Label: "uv", Command: "uv", Version: "uv --version", Install: "curl -LsSf https://astral.sh/uv/install.sh | sh", UpdateCheck: "uv self update --dry-run 2>/dev/null || echo 'No update detected.'", Description: "Fast Python package and project manager"},
+		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", UpdateCheck: "npm outdated -g playwright --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Browser automation/test dependencies"},
+		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "codex --version", Install: "ccc-install-codex", UpdateCheck: "npm outdated -g --prefix \"$HOME/.local\" @openai/codex --depth=0 2>/dev/null || echo 'No update detected.'", Description: "OpenAI Codex CLI"},
+		{Name: "claude", Label: "Claude Code", Command: "claude", Version: "claude --version", Install: "npm install -g @anthropic-ai/claude-code", UpdateCheck: "npm outdated -g @anthropic-ai/claude-code --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Anthropic Claude Code CLI"},
+		{Name: "gemini", Label: "Gemini CLI", Command: "gemini", Version: "gemini --version", Install: "npm install -g @google/gemini-cli", UpdateCheck: "npm outdated -g @google/gemini-cli --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Google Gemini command-line agent"},
+		{Name: "gh", Label: "GitHub CLI", Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", UpdateCheck: aptUpdateCheck("gh"), Description: "GitHub auth and repo operations"},
+		{Name: "bubblewrap", Label: "Bubblewrap", Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", UpdateCheck: aptUpdateCheck("bubblewrap"), Description: "Codex sandbox prerequisite"},
+		{Name: "ripgrep", Label: "ripgrep", Command: "rg", Version: "rg --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y ripgrep", UpdateCheck: aptUpdateCheck("ripgrep"), Description: "Fast code search"},
+		{Name: "jq", Label: "jq", Command: "jq", Version: "jq --version", Install: "sudo apt-get update && sudo apt-get install -y jq", UpdateCheck: aptUpdateCheck("jq"), Description: "JSON processing for scripts and API work"},
+		{Name: "fzf", Label: "fzf", Command: "fzf", Version: "fzf --version", Install: "sudo apt-get update && sudo apt-get install -y fzf", UpdateCheck: aptUpdateCheck("fzf"), Description: "Interactive fuzzy finder for terminal workflows"},
+		{Name: "build-essential", Label: "Build Essential", Command: "gcc", Version: "gcc --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y build-essential pkg-config", UpdateCheck: aptUpdateCheck("build-essential"), Description: "Compiler and native build prerequisites"},
+		{Name: "ollama", Label: "Ollama", Command: "ollama", Version: "ollama --version", Install: "curl -fsSL https://ollama.com/install.sh | sh", UpdateCheck: "ollama --version 2>/dev/null && echo 'Manual check: compare with latest Ollama release channel.'", Description: "Local model runtime"},
+		{Name: "aider", Label: "Aider", Command: "aider", Version: "aider --version", Install: "python3 -m pip install --user -U aider-chat", UpdateCheck: "python3 -m pip list --outdated --user 2>/dev/null | grep -E '^aider-chat\\s' || echo 'No update detected.'", Description: "Provider-agnostic AI coding assistant"},
 	}
+}
+
+func aptUpdateCheck(pkg string) string {
+	return "apt list --upgradable " + shellQuote(pkg) + " 2>/dev/null | sed -n '2,4p' | grep . || echo 'No update detected.'"
+}
+
+func toolUpdateAvailable(status string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(status))
+	if normalized == "" ||
+		strings.Contains(normalized, "no update") ||
+		strings.Contains(normalized, "no automatic update") ||
+		strings.Contains(normalized, "manual check") {
+		return false
+	}
+	return true
 }
 
 func shellQuote(value string) string {

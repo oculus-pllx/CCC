@@ -1438,6 +1438,13 @@ td {
   margin-top: 12px;
 }
 
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .tool-row {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;
@@ -1452,6 +1459,13 @@ td {
 .tool-row p {
   margin: 3px 0;
   color: var(--muted);
+}
+
+.tool-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
 }
 
 .drive-form {
