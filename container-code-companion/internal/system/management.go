@@ -70,6 +70,7 @@ type FileEntry struct {
 	Type  string `json:"type"`
 	Size  int64  `json:"size"`
 	MTime string `json:"mtime"`
+	Mode  string `json:"mode"`
 }
 
 type FileListing struct {
@@ -137,6 +138,30 @@ type FileOperation struct {
 	Path      string `json:"path"`
 	Target    string `json:"target"`
 	Kind      string `json:"kind"`
+	Mode      string `json:"mode"`
+}
+
+type ToolStatus struct {
+	Name        string `json:"name"`
+	Label       string `json:"label"`
+	Command     string `json:"command"`
+	Installed   bool   `json:"installed"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+}
+
+type ToolOperation struct {
+	Operation string `json:"operation"`
+	Tool      string `json:"tool"`
+}
+
+type DriveOperation struct {
+	Operation  string `json:"operation"`
+	Name       string `json:"name"`
+	Remote     string `json:"remote"`
+	MountPoint string `json:"mountPoint"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
 }
 
 type ProjectOperation struct {
@@ -458,6 +483,23 @@ func RunFileOperation(operation FileOperation) (CommandResult, error) {
 			return CommandResult{}, err
 		}
 		return CommandResult{Command: "rename " + operation.Path, Output: "renamed"}, nil
+	case "copy":
+		if strings.TrimSpace(operation.Target) == "" || operation.Target == "/" {
+			return CommandResult{}, errors.New("valid target path is required")
+		}
+		if err := copyPath(operation.Path, operation.Target); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "copy " + operation.Path, Output: "copied"}, nil
+	case "chmod":
+		mode, err := strconv.ParseUint(operation.Mode, 8, 32)
+		if err != nil || mode > 0o777 {
+			return CommandResult{}, errors.New("valid mode is required")
+		}
+		if err := os.Chmod(operation.Path, os.FileMode(mode)); err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Command: "chmod " + operation.Path, Output: "permissions updated"}, nil
 	case "delete":
 		if err := os.RemoveAll(operation.Path); err != nil {
 			return CommandResult{}, err
@@ -465,6 +507,73 @@ func RunFileOperation(operation FileOperation) (CommandResult, error) {
 		return CommandResult{Command: "delete " + operation.Path, Output: "deleted"}, nil
 	default:
 		return CommandResult{}, fmt.Errorf("file operation %q is not allowed", operation.Operation)
+	}
+}
+
+func CollectToolStatuses() []ToolStatus {
+	specs := toolSpecs()
+	statuses := make([]ToolStatus, 0, len(specs))
+	for _, spec := range specs {
+		version := strings.TrimSpace(runText("bash", "-lc", "command -v "+shellQuote(spec.Command)+" >/dev/null 2>&1 && "+spec.Version+" || true"))
+		statuses = append(statuses, ToolStatus{
+			Name:        spec.Name,
+			Label:       spec.Label,
+			Command:     spec.Command,
+			Installed:   version != "",
+			Version:     version,
+			Description: spec.Description,
+		})
+	}
+	return statuses
+}
+
+func RunToolOperation(operation ToolOperation) (CommandResult, error) {
+	if operation.Operation != "install" {
+		return CommandResult{}, fmt.Errorf("tool operation %q is not allowed", operation.Operation)
+	}
+	command, err := toolInstallCommand(operation.Tool)
+	if err != nil {
+		return CommandResult{}, err
+	}
+	return RunShellCommand(command, workstationHome())
+}
+
+func toolInstallCommand(tool string) (string, error) {
+	for _, spec := range toolSpecs() {
+		if spec.Name == tool {
+			return spec.Install, nil
+		}
+	}
+	return "", fmt.Errorf("tool %q is not allowed", tool)
+}
+
+func RunDriveOperation(operation DriveOperation) (CommandResult, error) {
+	switch operation.Operation {
+	case "mount-cifs":
+		if !safeProjectName(operation.Name) {
+			return CommandResult{}, errors.New("valid drive name is required")
+		}
+		if !strings.HasPrefix(operation.Remote, "//") || strings.ContainsAny(operation.Remote, "`$;&|") {
+			return CommandResult{}, errors.New("valid CIFS remote is required")
+		}
+		mountPoint := strings.TrimSpace(operation.MountPoint)
+		if mountPoint == "" {
+			mountPoint = filepath.Join("/mnt", operation.Name)
+		}
+		if !strings.HasPrefix(mountPoint, "/mnt/") || strings.Contains(mountPoint, "..") {
+			return CommandResult{}, errors.New("mount point must be under /mnt")
+		}
+		options := "rw"
+		if operation.Username != "" {
+			options += ",username=" + operation.Username
+		}
+		if operation.Password != "" {
+			options += ",password=" + operation.Password
+		}
+		command := "sudo mkdir -p " + shellQuote(mountPoint) + " && sudo mount -t cifs " + shellQuote(operation.Remote) + " " + shellQuote(mountPoint) + " -o " + shellQuote(options)
+		return RunShellCommand(command, workstationHome())
+	default:
+		return CommandResult{}, fmt.Errorf("drive operation %q is not allowed", operation.Operation)
 	}
 }
 
@@ -591,6 +700,41 @@ func copyDirectory(src string, dst string) error {
 		}
 		return os.WriteFile(target, content, info.Mode().Perm())
 	})
+}
+
+func copyPath(src string, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return copyDirectory(src, dst)
+	}
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, content, info.Mode().Perm())
+}
+
+type toolSpec struct {
+	Name        string
+	Label       string
+	Command     string
+	Version     string
+	Install     string
+	Description string
+}
+
+func toolSpecs() []toolSpec {
+	return []toolSpec{
+		{Name: "nodejs", Label: "Node.js", Command: "node", Version: "node --version", Install: "sudo apt-get update && sudo apt-get install -y nodejs npm", Description: "JavaScript runtime and npm"},
+		{Name: "go", Label: "Go", Command: "go", Version: "go version", Install: "sudo ccc-update-go || sudo apt-get install -y golang-go", Description: "Go toolchain for native builds"},
+		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", Description: "Browser automation/test dependencies"},
+		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "codex --version", Install: "ccc-install-codex", Description: "OpenAI Codex CLI"},
+		{Name: "gh", Label: "GitHub CLI", Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", Description: "GitHub auth and repo operations"},
+		{Name: "bubblewrap", Label: "Bubblewrap", Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", Description: "Codex sandbox prerequisite"},
+	}
 }
 
 func shellQuote(value string) string {
@@ -768,6 +912,7 @@ func listFiles(root string, limit int) []FileEntry {
 			Type:  fileType,
 			Size:  info.Size(),
 			MTime: info.ModTime().Format(time.RFC3339),
+			Mode:  info.Mode().Perm().String(),
 		})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })

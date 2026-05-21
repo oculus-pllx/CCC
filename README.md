@@ -181,17 +181,7 @@ Display effects are local browser preferences. Monitor flicker is enabled by def
 
 ## Current Roadmap
 
-- File uploads and downloads
-- Webmin-style file manager cleanup
-- Persistent notes
-- Better project handling, including adding existing directories
-- Larger/adjustable terminal and tmux quick controls
-- Map drives wizard
-- App catalog / recommended tool visibility
-- Codex device authorization flow
-- Time, timezone, and location settings
-- Live dashboard gauge updates without full section repaint
-- Sidebar/menu polish
+The original GUI punchlist has been implemented. Future work should come from fresh issues or field testing notes.
 
 ---
 

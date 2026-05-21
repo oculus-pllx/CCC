@@ -164,6 +164,10 @@ require_file_contains container-code-companion/web/app.js "uploadCurrentDirector
 require_file_contains container-code-companion/web/app.js "downloadCurrentFile"
 require_file_contains container-code-companion/web/app.js "file-upload-input"
 require_file_contains container-code-companion/web/app.js "file-download-button"
+require_file_contains container-code-companion/web/app.js "file-copy-button"
+require_file_contains container-code-companion/web/app.js "file-chmod-button"
+require_file_contains container-code-companion/web/app.js "copyCurrentFile"
+require_file_contains container-code-companion/web/app.js "chmodCurrentFile"
 require_file_contains container-code-companion/web/app.js "selectedFilePath"
 require_file_contains container-code-companion/web/app.js "renderFileBreadcrumbs"
 require_file_contains container-code-companion/web/app.js "file-breadcrumbs"
@@ -223,8 +227,16 @@ require_file_contains container-code-companion/web/app.js "existing-project-name
 require_file_contains container-code-companion/web/app.js "existing-project-path"
 require_file_contains container-code-companion/web/app.js "Add Existing Directory"
 require_file_contains container-code-companion/internal/system/management.go 'Path      string `json:"path"`'
+require_file_contains container-code-companion/internal/system/management.go 'Mode      string `json:"mode"`'
+require_file_contains container-code-companion/internal/system/management.go 'case "copy"'
+require_file_contains container-code-companion/internal/system/management.go 'case "chmod"'
 require_file_contains container-code-companion/internal/system/management.go 'case "add-existing"'
 require_file_contains container-code-companion/internal/system/management.go "os.Symlink"
+require_file_contains container-code-companion/internal/server/server.go "/api/tools"
+require_file_contains container-code-companion/internal/server/server.go "/api/drive"
+require_file_contains container-code-companion/internal/system/management.go "type ToolStatus struct"
+require_file_contains container-code-companion/internal/system/management.go "func CollectToolStatuses"
+require_file_contains container-code-companion/internal/system/management.go "func RunDriveOperation"
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"
 require_file_contains container-code-companion/web/app.js "data-nav-updates"
@@ -340,12 +352,24 @@ require_file_contains container-code-companion/web/app.js 'hexToRgb'
 # Task 4: Settings page
 require_file_contains container-code-companion/web/app.js 'renderSettings'
 require_file_contains container-code-companion/web/app.js 'bindSettings'
+require_file_contains container-code-companion/web/app.js 'renderAppCatalog'
+require_file_contains container-code-companion/web/app.js 'renderMapDrives'
+require_file_contains container-code-companion/web/app.js 'loadToolCatalog'
+require_file_contains container-code-companion/web/app.js 'mountDrive'
+require_file_contains container-code-companion/web/app.js '/api/tools'
+require_file_contains container-code-companion/web/app.js '/api/drive'
+require_file_contains container-code-companion/web/app.js 'data-tmux-command'
+require_file_contains container-code-companion/web/app.js 'tmux split-window -h'
+require_file_contains container-code-companion/web/app.js 'updateOverviewLive'
+require_file_contains container-code-companion/web/app.js 'updateGauge'
 require_file_contains container-code-companion/web/app.js 'settings-swatch'
 require_file_contains container-code-companion/web/app.js "settings: 'Settings'"
 require_file_contains container-code-companion/web/app.js 'DISPLAY_EFFECTS_STORAGE_KEY'
 require_file_contains container-code-companion/web/app.js 'ccc-display-effects'
 require_file_contains container-code-companion/web/app.js 'loadDisplayEffects'
 require_file_contains container-code-companion/web/app.js 'applyDisplayEffects'
+require_file_contains container-code-companion/web/styles.css '.tool-catalog'
+require_file_contains container-code-companion/web/styles.css '.drive-form'
 require_file_contains container-code-companion/web/app.js 'effect-flicker'
 require_file_contains container-code-companion/web/app.js 'effect-sync-drift'
 require_file_contains container-code-companion/web/app.js 'data-display-effect="flicker"'

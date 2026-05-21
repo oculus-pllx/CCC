@@ -71,3 +71,61 @@ func TestRunProjectOperationRejectsExistingProjectFilePath(t *testing.T) {
 		t.Fatal("expected file path to be rejected")
 	}
 }
+
+func TestRunFileOperationCopiesAndChangesMode(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source.txt")
+	target := filepath.Join(root, "target.txt")
+	if err := os.WriteFile(source, []byte("copy me"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	if _, err := RunFileOperation(FileOperation{Operation: "copy", Path: source, Target: target}); err != nil {
+		t.Fatalf("copy file: %v", err)
+	}
+	content, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read target: %v", err)
+	}
+	if string(content) != "copy me" {
+		t.Fatalf("expected copied content, got %q", string(content))
+	}
+
+	if _, err := RunFileOperation(FileOperation{Operation: "chmod", Path: target, Mode: "600"}); err != nil {
+		t.Fatalf("chmod file: %v", err)
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("stat target: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("expected mode 0600, got %v", info.Mode().Perm())
+	}
+}
+
+func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
+	for _, tool := range []string{"nodejs", "go", "playwright", "codex", "gh", "bubblewrap"} {
+		command, err := toolInstallCommand(tool)
+		if err != nil {
+			t.Fatalf("expected %s install operation to be allowed: %v", tool, err)
+		}
+		if command == "" {
+			t.Fatalf("expected %s install command", tool)
+		}
+	}
+	if _, err := toolInstallCommand("unknown"); err == nil {
+		t.Fatal("expected unknown tool to be rejected")
+	}
+}
+
+func TestRunDriveOperationRejectsUnsafeMountRequests(t *testing.T) {
+	_, err := RunDriveOperation(DriveOperation{
+		Operation:  "mount-cifs",
+		Name:       "../bad",
+		Remote:     "//server/share",
+		MountPoint: "/mnt/bad",
+	})
+	if err == nil {
+		t.Fatal("expected unsafe drive name to be rejected")
+	}
+}

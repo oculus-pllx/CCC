@@ -41,6 +41,9 @@ type Config struct {
 	DeleteNote       func(id string) error
 	TimeSettings     func() (system.TimeSettings, error)
 	SetTimezone      func(timezone string) (system.CommandResult, error)
+	ToolStatuses     func() []system.ToolStatus
+	ToolOperation    func(operation system.ToolOperation) (system.CommandResult, error)
+	DriveOperation   func(operation system.DriveOperation) (system.CommandResult, error)
 	SecureCookies    bool // set true when serving behind HTTPS
 }
 
@@ -69,6 +72,9 @@ type Server struct {
 	deleteNote       func(id string) error
 	timeSettings     func() (system.TimeSettings, error)
 	setTimezone      func(timezone string) (system.CommandResult, error)
+	toolStatuses     func() []system.ToolStatus
+	toolOperation    func(operation system.ToolOperation) (system.CommandResult, error)
+	driveOperation   func(operation system.DriveOperation) (system.CommandResult, error)
 	secureCookies    bool
 }
 
@@ -98,6 +104,9 @@ func New(config Config) *Server {
 		deleteNote:       config.DeleteNote,
 		timeSettings:     config.TimeSettings,
 		setTimezone:      config.SetTimezone,
+		toolStatuses:     config.ToolStatuses,
+		toolOperation:    config.ToolOperation,
+		driveOperation:   config.DriveOperation,
 		secureCookies:    config.SecureCookies,
 	}
 	if s.overview == nil {
@@ -157,6 +166,15 @@ func New(config Config) *Server {
 	if s.setTimezone == nil {
 		s.setTimezone = system.SetTimezone
 	}
+	if s.toolStatuses == nil {
+		s.toolStatuses = system.CollectToolStatuses
+	}
+	if s.toolOperation == nil {
+		s.toolOperation = system.RunToolOperation
+	}
+	if s.driveOperation == nil {
+		s.driveOperation = system.RunDriveOperation
+	}
 	s.routes()
 	return s
 }
@@ -186,6 +204,8 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/network-activity", s.requireSession(http.HandlerFunc(s.handleNetworkActivity)))
 	s.mux.Handle("/api/notes", s.requireSession(http.HandlerFunc(s.handleNotes)))
 	s.mux.Handle("/api/time-settings", s.requireSession(http.HandlerFunc(s.handleTimeSettings)))
+	s.mux.Handle("/api/tools", s.requireSession(http.HandlerFunc(s.handleTools)))
+	s.mux.Handle("/api/drive", s.requireSession(http.HandlerFunc(s.handleDrive)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
 	s.mux.Handle("/", s.staticHandler())
 }
@@ -596,6 +616,45 @@ func (s *Server) handleTimeSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) handleTools(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, map[string]any{"tools": s.toolStatuses()})
+	case http.MethodPost:
+		var body system.ToolOperation
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid tool request", http.StatusBadRequest)
+			return
+		}
+		result, err := s.toolOperation(body)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "output": result.Output})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleDrive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body system.DriveOperation
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid drive request", http.StatusBadRequest)
+		return
+	}
+	result, err := s.driveOperation(body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "output": result.Output})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleGitHub(w http.ResponseWriter, r *http.Request) {

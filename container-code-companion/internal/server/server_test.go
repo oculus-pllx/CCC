@@ -520,6 +520,75 @@ func TestProtectedTimeSettingsReturnsAndUpdatesTimezone(t *testing.T) {
 	}
 }
 
+func TestProtectedToolsReturnsStatusAndRunsInstall(t *testing.T) {
+	installedTool := ""
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		ToolStatuses: func() []system.ToolStatus {
+			return []system.ToolStatus{{Name: "bubblewrap", Label: "Bubblewrap", Installed: false}}
+		},
+		ToolOperation: func(operation system.ToolOperation) (system.CommandResult, error) {
+			installedTool = operation.Tool
+			return system.CommandResult{Command: "install " + operation.Tool, Output: "install queued"}, nil
+		},
+	})
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/tools", nil)
+	getReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	getRes := httptest.NewRecorder()
+	srv.ServeHTTP(getRes, getReq)
+
+	if getRes.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", getRes.Code, getRes.Body.String())
+	}
+	if !strings.Contains(getRes.Body.String(), "bubblewrap") {
+		t.Fatalf("expected tool status, got %q", getRes.Body.String())
+	}
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/tools", strings.NewReader(`{"operation":"install","tool":"bubblewrap"}`))
+	postReq.Header.Set("Content-Type", "application/json")
+	postReq.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	postRes := httptest.NewRecorder()
+	srv.ServeHTTP(postRes, postReq)
+
+	if postRes.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", postRes.Code, postRes.Body.String())
+	}
+	if installedTool != "bubblewrap" {
+		t.Fatalf("expected bubblewrap install, got %q", installedTool)
+	}
+}
+
+func TestProtectedDriveOperationRunsConfiguredOperator(t *testing.T) {
+	var received system.DriveOperation
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		DriveOperation: func(operation system.DriveOperation) (system.CommandResult, error) {
+			received = operation
+			return system.CommandResult{Command: "mount", Output: "mounted"}, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/drive", strings.NewReader(`{"operation":"mount-cifs","name":"share","remote":"//server/share","mountPoint":"/mnt/share"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if received.Name != "share" || received.Remote != "//server/share" {
+		t.Fatalf("expected drive operation payload, got %#v", received)
+	}
+}
+
 func TestProtectedNotesLifecycleUsesConfiguredStore(t *testing.T) {
 	notes := []system.Note{}
 	srv := New(Config{

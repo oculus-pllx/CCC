@@ -117,7 +117,11 @@ async function pollSnapshot() {
   snapshot = data;
   setSignedIn(true);
   if (currentSection === 'updates' || currentSection === 'overview') {
-    renderSection(currentSection);
+    if (currentSection === 'overview') {
+      updateOverviewLive();
+    } else {
+      renderSection(currentSection);
+    }
   }
 }
 
@@ -276,9 +280,9 @@ function renderOverview() {
       </section>
 
       <section class="gauge-grid">
-        ${gauge('CPU Load', cpuPercent, `${formatLoad(data.load)} · ${data.cpu?.cores || 1} cores`)}
-        ${gauge('Memory', data.memory?.usedPercent, `${formatBytes(usedBytes(data.memory))} / ${formatBytes(data.memory?.totalBytes || 0)}`)}
-        ${gauge('Disk', data.disk?.usedPercent, `${formatBytes(data.disk?.usedBytes || 0)} / ${formatBytes(data.disk?.totalBytes || 0)} on ${data.disk?.mount || '/'}`)}
+        ${gauge('CPU Load', cpuPercent, `${formatLoad(data.load)} · ${data.cpu?.cores || 1} cores`, 'cpu')}
+        ${gauge('Memory', data.memory?.usedPercent, `${formatBytes(usedBytes(data.memory))} / ${formatBytes(data.memory?.totalBytes || 0)}`, 'memory')}
+        ${gauge('Disk', data.disk?.usedPercent, `${formatBytes(data.disk?.usedBytes || 0)} / ${formatBytes(data.disk?.totalBytes || 0)} on ${data.disk?.mount || '/'}`, 'disk')}
       </section>
 
       <section class="dashboard-grid">
@@ -405,7 +409,9 @@ function renderFiles() {
         <label class="small-button file-upload-label" for="file-upload-input">Upload</label>
         <input id="file-upload-input" type="file" hidden>
         <button id="file-download-button" class="small-button">Download</button>
+        <button id="file-copy-button" class="small-button">Copy</button>
         <button id="file-rename-button" class="small-button">Rename</button>
+        <button id="file-chmod-button" class="small-button">chmod</button>
         <button id="file-delete-button" class="small-button danger-button">Delete</button>
       </div>
     </div>
@@ -556,6 +562,11 @@ function renderTerminal() {
       <button id="terminal-connect" class="small-button">Connect</button>
       <button id="terminal-disconnect" class="small-button">Disconnect</button>
       <button id="terminal-tmux" class="small-button">tmux</button>
+      <button class="small-button" data-tmux-command="tmux new-session -A -s work">Attach</button>
+      <button class="small-button" data-tmux-command="tmux split-window -h">Split</button>
+      <button class="small-button" data-tmux-command="tmux detach-client">Detach</button>
+      <button class="small-button" data-tmux-command="tmux list-sessions">List</button>
+      <button class="small-button" data-tmux-command="tmux copy-mode">Scroll</button>
       <span id="terminal-status">${escapeHTML(activeTerminalTab()?.status || 'Disconnected')}</span>
     </div>
     <div class="terminal-size-control">
@@ -694,6 +705,8 @@ function renderSettings() {
       </div>
     </div>
     ${renderTimeSettings()}
+    ${renderAppCatalog()}
+    ${renderMapDrives()}
     <div class="settings-section">
       <h3>Display Effects</h3>
       <div class="settings-toggle-grid">
@@ -735,6 +748,33 @@ function renderTimeSettings() {
   `;
 }
 
+function renderAppCatalog() {
+  return `
+    <div class="settings-section settings-section-wide">
+      <h3>App Catalog</h3>
+      <div id="tool-catalog" class="tool-catalog">Loading tool status...</div>
+      <pre id="tool-output" class="output" hidden></pre>
+    </div>
+  `;
+}
+
+function renderMapDrives() {
+  return `
+    <div class="settings-section settings-section-wide">
+      <h3>Map Drives</h3>
+      <div class="drive-form">
+        <input id="drive-name" type="text" placeholder="share-name">
+        <input id="drive-remote" type="text" placeholder="//server/share">
+        <input id="drive-mount-point" type="text" placeholder="/mnt/share-name">
+        <input id="drive-username" type="text" placeholder="username">
+        <input id="drive-password" type="password" placeholder="password">
+        <button id="drive-mount-button" class="small-button">Mount CIFS</button>
+      </div>
+      <pre id="drive-output" class="output" hidden></pre>
+    </div>
+  `;
+}
+
 function bindSettings() {
   document.querySelectorAll('[data-theme]').forEach(button => {
     button.addEventListener('click', () => {
@@ -750,6 +790,8 @@ function bindSettings() {
     });
   });
   bindTimeSettings();
+  bindToolCatalog();
+  bindMapDrives();
 }
 
 function bindTimeSettings() {
@@ -787,6 +829,73 @@ async function saveTimezone() {
     const result = await postJSON('/api/time-settings', { timezone });
     output.textContent = result.output || 'timezone updated';
     await loadTimeSettings();
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+function bindToolCatalog() {
+  document.getElementById('tool-catalog')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-tool-install]');
+    if (button) installTool(button.dataset.toolInstall);
+  });
+  loadToolCatalog();
+}
+
+async function loadToolCatalog() {
+  const panel = document.getElementById('tool-catalog');
+  if (!panel) return;
+  try {
+    const response = await fetch('/api/tools', { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
+    panel.innerHTML = (data.tools || []).map(tool => `
+      <section class="tool-row">
+        <div>
+          <strong>${escapeHTML(tool.label || tool.name)}</strong>
+          <p>${escapeHTML(tool.description || '')}</p>
+          <span class="${tool.installed ? 'ok-text' : 'warn-text'}">${tool.installed ? escapeHTML(tool.version || 'installed') : 'missing'}</span>
+        </div>
+        <button class="small-button" data-tool-install="${escapeAttribute(tool.name)}">${tool.installed ? 'Update' : 'Install'}</button>
+      </section>
+    `).join('');
+  } catch (error) {
+    panel.textContent = error.message;
+  }
+}
+
+async function installTool(tool) {
+  const output = document.getElementById('tool-output');
+  output.hidden = false;
+  output.textContent = `Installing ${tool}...`;
+  try {
+    const result = await postJSON('/api/tools', { operation: 'install', tool });
+    output.textContent = result.output || result.command || 'install command completed';
+    await loadToolCatalog();
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+function bindMapDrives() {
+  document.getElementById('drive-mount-button')?.addEventListener('click', mountDrive);
+}
+
+async function mountDrive() {
+  const output = document.getElementById('drive-output');
+  output.hidden = false;
+  output.textContent = 'Mounting drive...';
+  const payload = {
+    operation: 'mount-cifs',
+    name: document.getElementById('drive-name').value.trim(),
+    remote: document.getElementById('drive-remote').value.trim(),
+    mountPoint: document.getElementById('drive-mount-point').value.trim(),
+    username: document.getElementById('drive-username').value.trim(),
+    password: document.getElementById('drive-password').value,
+  };
+  try {
+    const result = await postJSON('/api/drive', payload);
+    output.textContent = result.output || 'mounted';
   } catch (error) {
     output.textContent = error.message;
   }
@@ -1243,6 +1352,8 @@ function bindFileBrowser() {
   document.getElementById('file-new-file-button')?.addEventListener('click', () => createFileEntry('file'));
   document.getElementById('file-new-folder-button')?.addEventListener('click', () => createFileEntry('dir'));
   document.getElementById('file-rename-button')?.addEventListener('click', renameCurrentFile);
+  document.getElementById('file-copy-button')?.addEventListener('click', copyCurrentFile);
+  document.getElementById('file-chmod-button')?.addEventListener('click', chmodCurrentFile);
   document.getElementById('file-delete-button')?.addEventListener('click', deleteCurrentFile);
   document.getElementById('file-upload-input')?.addEventListener('change', uploadCurrentDirectory);
   document.getElementById('file-download-button')?.addEventListener('click', downloadCurrentFile);
@@ -1293,7 +1404,7 @@ async function loadFiles(path) {
 function renderFileEntry(entry) {
   const isDir = entry.type === 'dir';
   return `
-    <button class="file-entry ${isDir ? 'directory' : 'regular-file'}" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}" data-name="${escapeAttribute(entry.name)}" data-size="${escapeAttribute(formatBytes(entry.size))}" data-mtime="${escapeAttribute(entry.mtime || '')}">
+    <button class="file-entry ${isDir ? 'directory' : 'regular-file'}" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}" data-name="${escapeAttribute(entry.name)}" data-size="${escapeAttribute(formatBytes(entry.size))}" data-mtime="${escapeAttribute(entry.mtime || '')}" data-mode="${escapeAttribute(entry.mode || '')}">
       <span class="file-entry-icon">${isDir ? 'DIR' : 'FILE'}</span>
       <strong>${escapeHTML(entry.name)}</strong>
       <small>${isDir ? '-' : escapeHTML(formatBytes(entry.size))}</small>
@@ -1320,7 +1431,7 @@ function updateSelectedFileDetail(button) {
     detail.textContent = 'No file selected';
     return;
   }
-  detail.textContent = `${button.dataset.name || 'Selected'} · ${button.dataset.size || '0 B'} · ${button.dataset.mtime || 'no timestamp'}`;
+  detail.textContent = `${button.dataset.name || 'Selected'} · ${button.dataset.size || '0 B'} · ${button.dataset.mode || 'mode unknown'} · ${button.dataset.mtime || 'no timestamp'}`;
 }
 
 async function openFile(path) {
@@ -1432,6 +1543,40 @@ async function renameCurrentFile() {
   }
 }
 
+async function copyCurrentFile() {
+  const path = selectedFilePath || document.getElementById('current-file').value;
+  if (!path) return;
+  const target = prompt('Copy to path', `${path}.copy`);
+  if (!target || target === path) return;
+  const output = document.getElementById('file-output');
+  output.hidden = false;
+  output.textContent = 'Copying...';
+  try {
+    const result = await postJSON('/api/file-op', { operation: 'copy', path, target });
+    output.textContent = result.output || 'copied';
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
+async function chmodCurrentFile() {
+  const path = selectedFilePath || document.getElementById('current-file').value;
+  if (!path) return;
+  const mode = prompt('Permissions mode', '644');
+  if (!mode) return;
+  const output = document.getElementById('file-output');
+  output.hidden = false;
+  output.textContent = 'Updating permissions...';
+  try {
+    const result = await postJSON('/api/file-op', { operation: 'chmod', path, mode });
+    output.textContent = result.output || 'permissions updated';
+    await loadFiles(filePath);
+  } catch (error) {
+    output.textContent = error.message;
+  }
+}
+
 async function deleteCurrentFile() {
   const path = selectedFilePath || document.getElementById('current-file').value;
   if (!path || !confirm(`Delete ${path}?`)) return;
@@ -1461,6 +1606,9 @@ function bindTerminal() {
   document.getElementById('terminal-connect').addEventListener('click', connectTerminal);
   document.getElementById('terminal-disconnect').addEventListener('click', disconnectTerminal);
   document.getElementById('terminal-tmux').addEventListener('click', () => sendTerminalInput('tmux\n'));
+  document.querySelectorAll('[data-tmux-command]').forEach(button => {
+    button.addEventListener('click', () => sendTerminalInput(`${button.dataset.tmuxCommand}\n`));
+  });
   document.getElementById('terminal-raw-send').addEventListener('click', () => {
     const input = document.getElementById('terminal-raw-input');
     sendTerminalInput(`${input.value}\n`);
@@ -2039,19 +2187,37 @@ function formatOSPackageStatus(text) {
   return lines.join('\n');
 }
 
-function gauge(label, value, detail) {
+function gauge(label, value, detail, key = '') {
   const percent = clampPercent(value);
   return `
-    <div class="gauge-card">
+    <div class="gauge-card" data-gauge-card="${escapeAttribute(key)}">
       <div class="gauge" style="--value:${percent}">
         <div class="gauge-inner">
-          <strong>${Number.isFinite(percent) ? percent.toFixed(0) : 0}%</strong>
+          <strong data-gauge-value="${escapeAttribute(key)}">${Number.isFinite(percent) ? percent.toFixed(0) : 0}%</strong>
           <span>${escapeHTML(label)}</span>
         </div>
       </div>
-      <p>${escapeHTML(detail || '')}</p>
+      <p data-gauge-detail="${escapeAttribute(key)}">${escapeHTML(detail || '')}</p>
     </div>
   `;
+}
+
+function updateOverviewLive() {
+  if (!snapshot?.overview) return;
+  const data = snapshot.overview;
+  updateGauge('cpu', loadPercent(data.load?.one, data.cpu?.cores), `${formatLoad(data.load)} · ${data.cpu?.cores || 1} cores`);
+  updateGauge('memory', data.memory?.usedPercent, `${formatBytes(usedBytes(data.memory))} / ${formatBytes(data.memory?.totalBytes || 0)}`);
+  updateGauge('disk', data.disk?.usedPercent, `${formatBytes(data.disk?.usedBytes || 0)} / ${formatBytes(data.disk?.totalBytes || 0)} on ${data.disk?.mount || '/'}`);
+}
+
+function updateGauge(key, value, detail) {
+  const percent = clampPercent(value);
+  const card = document.querySelector(`[data-gauge-card="${key}"] .gauge`);
+  const label = document.querySelector(`[data-gauge-value="${key}"]`);
+  const detailEl = document.querySelector(`[data-gauge-detail="${key}"]`);
+  if (card) card.style.setProperty('--value', percent);
+  if (label) label.textContent = `${Number.isFinite(percent) ? percent.toFixed(0) : 0}%`;
+  if (detailEl) detailEl.textContent = detail || '';
 }
 
 function animateGauges() {
