@@ -584,10 +584,30 @@ func RunDriveOperation(operation DriveOperation) (CommandResult, error) {
 			options += ",password=" + operation.Password
 		}
 		command := "sudo mkdir -p " + shellQuote(mountPoint) + " && sudo mount -t cifs " + shellQuote(operation.Remote) + " " + shellQuote(mountPoint) + " -o " + shellQuote(options)
-		return RunShellCommand(command, workstationHome())
+		result, err := RunShellCommand(command, workstationHome())
+		if err != nil {
+			return result, err
+		}
+		if result.ExitCode != 0 {
+			result.Output = explainDriveMountFailure(result.Output)
+			return result, errors.New("drive mount failed")
+		}
+		return result, nil
 	default:
 		return CommandResult{}, fmt.Errorf("drive operation %q is not allowed", operation.Operation)
 	}
+}
+
+func explainDriveMountFailure(output string) string {
+	text := strings.TrimSpace(output)
+	lower := strings.ToLower(text)
+	if strings.Contains(lower, "permission denied") {
+		text += "\n\nLXC mount note: CIFS mounts require mount capability from the Proxmox host/container configuration. If this is an unprivileged LXC, update the container options on the Proxmox side or mount the share on the host and bind-mount it into the container. The GUI cannot grant kernel mount permission from inside the container."
+	}
+	if strings.Contains(lower, "unknown filesystem type") || strings.Contains(lower, "bad option") {
+		text += "\n\nCIFS note: make sure cifs-utils is installed in the container and the Proxmox host supports the CIFS mount."
+	}
+	return text
 }
 
 func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {

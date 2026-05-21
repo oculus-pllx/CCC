@@ -788,6 +788,7 @@ function renderMapDrives() {
         <button id="drive-mount-button" class="small-button">Mount CIFS</button>
       </div>
       <p class="section-description">Mounted drives appear at the mount point above. If left blank, the backend uses /mnt/&lt;share-name&gt;; open that path from Files to browse it.</p>
+      <p class="section-description">For Proxmox LXC containers, CIFS mounts require the container to be allowed to mount filesystems from the Proxmox side. If the mount fails with permission denied, adjust the container configuration on the host or mount the share on Proxmox and bind-mount it into the container.</p>
       <pre id="drive-output" class="output" hidden></pre>
     </div>
   `;

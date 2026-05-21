@@ -255,6 +255,9 @@ require_file_not_contains container-code-companion/internal/system/management.go
 require_file_contains container-code-companion/internal/system/management.go 'Name: "aider"'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "ripgrep"'
 require_file_contains container-code-companion/internal/system/management.go "func RunDriveOperation"
+require_file_contains container-code-companion/internal/system/management.go "func explainDriveMountFailure"
+require_file_contains container-code-companion/internal/system/management.go "LXC mount note"
+require_file_contains container-code-companion/internal/system/management.go "drive mount failed"
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"
 require_file_contains container-code-companion/web/app.js "data-nav-updates"
@@ -390,6 +393,8 @@ require_file_contains container-code-companion/web/app.js 'tool.updateStatus'
 require_file_contains container-code-companion/web/app.js 'tool.updateAvailable'
 require_file_not_contains container-code-companion/web/app.js "panel.textContent = 'Checking installed tools and updates...'"
 require_file_contains container-code-companion/web/app.js 'mountDrive'
+require_file_contains container-code-companion/web/app.js 'For Proxmox LXC containers'
+require_file_contains container-code-companion/web/app.js 'mount fails with permission denied'
 require_file_contains container-code-companion/web/app.js '/api/tools'
 require_file_contains container-code-companion/web/app.js '/api/drive'
 require_file_contains container-code-companion/web/app.js 'data-tmux-command'

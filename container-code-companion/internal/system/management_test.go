@@ -160,3 +160,13 @@ func TestRunDriveOperationRejectsUnsafeMountRequests(t *testing.T) {
 		t.Fatal("expected unsafe drive name to be rejected")
 	}
 }
+
+func TestExplainDriveMountFailureAddsLXCContext(t *testing.T) {
+	output := explainDriveMountFailure("mount: /mnt/share: permission denied.")
+	if !strings.Contains(output, "LXC mount note") {
+		t.Fatalf("expected LXC context for permission denied mount, got %q", output)
+	}
+	if !strings.Contains(output, "Proxmox host") {
+		t.Fatalf("expected Proxmox host guidance, got %q", output)
+	}
+}
