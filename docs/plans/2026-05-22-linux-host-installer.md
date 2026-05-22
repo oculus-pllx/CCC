@@ -27,7 +27,7 @@
 - Create: `install/ccc-provision-workstation.sh`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Write failing static checks for the shared provisioner contract**
+- [x] **Step 1: Write failing static checks for the shared provisioner contract**
 
 Add checks near the existing bootstrap checks in `tests/container-code-companion-static.sh`:
 
@@ -44,7 +44,7 @@ require_file_contains install/ccc-provision-workstation.sh 'proxmox-lxc|linux-ho
 bash -n install/ccc-provision-workstation.sh
 ```
 
-- [ ] **Step 2: Run the static test and confirm the new contract fails**
+- [x] **Step 2: Run the static test and confirm the new contract fails**
 
 Run:
 
@@ -54,7 +54,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: failure stating `install/ccc-provision-workstation.sh` is missing.
 
-- [ ] **Step 3: Create the provisioner header and mode validation**
+- [x] **Step 3: Create the provisioner header and mode validation**
 
 Create `install/ccc-provision-workstation.sh` with the contract first:
 
@@ -100,7 +100,7 @@ EOF
 }
 ```
 
-- [ ] **Step 4: Run syntax/static checks for the scaffold**
+- [x] **Step 4: Run syntax/static checks for the scaffold**
 
 Run:
 

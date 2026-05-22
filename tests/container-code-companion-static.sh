@@ -26,6 +26,16 @@ if git grep -n "$legacy_bootstrap" -- . ':!container-code-companion/web/vendor/*
 fi
 [[ -f ccc-bootstrap.sh ]] || fail "missing ccc-bootstrap.sh"
 [[ ! -e "${legacy_bootstrap}.sh" ]] || fail "legacy bootstrap file still exists"
+[[ -f install/ccc-provision-workstation.sh ]] || fail "missing shared workstation provisioner"
+require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALL_MODE="${CCC_INSTALL_MODE:?'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER:?'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_HOME="${CCC_HOME:?'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:?'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-workstation}"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALL_MODE="$CCC_INSTALL_MODE"'
+require_file_contains install/ccc-provision-workstation.sh 'case "$CCC_INSTALL_MODE" in'
+require_file_contains install/ccc-provision-workstation.sh 'proxmox-lxc|linux-host)'
+bash -n install/ccc-provision-workstation.sh
 
 legacy_product='agent-''workstation'
 if git grep -n "$legacy_product" -- . ':!container-code-companion/web/vendor/*'; then
