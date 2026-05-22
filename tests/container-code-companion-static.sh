@@ -60,6 +60,10 @@ fi
 
 require_file_contains ccc-bootstrap.sh "Container Code Companion"
 require_file_contains README.md "Container Code Companion"
+require_file_contains README.md "New Proxmox LXC"
+require_file_contains README.md "Existing Debian or Ubuntu"
+require_file_contains README.md "ccc-install-linux.sh"
+require_file_contains README.md "does not change host networking or SSH hardening"
 require_file_contains LICENSE "MIT License"
 require_file_contains LICENSE "Copyright (c) 2026 Parallax Group"
 require_file_contains container-code-companion/web/index.html "Container Code Companion"

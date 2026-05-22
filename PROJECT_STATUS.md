@@ -5,10 +5,11 @@ Branch: `main`
 
 ## Current State
 
-Container Code Companion is functional for LXC workstation provisioning and day-to-day use.
+Container Code Companion is functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, and day-to-day use.
 
 Recent work completed:
 - Rebranded the project as Container Code Companion with Parallax Group branding.
+- Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 - Rebuilt the native Go web UI around workstation workflows instead of Cockpit-style remnants.
 - Added a real login page, mobile drawer navigation, footer branding, theme controls, and optional CRT effects.
 - Split App and OS updates into clear tabs with streamed app self-update output.
@@ -36,6 +37,3 @@ Current verification set:
 ## Next Work
 
 The original GUI punchlist is complete. New work should come from fresh field testing, user issues, or explicit feature requests.
-
-Tracked follow-up:
-- Design a non-LXC Linux installer that can be run on an existing Linux machine and installs the CCC workstation stack without creating a Proxmox container.

@@ -1,21 +1,28 @@
 # Container Code Companion
 
-Container Code Companion by Parallax Group is a Proxmox LXC provisioner that creates a lean, headless dev workstation for Claude Code, OpenAI Codex, and Gemini CLI. No desktop GUI, no Docker, no bloat. Everything is installed into a browser-accessible, CLI-first Linux container.
+Container Code Companion by Parallax Group builds a lean, browser-accessible, CLI-first dev workstation for Claude Code, OpenAI Codex, Gemini-ready configs, and the shared `oculus-configs` integration. It can create a new Proxmox LXC workstation or install the CCC workstation stack onto an existing Debian or Ubuntu machine.
 
 Parallax Group: [pllx.group](https://pllx.group)
 
-> Built on [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) — free, open-source server virtualization (community edition).
+| I want to... | Supported path |
+|---|---|
+| Create a **New Proxmox LXC** workstation | Run `ccc-bootstrap.sh` on the Proxmox host |
+| Install CCC on **Existing Debian or Ubuntu** Linux | Run `ccc-install-linux.sh` on that Linux machine |
 
 ```bash
+# New Proxmox LXC
 bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-bootstrap.sh)
+
+# Existing Debian or Ubuntu Linux host
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-install-linux.sh)
 ```
 
 ---
 
 ## What You Get
 
-- **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** in a Proxmox LXC container
-- **Non-root `claude-code` user** with passwordless sudo
+- **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** Proxmox LXC path, plus an existing Debian/Ubuntu Linux-host installer
+- **Non-root working user** — `claude-code` in the LXC path, current user or an optional dedicated CCC user on existing Linux
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
 - **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
@@ -27,8 +34,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
-- **SSH hardened** — root login disabled, key auth ready
-- **IPv6 disabled** — avoids apt/curl failures in containers without IPv6 routing
+- **SSH hardened LXC path** — root login disabled, key auth ready
+- **LXC IPv6 workaround** — avoids apt/curl failures in containers without IPv6 routing
 - **Optional Proxmox HA** — register with `ha-manager` at provision time (cluster only)
 - **oculus-configs** — shared Claude/Codex/Gemini config, rules, skills, and templates synced from [oculus-configs](https://github.com/oculus-pllx/oculus-configs)
 - **Zero Docker** — pure native toolchain, minimal overhead
@@ -38,14 +45,24 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 
 ## Requirements
 
+For a new Proxmox LXC:
+
 - Proxmox VE 8.x+ host
 - Run as root on the Proxmox host
 - Internet access from the host and container
 - Recommended: 4 vCPU / 10GB RAM / 30GB disk
 
+For an existing Linux host:
+
+- Debian or Ubuntu with `sudo` access
+- Internet access for package and GitHub downloads
+- A user that should own CCC, or permission to create a dedicated CCC user
+
 ---
 
 ## Install
+
+### New Proxmox LXC
 
 SSH into your Proxmox host as root and run:
 
@@ -88,6 +105,16 @@ After OS selection, the script checks:
 2. Direct reachability of the apt mirror (`archive.ubuntu.com` or `deb.debian.org`) — prompts to abort if unreachable
 
 Provisioning takes **10–15 minutes**. Each of the 29 steps prints `[N/29]` progress, and the host prints elapsed time every 30 seconds so you can tell it's still running.
+
+### Existing Debian or Ubuntu
+
+Run this on the Debian or Ubuntu machine that should host CCC:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-install-linux.sh)
+```
+
+The Linux-host installer installs CCC services, code-server, baseline dev tools, and required `oculus-configs` integration. It asks whether CCC should use the current user or a dedicated CCC user. It does not change host networking or SSH hardening policy.
 
 ---
 

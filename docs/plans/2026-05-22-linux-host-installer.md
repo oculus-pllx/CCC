@@ -570,7 +570,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: all commands exit `0`.
 
-- [ ] **Step 6: Commit mode-aware drive guidance**
+- [x] **Step 6: Commit mode-aware drive guidance**
 
 ```bash
 git add container-code-companion/internal/system/management.go container-code-companion/internal/system/management_test.go tests/container-code-companion-static.sh
@@ -584,7 +584,7 @@ git commit -m "fix(drives): vary mount guidance by install mode"
 - Modify: `PROJECT_STATUS.md`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add failing README expectations**
+- [x] **Step 1: Add failing README expectations**
 
 Add:
 
@@ -595,7 +595,7 @@ require_file_contains README.md "ccc-install-linux.sh"
 require_file_contains README.md "does not change host networking or SSH hardening"
 ```
 
-- [ ] **Step 2: Run the static suite and confirm the README checks fail**
+- [x] **Step 2: Run the static suite and confirm the README checks fail**
 
 Run:
 
@@ -606,7 +606,7 @@ bash tests/container-code-companion-static.sh
 Expected: failure because the README still describes CCC only as a Proxmox LXC
 provisioner at the top.
 
-- [ ] **Step 3: Rewrite the README opening and install section**
+- [x] **Step 3: Rewrite the README opening and install section**
 
 Replace the Proxmox-only opening with:
 
@@ -637,7 +637,7 @@ SSH hardening policy.
 
 Keep the existing Proxmox prompts under a Proxmox-specific install subsection.
 
-- [ ] **Step 4: Update project status**
+- [x] **Step 4: Update project status**
 
 Replace the current tracked follow-up in `PROJECT_STATUS.md` with a completed
 note:
@@ -646,7 +646,7 @@ note:
 - Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 ```
 
-- [ ] **Step 5: Run docs/static checks**
+- [x] **Step 5: Run docs/static checks**
 
 Run:
 
