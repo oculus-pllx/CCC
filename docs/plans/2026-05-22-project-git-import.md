@@ -373,7 +373,7 @@ Run:
 
 Expected: project operation tests pass.
 
-- [ ] **Step 7: Commit clone/pull operations**
+- [x] **Step 7: Commit clone/pull operations**
 
 ```bash
 git add container-code-companion/internal/system/management.go container-code-companion/internal/system/management_test.go
@@ -386,7 +386,7 @@ git commit -m "feat(projects): clone and pull git repos"
 - Modify: `container-code-companion/internal/system/management.go`
 - Test: `container-code-companion/internal/system/management_test.go`
 
-- [ ] **Step 1: Write failing metadata test**
+- [x] **Step 1: Write failing metadata test**
 
 Add:
 
@@ -405,7 +405,7 @@ func TestCollectProjectsMarksGitProjects(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run metadata test red**
+- [x] **Step 2: Run metadata test red**
 
 Run:
 
@@ -415,7 +415,7 @@ Run:
 
 Expected: build failure because `GitRepo` does not exist.
 
-- [ ] **Step 3: Add Git repo and remote metadata**
+- [x] **Step 3: Add Git repo and remote metadata**
 
 Extend `ProjectStatus`:
 
@@ -438,7 +438,7 @@ projects = append(projects, ProjectStatus{
 })
 ```
 
-- [ ] **Step 4: Run metadata and full system tests**
+- [x] **Step 4: Run metadata and full system tests**
 
 Run:
 

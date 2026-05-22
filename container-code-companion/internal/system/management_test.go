@@ -143,6 +143,19 @@ func TestRunProjectOperationPullsFastForwardGitProject(t *testing.T) {
 	}
 }
 
+func TestCollectProjectsMarksGitProjects(t *testing.T) {
+	home := t.TempDir()
+	project := filepath.Join(home, "projects", "demo")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	runGitTestCommand(t, project, "init")
+	projects := collectProjects(filepath.Join(home, "projects"))
+	if len(projects) != 1 || !projects[0].GitRepo {
+		t.Fatalf("expected Git project metadata, got %#v", projects)
+	}
+}
+
 func runGitTestCommand(t *testing.T, cwd string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

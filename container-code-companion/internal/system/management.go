@@ -109,7 +109,9 @@ type UpdateStatus struct {
 type ProjectStatus struct {
 	Name      string `json:"name"`
 	Path      string `json:"path"`
+	GitRepo   bool   `json:"gitRepo"`
 	GitBranch string `json:"gitBranch"`
+	GitRemote string `json:"gitRemote"`
 	GitStatus string `json:"gitStatus"`
 }
 
@@ -1066,10 +1068,13 @@ func collectProjects(root string) []ProjectStatus {
 		if err != nil || !info.IsDir() {
 			continue
 		}
+		gitRepo := isGitWorktree(path)
 		projects = append(projects, ProjectStatus{
 			Name:      entry.Name(),
 			Path:      path,
+			GitRepo:   gitRepo,
 			GitBranch: gitText(path, "branch", "--show-current"),
+			GitRemote: sanitizeGitRemote(gitText(path, "remote", "get-url", "origin")),
 			GitStatus: gitText(path, "status", "--short", "--branch"),
 		})
 	}
