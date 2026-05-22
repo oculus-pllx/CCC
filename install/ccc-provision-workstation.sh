@@ -62,16 +62,24 @@ apt-get update -qq
 apt-get install -y -qq locales
 sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen
 locale-gen en_US.UTF-8 > /dev/null 2>&1
-update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
-ln -sf /usr/share/zoneinfo/America/New_York /etc/localtime
-echo "America/New_York" > /etc/timezone
-dpkg-reconfigure -f noninteractive tzdata
+if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
+  update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+  ln -sf /usr/share/zoneinfo/America/New_York /etc/localtime
+  echo "America/New_York" > /etc/timezone
+  dpkg-reconfigure -f noninteractive tzdata
+else
+  echo "    Existing host timezone left unchanged."
+fi
 
 # ── System update ─────────────────────────────────────────────────────────────
 step 2 "System update"
-apt-get upgrade -y -qq
+if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
+  apt-get upgrade -y -qq
+else
+  echo "    Existing host package upgrade left to the machine owner."
+fi
 
 # ── Core packages ─────────────────────────────────────────────────────────────
 step 3 "Core packages"
@@ -1339,7 +1347,11 @@ chmod +x /usr/local/bin/ccc-self-update
 
 # ── MOTD ─────────────────────────────────────────────────────────────────────
 step 25 "MOTD"
-chmod -x /etc/update-motd.d/* 2>/dev/null || true
+if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
+  chmod -x /etc/update-motd.d/* 2>/dev/null || true
+else
+  echo "    Existing host MOTD scripts left enabled."
+fi
 cat > /etc/update-motd.d/00-ccc << 'MOTD'
 #!/bin/bash
 G='\033[0;32m'; C='\033[0;36m'; B='\033[1m'; Y='\033[1;33m'; D='\033[2m'; N='\033[0m'

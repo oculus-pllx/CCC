@@ -657,7 +657,7 @@ git diff --check
 
 Expected: both commands exit `0`.
 
-- [ ] **Step 6: Commit docs**
+- [x] **Step 6: Commit docs**
 
 ```bash
 git add README.md PROJECT_STATUS.md tests/container-code-companion-static.sh
@@ -669,7 +669,7 @@ git commit -m "docs: explain linux host install path"
 **Files:**
 - Verify: all changed installer, Go, UI, and docs files
 
-- [ ] **Step 1: Run the repository verification set**
+- [x] **Step 1: Run the repository verification set**
 
 Run:
 
@@ -686,7 +686,7 @@ git diff --check
 
 Expected: all commands exit `0`.
 
-- [ ] **Step 2: Inspect the install-path diff**
+- [x] **Step 2: Inspect the install-path diff**
 
 Run:
 
@@ -700,7 +700,7 @@ Expected: the Linux installer grep for Proxmox/host-policy strings has no
 matches; install mode is present in both entrypoints, shared provisioner, and
 mode-aware Go logic.
 
-- [ ] **Step 3: Record field-test commands for fresh systems**
+- [x] **Step 3: Record field-test commands for fresh systems**
 
 Use fresh test systems for commands that make system changes:
 

@@ -185,6 +185,9 @@ require_file_contains install/ccc-provision-workstation.sh 'if [[ "$CCC_INSTALL_
 require_file_contains install/ccc-provision-workstation.sh 'if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-workstation}"'
 require_file_contains install/ccc-provision-workstation.sh 'systemctl enable "$CCC_CODE_SERVER_SERVICE"'
+require_file_contains install/ccc-provision-workstation.sh "Existing host timezone left unchanged."
+require_file_contains install/ccc-provision-workstation.sh "Existing host package upgrade left to the machine owner."
+require_file_contains install/ccc-provision-workstation.sh "Existing host MOTD scripts left enabled."
 require_file_contains ccc-bootstrap.sh 'stage_workstation_provisioner'
 require_file_contains ccc-bootstrap.sh '/tmp/ccc-provision-workstation.sh'
 require_file_contains ccc-bootstrap.sh 'CCC_INSTALL_MODE=proxmox-lxc'
