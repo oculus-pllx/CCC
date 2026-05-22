@@ -2,6 +2,7 @@ package system
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -98,6 +99,57 @@ func TestValidateGitRemoteRejectsCredentialedAndShellRemotes(t *testing.T) {
 		if _, err := validateGitRemote(remote); err == nil {
 			t.Fatalf("expected remote %q to be rejected", remote)
 		}
+	}
+}
+
+func TestRunProjectOperationRejectsCloneTargetCollision(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	target := filepath.Join(home, "projects", "CCC")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("create existing target: %v", err)
+	}
+	_, err := RunProjectOperation(ProjectOperation{
+		Operation: "clone",
+		Remote:    "https://github.com/oculus-pllx/CCC.git",
+	})
+	if err == nil || !strings.Contains(err.Error(), "project already exists") {
+		t.Fatalf("expected clone target collision, got %v", err)
+	}
+}
+
+func TestRunProjectOperationRejectsPullForNonGitProject(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, "projects", "plain"), 0o755); err != nil {
+		t.Fatalf("create plain project: %v", err)
+	}
+	if _, err := RunProjectOperation(ProjectOperation{Operation: "pull", Name: "plain"}); err == nil {
+		t.Fatal("expected non-Git project pull to fail")
+	}
+}
+
+func TestRunProjectOperationPullsFastForwardGitProject(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	project := filepath.Join(home, "projects", "demo")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	runGitTestCommand(t, project, "init")
+	result, _ := RunProjectOperation(ProjectOperation{Operation: "pull", Name: "demo"})
+	if !strings.Contains(result.Command, "git pull --ff-only") {
+		t.Fatalf("expected fast-forward pull command, got %#v", result)
+	}
+}
+
+func runGitTestCommand(t *testing.T, cwd string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = cwd
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
 	}
 }
 

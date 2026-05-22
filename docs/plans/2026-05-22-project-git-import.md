@@ -145,7 +145,7 @@ Run:
 
 Expected: both new tests pass.
 
-- [ ] **Step 6: Commit Git remote validation**
+- [x] **Step 6: Commit Git remote validation**
 
 ```bash
 git add container-code-companion/internal/system/management.go container-code-companion/internal/system/management_test.go
@@ -158,7 +158,7 @@ git commit -m "feat(projects): validate git remotes"
 - Modify: `container-code-companion/internal/system/management.go`
 - Test: `container-code-companion/internal/system/management_test.go`
 
-- [ ] **Step 1: Write failing clone target collision test**
+- [x] **Step 1: Write failing clone target collision test**
 
 Add:
 
@@ -180,7 +180,7 @@ func TestRunProjectOperationRejectsCloneTargetCollision(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write failing pull tests**
+- [x] **Step 2: Write failing pull tests**
 
 Add:
 
@@ -233,7 +233,7 @@ func runGitTestCommand(t *testing.T, cwd string, args ...string) {
 }
 ```
 
-- [ ] **Step 3: Run project-operation tests red**
+- [x] **Step 3: Run project-operation tests red**
 
 Run:
 
@@ -243,7 +243,7 @@ Run:
 
 Expected: failures because `clone` and `pull` operations are not allowed.
 
-- [ ] **Step 4: Implement clone and pull operations**
+- [x] **Step 4: Implement clone and pull operations**
 
 Extend `RunProjectOperation`:
 
@@ -319,7 +319,7 @@ func isGitWorktree(path string) bool {
 }
 ```
 
-- [ ] **Step 5: Add sanitized Git failure guidance**
+- [x] **Step 5: Add sanitized Git failure guidance**
 
 Add a helper that replaces credentialed output with sanitized output and appends
 guidance:
@@ -363,7 +363,7 @@ func sanitizeGitOutput(output string) string {
 }
 ```
 
-- [ ] **Step 6: Run system tests green**
+- [x] **Step 6: Run system tests green**
 
 Run:
 

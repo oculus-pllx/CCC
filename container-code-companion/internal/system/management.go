@@ -685,6 +685,53 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 			return CommandResult{}, err
 		}
 		return CommandResult{Command: "add-existing " + operation.Name, Output: "added " + operation.Name}, nil
+	case "clone":
+		remote, err := validateGitRemote(operation.Remote)
+		if err != nil {
+			return CommandResult{}, err
+		}
+		name := strings.TrimSpace(operation.Name)
+		if name == "" {
+			name, err = projectNameFromGitRemote(remote)
+			if err != nil {
+				return CommandResult{}, err
+			}
+		}
+		if !safeProjectName(name) {
+			return CommandResult{}, errors.New("invalid project name")
+		}
+		target := filepath.Join(projectsRoot, name)
+		if _, err := os.Lstat(target); err == nil {
+			return CommandResult{}, errors.New("project already exists")
+		} else if !os.IsNotExist(err) {
+			return CommandResult{}, err
+		}
+		result, err := RunShellCommand("git clone "+shellQuote(remote)+" "+shellQuote(target), projectsRoot)
+		result = explainProjectGitFailure(result, remote)
+		if err != nil {
+			return result, err
+		}
+		if result.ExitCode != 0 {
+			return result, errors.New("Git clone failed")
+		}
+		return result, nil
+	case "pull":
+		projectPath, err := managedProjectPath(projectsRoot, operation.Name)
+		if err != nil {
+			return CommandResult{}, err
+		}
+		if !isGitWorktree(projectPath) {
+			return CommandResult{}, errors.New("project is not a Git repository")
+		}
+		result, err := RunShellCommand("git pull --ff-only", projectPath)
+		result = explainProjectGitFailure(result, "")
+		if err != nil {
+			return result, err
+		}
+		if result.ExitCode != 0 {
+			return result, errors.New("Git pull failed")
+		}
+		return result, nil
 	case "rename":
 		if !safeProjectName(operation.Name) || !safeProjectName(operation.NewName) {
 			return CommandResult{}, errors.New("invalid project name")
@@ -718,6 +765,58 @@ func collectServices() []ServiceStatus {
 		})
 	}
 	return services
+}
+
+func managedProjectPath(projectsRoot, name string) (string, error) {
+	if !safeProjectName(name) {
+		return "", errors.New("invalid project name")
+	}
+	path := filepath.Join(projectsRoot, name)
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", errors.New("project path must be a directory")
+	}
+	return path, nil
+}
+
+func isGitWorktree(path string) bool {
+	return strings.TrimSpace(gitText(path, "rev-parse", "--is-inside-work-tree")) == "true"
+}
+
+func explainProjectGitFailure(result CommandResult, remote string) CommandResult {
+	result.Output = sanitizeGitOutput(result.Output)
+	lower := strings.ToLower(result.Output)
+	if strings.Contains(lower, "permission denied (publickey)") && strings.Contains(remote, "github.com") {
+		result.Output += "\n\nSSH auth note: authorize this workstation public key in Settings > GitHub before cloning GitHub SSH repositories."
+	}
+	if strings.Contains(lower, "authentication failed") || strings.Contains(lower, "could not read username") {
+		result.Output += "\n\nHTTPS auth note: configure Git HTTPS credentials on this host or use an SSH remote."
+	}
+	return result
+}
+
+func sanitizeGitRemote(remote string) string {
+	parsed, err := url.Parse(strings.TrimSpace(remote))
+	if err == nil && parsed.Scheme != "" && parsed.User != nil {
+		parsed.User = nil
+		return parsed.String()
+	}
+	return strings.TrimSpace(remote)
+}
+
+func sanitizeGitOutput(output string) string {
+	fields := strings.Fields(output)
+	for _, field := range fields {
+		clean := strings.Trim(field, "'\"")
+		sanitized := sanitizeGitRemote(clean)
+		if sanitized != clean {
+			output = strings.ReplaceAll(output, clean, sanitized)
+		}
+	}
+	return output
 }
 
 func safeProjectName(name string) bool {
