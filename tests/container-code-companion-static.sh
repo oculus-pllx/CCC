@@ -298,9 +298,12 @@ require_file_contains container-code-companion/web/app.js "existing-project-path
 require_file_contains container-code-companion/web/app.js "Add Existing Directory"
 require_file_contains container-code-companion/web/app.js "Clone Repository"
 require_file_contains container-code-companion/web/app.js "project-clone-remote"
+require_file_contains container-code-companion/web/app.js "project-clone-controls"
 require_file_contains container-code-companion/web/app.js "cloneProject"
 require_file_contains container-code-companion/web/app.js "data-project-pull"
 require_file_contains container-code-companion/web/app.js "pullProject"
+require_file_contains container-code-companion/web/index.html "custom-title-edit"
+require_file_contains container-code-companion/web/app.js "focusHeaderMessageEditor"
 require_file_contains container-code-companion/internal/system/management.go 'Path      string `json:"path"`'
 require_file_contains container-code-companion/internal/system/management.go 'Mode      string `json:"mode"`'
 require_file_contains container-code-companion/internal/system/management.go 'case "copy"'

@@ -23,7 +23,7 @@
 - Modify: `tests/container-code-companion-static.sh`
 - Test: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add failing static checks**
+- [x] **Step 1: Add failing static checks**
 
 Add checks near the existing Projects assertions:
 
@@ -33,7 +33,7 @@ require_file_contains container-code-companion/web/index.html "custom-title-edit
 require_file_contains container-code-companion/web/app.js "focusHeaderMessageEditor"
 ```
 
-- [ ] **Step 2: Run the static suite and verify red**
+- [x] **Step 2: Run the static suite and verify red**
 
 Run:
 
@@ -44,7 +44,7 @@ bash tests/container-code-companion-static.sh
 Expected: FAIL because `project-clone-controls`, `custom-title-edit`, and
 `focusHeaderMessageEditor` are not present yet.
 
-- [ ] **Step 3: Commit the red test checkpoint**
+- [x] **Step 3: Commit the red test checkpoint**
 
 Run:
 
@@ -231,4 +231,3 @@ git status --short
 ```
 
 Expected: only intentional plan checkbox updates remain if any.
-
