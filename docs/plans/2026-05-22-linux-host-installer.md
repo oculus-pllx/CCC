@@ -256,7 +256,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: all commands exit `0`.
 
-- [ ] **Step 6: Commit the extraction**
+- [x] **Step 6: Commit the extraction**
 
 ```bash
 git add ccc-bootstrap.sh install/ccc-provision-workstation.sh tests/container-code-companion-static.sh
@@ -269,7 +269,7 @@ git commit -m "refactor(installer): share workstation provisioner"
 - Modify: `install/ccc-provision-workstation.sh`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add failing checks for Linux-host policy boundaries**
+- [x] **Step 1: Add failing checks for Linux-host policy boundaries**
 
 Add these checks:
 
@@ -280,7 +280,7 @@ require_file_contains install/ccc-provision-workstation.sh 'CCC_MACHINE_POLICY="
 require_file_contains install/ccc-provision-workstation.sh 'systemctl enable "$CCC_CODE_SERVER_SERVICE"'
 ```
 
-- [ ] **Step 2: Run the static suite and confirm the Linux-host boundary fails**
+- [x] **Step 2: Run the static suite and confirm the Linux-host boundary fails**
 
 Run:
 
@@ -291,7 +291,7 @@ bash tests/container-code-companion-static.sh
 Expected: failure until the shared provisioner uses `CCC_CODE_SERVER_SERVICE`
 instead of a hardcoded user-specific systemd unit.
 
-- [ ] **Step 3: Normalize target-user and policy-specific operations**
+- [x] **Step 3: Normalize target-user and policy-specific operations**
 
 Keep package/dev/tool/service installation in the shared script, but ensure
 these operations use `CCC_USER`, `CCC_HOME`, and `CCC_CODE_SERVER_SERVICE`:
@@ -313,7 +313,7 @@ Set Linux mode self-update script support in emitted config by preserving the
 passed `CCC_SELF_UPDATE_SCRIPT` value; do not force it back to
 `ccc-bootstrap.sh` inside shared updateable sections.
 
-- [ ] **Step 4: Re-run the shared provisioner checks**
+- [x] **Step 4: Re-run the shared provisioner checks**
 
 Run:
 

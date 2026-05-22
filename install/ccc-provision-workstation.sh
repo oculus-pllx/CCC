@@ -163,18 +163,18 @@ echo "    $(/usr/local/go/bin/go version | awk '{print $3}')"
 step 12 "Rust (system)"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
-# ── claude-code user ─────────────────────────────────────────────────────────
-step 13 "Creating claude-code user"
-useradd -m -s /bin/bash -d /home/claude-code claude-code 2>/dev/null || true
-usermod -aG sudo claude-code
-echo "claude-code ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-code
-chmod 0440 /etc/sudoers.d/claude-code
+# ── Workstation user ─────────────────────────────────────────────────────────
+step 13 "Creating workstation user"
+useradd -m -s /bin/bash -d "$CCC_HOME" "$CCC_USER" 2>/dev/null || true
+usermod -aG sudo "$CCC_USER"
+echo "$CCC_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$CCC_USER"
+chmod 0440 "/etc/sudoers.d/$CCC_USER"
 
 write_ccc_config
 
-# ── Rust for claude-code user ─────────────────────────────────────────────────
-step 14 "Rust (claude-code user)"
-sudo -u claude-code bash -c '
+# ── Rust for workstation user ────────────────────────────────────────────────
+step 14 "Rust (workstation user)"
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" bash -c '
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 '
 
@@ -184,12 +184,11 @@ echo "    pip3 available — install packages per-project with: pip install --br
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
 step 16 "Claude Code"
-sudo -u claude-code bash -c '
-  export HOME=/home/claude-code
+sudo -u "$CCC_USER" env HOME="$CCC_HOME" bash -c '
   curl -fsSL https://claude.ai/install.sh | bash
 '
 
-CLAUDE_BIN=$(find /home/claude-code -name "claude" \( -type f -o -type l \) 2>/dev/null \
+CLAUDE_BIN=$(find "$CCC_HOME" -name "claude" \( -type f -o -type l \) 2>/dev/null \
   | grep -v node_modules | head -1 || true)
 if [[ -n "$CLAUDE_BIN" ]]; then
   ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
@@ -207,9 +206,9 @@ echo "    Run after provision: npx --yes playwright install --with-deps chromium
 
 # ── Claude Code settings.json ─────────────────────────────────────────────────
 step 18 "Claude Code settings.json"
-sudo -u claude-code mkdir -p /home/claude-code/.claude/bin
+sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"
 
-sudo -u claude-code tee /home/claude-code/.claude/settings.json > /dev/null << 'SETTINGS'
+sudo -u "$CCC_USER" tee "$CCC_HOME/.claude/settings.json" > /dev/null << 'SETTINGS'
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
@@ -435,11 +434,11 @@ step 21 "code-server (web VS Code)"
 curl -fsSL https://code-server.dev/install.sh | sh
 echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
-sudo -u claude-code mkdir -p /home/claude-code/.config/code-server
-sudo -u claude-code mkdir -p /home/claude-code/projects
+sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.config/code-server"
+sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/projects"
 
 # Welcome file — opens automatically in code-server on first load
-sudo -u claude-code tee /home/claude-code/projects/WELCOME.md > /dev/null << 'WELCOMEMD'
+sudo -u "$CCC_USER" tee "$CCC_HOME/projects/WELCOME.md" > /dev/null << 'WELCOMEMD'
 # Welcome to Container Code Companion
 
 ## First Steps
@@ -496,8 +495,8 @@ ssh claude-code@<this-container-ip>
 WELCOMEMD
 
 # User-level code-server settings (applies to all workspaces)
-sudo -u claude-code mkdir -p /home/claude-code/.local/share/code-server/User
-sudo -u claude-code tee /home/claude-code/.local/share/code-server/User/settings.json > /dev/null << 'USERSETTINGS'
+sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.local/share/code-server/User"
+sudo -u "$CCC_USER" tee "$CCC_HOME/.local/share/code-server/User/settings.json" > /dev/null << 'USERSETTINGS'
 {
   "terminal.integrated.tabs.enabled": true,
   "terminal.integrated.tabs.location": "right",
@@ -508,20 +507,20 @@ sudo -u claude-code tee /home/claude-code/.local/share/code-server/User/settings
 USERSETTINGS
 
 # Workspace settings
-sudo -u claude-code mkdir -p /home/claude-code/projects/.vscode
-sudo -u claude-code tee /home/claude-code/projects/.vscode/settings.json > /dev/null << 'VSCSETTINGS'
+sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/projects/.vscode"
+sudo -u "$CCC_USER" tee "$CCC_HOME/projects/.vscode/settings.json" > /dev/null << 'VSCSETTINGS'
 {
   "workbench.startupEditor": "none"
 }
 VSCSETTINGS
 
-sudo -u claude-code tee /home/claude-code/projects/.vscode/extensions.json > /dev/null << 'VSCEXT'
+sudo -u "$CCC_USER" tee "$CCC_HOME/projects/.vscode/extensions.json" > /dev/null << 'VSCEXT'
 {
   "recommendations": []
 }
 VSCEXT
 
-systemctl enable code-server@claude-code
+systemctl enable "$CCC_CODE_SERVER_SERVICE"
 echo "    code-server service enabled (config injected next step)"
 
 # ── SSH hardening ─────────────────────────────────────────────────────────────
@@ -541,7 +540,7 @@ fi
 
 # ── Shell environment ─────────────────────────────────────────────────────────
 step 23 "Shell environment & aliases"
-cat >> /home/claude-code/.bashrc << 'BASHRC'
+cat >> "$CCC_HOME/.bashrc" << 'BASHRC'
 
 # ── Container Code Companion ─────────────────────────────────────────────────────
 export EDITOR=nano
@@ -665,10 +664,10 @@ if [[ $- == *i* && ! -f "$HOME/.ccc-onboarded" && -z "${CCC_ONBOARDING_SHOWN:-}"
 fi
 BASHRC
 
-chown claude-code:claude-code /home/claude-code/.bashrc
+chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.bashrc"
 
 # tmux config
-sudo -u claude-code tee /home/claude-code/.tmux.conf > /dev/null << 'TMUXCONF'
+sudo -u "$CCC_USER" tee "$CCC_HOME/.tmux.conf" > /dev/null << 'TMUXCONF'
 set -g mouse on
 set -g default-terminal "screen-256color"
 set -g history-limit 10000
@@ -695,12 +694,12 @@ bind -n M-Right select-pane -R
 bind -n M-Up    select-pane -U
 bind -n M-Down  select-pane -D
 TMUXCONF
-chown claude-code:claude-code /home/claude-code/.tmux.conf
+chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
-# Patch stale script name written by older provisioners (oculus-commander.sh → ccc-bootstrap.sh)
-if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT=' /etc/ccc/config; then
+# Patch stale script name written by older provisioners without changing the active installer mode.
+if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT="oculus-commander.sh"' /etc/ccc/config; then
   sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="ccc-bootstrap.sh"|' /etc/ccc/config
 fi
 CCC_USER="${CCC_USER:-claude-code}"
@@ -1526,9 +1525,11 @@ echo "    Container Code Companion uses the $CCC_USER user password after final 
 
 # Mask motd-news — disable alone leaves it visible as "static/failed" in Cockpit.
 # motd-news fetches Canonical marketing content; useless and always times out in LXC.
-chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
-systemctl mask motd-news.service motd-news.timer 2>/dev/null || true
-systemctl reset-failed motd-news.service motd-news.timer 2>/dev/null || true
+if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
+  chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
+  systemctl mask motd-news.service motd-news.timer 2>/dev/null || true
+  systemctl reset-failed motd-news.service motd-news.timer 2>/dev/null || true
+fi
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
