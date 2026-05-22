@@ -73,6 +73,34 @@ func TestRunProjectOperationRejectsExistingProjectFilePath(t *testing.T) {
 	}
 }
 
+func TestProjectNameFromGitRemoteSupportsSSHAndHTTPS(t *testing.T) {
+	for _, tc := range []struct {
+		remote string
+		want   string
+	}{
+		{remote: "https://github.com/oculus-pllx/CCC.git", want: "CCC"},
+		{remote: "ssh://git@git.example.test/team/app.git", want: "app"},
+		{remote: "git@github.com:oculus-pllx/ccc-ui.git", want: "ccc-ui"},
+	} {
+		if got, err := projectNameFromGitRemote(tc.remote); err != nil || got != tc.want {
+			t.Fatalf("projectNameFromGitRemote(%q) = %q, %v; want %q", tc.remote, got, err, tc.want)
+		}
+	}
+}
+
+func TestValidateGitRemoteRejectsCredentialedAndShellRemotes(t *testing.T) {
+	for _, remote := range []string{
+		"https://token@github.com/owner/repo.git",
+		"https://user:secret@git.example.test/owner/repo.git",
+		"git@github.com:owner/repo.git && rm -rf /",
+		"file:///tmp/repo",
+	} {
+		if _, err := validateGitRemote(remote); err == nil {
+			t.Fatalf("expected remote %q to be rejected", remote)
+		}
+	}
+}
+
 func TestRunFileOperationCopiesAndChangesMode(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source.txt")

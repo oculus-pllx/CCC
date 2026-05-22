@@ -6,15 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var scpGitRemotePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+(?:\.git)?$`)
 
 type ManagementSnapshot struct {
 	Overview      Overview          `json:"overview"`
@@ -729,6 +733,50 @@ func safeProjectName(name string) bool {
 	}
 	first := name[0]
 	return (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') || (first >= '0' && first <= '9')
+}
+
+func validateGitRemote(remote string) (string, error) {
+	remote = strings.TrimSpace(remote)
+	if remote == "" || strings.ContainsAny(remote, " \t\r\n`$;&|") {
+		return "", errors.New("valid Git SSH or HTTPS remote is required")
+	}
+	if strings.HasPrefix(remote, "https://") || strings.HasPrefix(remote, "ssh://") {
+		parsed, err := url.Parse(remote)
+		if err != nil || parsed.Host == "" || strings.Trim(parsed.Path, "/") == "" {
+			return "", errors.New("valid Git SSH or HTTPS remote is required")
+		}
+		if parsed.Scheme == "https" && parsed.User != nil {
+			return "", errors.New("Git HTTPS remotes must not include credentials")
+		}
+		if parsed.Scheme == "ssh" && parsed.User != nil {
+			if _, hasPassword := parsed.User.Password(); hasPassword {
+				return "", errors.New("Git SSH remotes must not include passwords")
+			}
+		}
+		return remote, nil
+	}
+	if scpGitRemotePattern.MatchString(remote) {
+		return remote, nil
+	}
+	return "", errors.New("valid Git SSH or HTTPS remote is required")
+}
+
+func projectNameFromGitRemote(remote string) (string, error) {
+	remote, err := validateGitRemote(remote)
+	if err != nil {
+		return "", err
+	}
+	path := remote
+	if parsed, err := url.Parse(remote); err == nil && parsed.Scheme != "" {
+		path = parsed.Path
+	} else if colon := strings.Index(remote, ":"); colon >= 0 {
+		path = remote[colon+1:]
+	}
+	name := strings.TrimSuffix(filepath.Base(strings.TrimSuffix(path, "/")), ".git")
+	if !safeProjectName(name) {
+		return "", errors.New("Git remote does not contain a safe project name")
+	}
+	return name, nil
 }
 
 func copyDirectory(src string, dst string) error {

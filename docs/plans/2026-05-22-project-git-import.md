@@ -25,7 +25,7 @@
 - Modify: `container-code-companion/internal/system/management.go`
 - Test: `container-code-companion/internal/system/management_test.go`
 
-- [ ] **Step 1: Write failing tests for SSH/HTTPS project-name derivation**
+- [x] **Step 1: Write failing tests for SSH/HTTPS project-name derivation**
 
 Add these tests to `container-code-companion/internal/system/management_test.go`:
 
@@ -46,7 +46,7 @@ func TestProjectNameFromGitRemoteSupportsSSHAndHTTPS(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write failing tests for unsafe remotes**
+- [x] **Step 2: Write failing tests for unsafe remotes**
 
 Add:
 
@@ -65,7 +65,7 @@ func TestValidateGitRemoteRejectsCredentialedAndShellRemotes(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run focused tests and confirm helpers are missing**
+- [x] **Step 3: Run focused tests and confirm helpers are missing**
 
 Run:
 
@@ -76,7 +76,7 @@ Run:
 Expected: build failure because `projectNameFromGitRemote` and
 `validateGitRemote` do not exist.
 
-- [ ] **Step 4: Implement remote validation helpers**
+- [x] **Step 4: Implement remote validation helpers**
 
 Add to `management.go` near `safeProjectName`:
 
@@ -135,7 +135,7 @@ import "regexp"
 var scpGitRemotePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+(?:\.git)?$`)
 ```
 
-- [ ] **Step 5: Run focused tests green**
+- [x] **Step 5: Run focused tests green**
 
 Run:
 
