@@ -627,6 +627,12 @@ function renderProjects() {
       <input id="existing-project-path" type="text" placeholder="/path/to/existing/directory">
       <button id="add-existing-project-button" class="small-button">Add Existing Directory</button>
     </div>
+    <div class="project-create project-clone">
+      <strong>Clone Repository</strong>
+      <input id="project-clone-remote" type="text" placeholder="git@github.com:owner/repo.git or https://host/owner/repo.git">
+      <input id="project-clone-name" type="text" placeholder="optional-project-name">
+      <button id="clone-project-button" class="small-button">Clone</button>
+    </div>
     <div class="project-list">
       ${(snapshot.projects || []).map(project => `
         <section class="project-row">
@@ -638,6 +644,7 @@ function renderProjects() {
           <div class="action-row">
             <button class="small-button" data-project-browse="${escapeAttribute(project.path)}">Files</button>
             <button class="small-button" data-project-open="${escapeAttribute(project.path)}">VS Code</button>
+            ${project.gitRepo ? `<button class="small-button" data-project-pull="${escapeAttribute(project.name)}">Pull Latest</button>` : ''}
             <button class="small-button" data-project-rename="${escapeAttribute(project.name)}">Rename</button>
             <button class="small-button danger-button" data-project-delete="${escapeAttribute(project.name)}">Delete</button>
           </div>
@@ -1990,6 +1997,7 @@ function openAgentConfig(path) {
 function bindProjects() {
   document.getElementById('create-project-button').addEventListener('click', createProject);
   document.getElementById('add-existing-project-button').addEventListener('click', addExistingProject);
+  document.getElementById('clone-project-button')?.addEventListener('click', cloneProject);
   document.querySelectorAll('[data-project-browse]').forEach(button => {
     button.addEventListener('click', () => {
       filePath = button.dataset.projectBrowse;
@@ -2003,6 +2011,9 @@ function bindProjects() {
   });
   document.querySelectorAll('[data-project-rename]').forEach(button => {
     button.addEventListener('click', () => renameProject(button.dataset.projectRename));
+  });
+  document.querySelectorAll('[data-project-pull]').forEach(button => {
+    button.addEventListener('click', () => pullProject(button.dataset.projectPull));
   });
   document.querySelectorAll('[data-project-delete]').forEach(button => {
     button.addEventListener('click', () => deleteProject(button.dataset.projectDelete));
@@ -2037,6 +2048,16 @@ async function addExistingProject() {
   } catch (error) {
     output.textContent = error.message;
   }
+}
+
+async function cloneProject() {
+  const remote = document.getElementById('project-clone-remote').value.trim();
+  const name = document.getElementById('project-clone-name').value.trim();
+  await runProjectOperation({ operation: 'clone', remote, name });
+}
+
+async function pullProject(name) {
+  await runProjectOperation({ operation: 'pull', name });
 }
 
 async function renameProject(name) {

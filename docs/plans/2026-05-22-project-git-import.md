@@ -527,7 +527,7 @@ Run:
 Expected: tests pass because the existing JSON struct already carries operation,
 name, and remote fields.
 
-- [ ] **Step 4: Commit server coverage**
+- [x] **Step 4: Commit server coverage**
 
 ```bash
 git add container-code-companion/internal/server/server_test.go
@@ -540,7 +540,7 @@ git commit -m "test(projects): cover git project api payloads"
 - Modify: `container-code-companion/web/app.js`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add failing UI static checks**
+- [x] **Step 1: Add failing UI static checks**
 
 Add:
 
@@ -554,7 +554,7 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "pull"'
 ```
 
-- [ ] **Step 2: Run static checks red**
+- [x] **Step 2: Run static checks red**
 
 Run:
 
@@ -564,7 +564,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: failure because Projects UI has no Clone Repository form yet.
 
-- [ ] **Step 3: Render clone form and Git-aware pull button**
+- [x] **Step 3: Render clone form and Git-aware pull button**
 
 Add before the project list in `renderProjects()`:
 
@@ -583,7 +583,7 @@ Add to project row actions:
 ${project.gitRepo ? `<button class="small-button" data-project-pull="${escapeAttribute(project.name)}">Pull Latest</button>` : ''}
 ```
 
-- [ ] **Step 4: Bind clone and pull actions**
+- [x] **Step 4: Bind clone and pull actions**
 
 Add:
 
@@ -604,7 +604,7 @@ async function pullProject(name) {
 }
 ```
 
-- [ ] **Step 5: Run JS and static checks**
+- [x] **Step 5: Run JS and static checks**
 
 Run:
 

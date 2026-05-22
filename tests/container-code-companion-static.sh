@@ -294,11 +294,18 @@ require_file_contains container-code-companion/web/app.js "add-existing"
 require_file_contains container-code-companion/web/app.js "existing-project-name"
 require_file_contains container-code-companion/web/app.js "existing-project-path"
 require_file_contains container-code-companion/web/app.js "Add Existing Directory"
+require_file_contains container-code-companion/web/app.js "Clone Repository"
+require_file_contains container-code-companion/web/app.js "project-clone-remote"
+require_file_contains container-code-companion/web/app.js "cloneProject"
+require_file_contains container-code-companion/web/app.js "data-project-pull"
+require_file_contains container-code-companion/web/app.js "pullProject"
 require_file_contains container-code-companion/internal/system/management.go 'Path      string `json:"path"`'
 require_file_contains container-code-companion/internal/system/management.go 'Mode      string `json:"mode"`'
 require_file_contains container-code-companion/internal/system/management.go 'case "copy"'
 require_file_contains container-code-companion/internal/system/management.go 'case "chmod"'
 require_file_contains container-code-companion/internal/system/management.go 'case "add-existing"'
+require_file_contains container-code-companion/internal/system/management.go 'case "clone"'
+require_file_contains container-code-companion/internal/system/management.go 'case "pull"'
 require_file_contains container-code-companion/internal/system/management.go "os.Symlink"
 require_file_contains container-code-companion/internal/server/server.go "/api/tools"
 require_file_contains container-code-companion/internal/server/server.go "/api/drive"
