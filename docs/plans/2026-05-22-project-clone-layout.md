@@ -209,7 +209,7 @@ git commit -m "style(ui): align project clone controls"
 - Verify: `container-code-companion/web/styles.css`
 - Verify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Run full relevant verification**
+- [x] **Step 1: Run full relevant verification**
 
 Run:
 
@@ -222,7 +222,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 2: Inspect repo state**
+- [x] **Step 2: Inspect repo state**
 
 Run:
 
