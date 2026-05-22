@@ -516,7 +516,11 @@ func (s *Server) handleProject(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := s.projectOperation(body)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		message := err.Error()
+		if strings.TrimSpace(result.Output) != "" {
+			message += "\n\n" + strings.TrimSpace(result.Output)
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": message})
 		return
 	}
 	writeJSON(w, http.StatusOK, result)

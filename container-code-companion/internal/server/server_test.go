@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -490,6 +491,28 @@ func TestProtectedProjectOperationAcceptsPullName(t *testing.T) {
 
 	if res.Code != http.StatusOK || received.Operation != "pull" || received.Name != "demo" {
 		t.Fatalf("expected pull project payload, got status %d and operation %#v", res.Code, received)
+	}
+}
+
+func TestProtectedProjectOperationReturnsCommandOutputOnFailure(t *testing.T) {
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		ProjectOperation: func(operation system.ProjectOperation) (system.CommandResult, error) {
+			return system.CommandResult{Command: operation.Operation, Output: "SSH auth note: authorize key"}, errors.New("Git clone failed")
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/project", strings.NewReader(`{"operation":"clone","remote":"git@github.com:owner/demo.git"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest || !strings.Contains(res.Body.String(), "SSH auth note") {
+		t.Fatalf("expected project failure output, got status %d and body %q", res.Code, res.Body.String())
 	}
 }
 
