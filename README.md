@@ -31,6 +31,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
 - **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, mobile drawer navigation, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, notes, terminal, projects, updates, app catalog, map drives, provider configs, and GitHub SSH key management
+- **Projects Git actions** — clone SSH or HTTPS Git repos into Projects and pull fast-forward Git updates for existing Git projects
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login

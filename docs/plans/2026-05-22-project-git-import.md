@@ -615,7 +615,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: both commands exit `0`.
 
-- [ ] **Step 6: Commit Projects UI controls**
+- [x] **Step 6: Commit Projects UI controls**
 
 ```bash
 git add container-code-companion/web/app.js tests/container-code-companion-static.sh
@@ -629,7 +629,7 @@ git commit -m "feat(projects): add git clone and pull controls"
 - Modify: `PROJECT_STATUS.md`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add failing documentation assertions**
+- [x] **Step 1: Add failing documentation assertions**
 
 Add:
 
@@ -638,7 +638,7 @@ require_file_contains README.md "clone SSH or HTTPS Git repos"
 require_file_contains README.md "pull fast-forward Git updates"
 ```
 
-- [ ] **Step 2: Run static checks red**
+- [x] **Step 2: Run static checks red**
 
 Run:
 
@@ -648,7 +648,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: README Git Projects text is missing.
 
-- [ ] **Step 3: Update docs**
+- [x] **Step 3: Update docs**
 
 Add to the README GUI/Projects capability text:
 
@@ -662,7 +662,7 @@ Add to `PROJECT_STATUS.md` recent work:
 - Added Projects Git clone/import and fast-forward pull actions for SSH and HTTPS remotes.
 ```
 
-- [ ] **Step 4: Verify docs and commit**
+- [x] **Step 4: Verify docs and commit**
 
 Run:
 
