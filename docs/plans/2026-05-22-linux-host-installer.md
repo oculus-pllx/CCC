@@ -112,7 +112,7 @@ bash tests/container-code-companion-static.sh
 Expected: both commands exit `0`; the original bootstrap still satisfies the
 existing workstation checks until Task 2 moves them.
 
-- [ ] **Step 5: Commit the provisioner contract**
+- [x] **Step 5: Commit the provisioner contract**
 
 ```bash
 git add install/ccc-provision-workstation.sh tests/container-code-companion-static.sh
@@ -126,7 +126,7 @@ git commit -m "test(installer): define workstation provisioner contract"
 - Modify: `ccc-bootstrap.sh`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Move static expectations from the bootstrap to the shared script**
+- [x] **Step 1: Move static expectations from the bootstrap to the shared script**
 
 For checks that assert installed workstation contents, switch the checked file
 from `ccc-bootstrap.sh` to `install/ccc-provision-workstation.sh`. Keep Proxmox
@@ -153,7 +153,7 @@ require_file_contains ccc-bootstrap.sh 'CCC_INSTALL_MODE=proxmox-lxc'
 require_file_contains ccc-bootstrap.sh 'CCC_SELF_UPDATE_SCRIPT=ccc-bootstrap.sh'
 ```
 
-- [ ] **Step 2: Run the static test and confirm the extraction checks fail**
+- [x] **Step 2: Run the static test and confirm the extraction checks fail**
 
 Run:
 
@@ -164,7 +164,7 @@ bash tests/container-code-companion-static.sh
 Expected: failure because bootstrap still embeds the provisioning heredoc and
 the shared provisioner does not yet contain the moved workstation steps.
 
-- [ ] **Step 3: Extract the current in-container provisioning body**
+- [x] **Step 3: Extract the current in-container provisioning body**
 
 Move the content currently written between:
 
@@ -208,7 +208,7 @@ Call `write_ccc_config` when the original script currently writes
 `/etc/ccc/config`, and keep all CCC updateable command/service bodies in the
 shared script.
 
-- [ ] **Step 4: Teach the Proxmox bootstrap to stage the shared script**
+- [x] **Step 4: Teach the Proxmox bootstrap to stage the shared script**
 
 Add a local-or-raw fetch helper in `ccc-bootstrap.sh`:
 
@@ -243,7 +243,7 @@ pct exec "$CT_ID" -- env \
 rm -f "/tmp/ccc-provision-${CT_ID}.sh"
 ```
 
-- [ ] **Step 5: Run installer static checks and Go regression checks**
+- [x] **Step 5: Run installer static checks and Go regression checks**
 
 Run:
 

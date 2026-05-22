@@ -74,48 +74,48 @@ require_file_contains container-code-companion/web/styles.css "display: none !im
 require_file_contains container-code-companion/web/styles.css "body.signed-out .topbar"
 require_file_contains container-code-companion/web/styles.css ".custom-title-display"
 require_file_contains container-code-companion/web/styles.css ".app-footer"
-require_file_contains ccc-bootstrap.sh "ccc-sync-agent-configs"
+require_file_contains install/ccc-provision-workstation.sh "ccc-sync-agent-configs"
 require_file_contains README.md "ccc-sync-agent-configs"
-require_file_contains ccc-bootstrap.sh "codex/AGENTS.md"
-require_file_contains ccc-bootstrap.sh "gemini/GEMINI.md"
-require_file_contains ccc-bootstrap.sh "mcp.template.json"
-require_file_contains ccc-bootstrap.sh "bubblewrap"
-require_file_contains ccc-bootstrap.sh "GitHub CLI"
-require_file_contains ccc-bootstrap.sh "githubcli-archive-keyring.gpg"
-require_file_contains ccc-bootstrap.sh "/etc/apt/sources.list.d/github-cli.list"
-require_file_contains ccc-bootstrap.sh "https://cli.github.com/packages"
-require_file_contains ccc-bootstrap.sh "apt-get install -y -qq gh"
-require_file_contains ccc-bootstrap.sh 'command -v bwrap'
-require_file_contains ccc-bootstrap.sh 'command -v gh'
-require_file_contains ccc-bootstrap.sh 'command -v npm'
-require_file_contains ccc-bootstrap.sh 'command -v tmux'
-require_file_contains ccc-bootstrap.sh 'command -v code-server'
+require_file_contains install/ccc-provision-workstation.sh "codex/AGENTS.md"
+require_file_contains install/ccc-provision-workstation.sh "gemini/GEMINI.md"
+require_file_contains install/ccc-provision-workstation.sh "mcp.template.json"
+require_file_contains install/ccc-provision-workstation.sh "bubblewrap"
+require_file_contains install/ccc-provision-workstation.sh "GitHub CLI"
+require_file_contains install/ccc-provision-workstation.sh "githubcli-archive-keyring.gpg"
+require_file_contains install/ccc-provision-workstation.sh "/etc/apt/sources.list.d/github-cli.list"
+require_file_contains install/ccc-provision-workstation.sh "https://cli.github.com/packages"
+require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq gh"
+require_file_contains install/ccc-provision-workstation.sh 'command -v bwrap'
+require_file_contains install/ccc-provision-workstation.sh 'command -v gh'
+require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
+require_file_contains install/ccc-provision-workstation.sh 'command -v tmux'
+require_file_contains install/ccc-provision-workstation.sh 'command -v code-server'
 require_file_contains README.md "bubblewrap"
 require_file_contains README.md "GitHub CLI"
-require_file_contains ccc-bootstrap.sh '"$schema": "https://json.schemastore.org/claude-code-settings.json"'
-require_file_not_contains ccc-bootstrap.sh "oculus-settings.json"
-require_file_contains ccc-bootstrap.sh '"statusLine": {'
-require_file_contains ccc-bootstrap.sh '"command": "~/.claude/bin/statusline-command.sh"'
-require_file_not_contains ccc-bootstrap.sh '"statusLine": "~/.claude/bin/statusline-command.sh"'
-require_file_contains ccc-bootstrap.sh 'CLAUDE_SETTINGS="$CCC_HOME/.claude/settings.json"'
-require_file_contains ccc-bootstrap.sh 'data["statusLine"] = {"command": status_line}'
-require_file_contains ccc-bootstrap.sh 'data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"'
-require_file_contains ccc-bootstrap.sh "CCC Statusline"
-require_file_contains ccc-bootstrap.sh 'step 20 "Statusline"'
-require_file_contains ccc-bootstrap.sh 'CCC_USER="${CCC_USER:-claude-code}"'
-require_file_contains ccc-bootstrap.sh "Statusline user"
-require_file_contains ccc-bootstrap.sh 'sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"'
-require_file_contains ccc-bootstrap.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
-require_file_contains ccc-bootstrap.sh 'chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'
-require_file_not_contains ccc-bootstrap.sh 'cat > /home/claude-code/.claude/bin/statusline-command.sh'
-require_file_contains ccc-bootstrap.sh "claude statusline-command"
-require_file_contains ccc-bootstrap.sh 'jq -r '\''.model.id    // ""'\'''
-require_file_contains ccc-bootstrap.sh 'jq -r '\''.thinking.enabled // false'\'''
-require_file_contains ccc-bootstrap.sh 'jq -r '\''.context.used  // 0'\'''
-require_file_contains ccc-bootstrap.sh 'jq -r '\''.context.max   // 200000'\'''
-require_file_contains ccc-bootstrap.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
-require_file_contains ccc-bootstrap.sh 'CTX_WARN="!!"'
-require_file_contains ccc-bootstrap.sh 'TIME=$(date +"%I:%M%p"'
+require_file_contains install/ccc-provision-workstation.sh '"$schema": "https://json.schemastore.org/claude-code-settings.json"'
+require_file_not_contains install/ccc-provision-workstation.sh "oculus-settings.json"
+require_file_contains install/ccc-provision-workstation.sh '"statusLine": {'
+require_file_contains install/ccc-provision-workstation.sh '"command": "~/.claude/bin/statusline-command.sh"'
+require_file_not_contains install/ccc-provision-workstation.sh '"statusLine": "~/.claude/bin/statusline-command.sh"'
+require_file_contains install/ccc-provision-workstation.sh 'CLAUDE_SETTINGS="$CCC_HOME/.claude/settings.json"'
+require_file_contains install/ccc-provision-workstation.sh 'data["statusLine"] = {"command": status_line}'
+require_file_contains install/ccc-provision-workstation.sh 'data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"'
+require_file_contains install/ccc-provision-workstation.sh "CCC Statusline"
+require_file_contains install/ccc-provision-workstation.sh 'step 20 "Statusline"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER:-claude-code}"'
+require_file_contains install/ccc-provision-workstation.sh "Statusline user"
+require_file_contains install/ccc-provision-workstation.sh 'sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"'
+require_file_contains install/ccc-provision-workstation.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
+require_file_contains install/ccc-provision-workstation.sh 'chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'
+require_file_not_contains install/ccc-provision-workstation.sh 'cat > /home/claude-code/.claude/bin/statusline-command.sh'
+require_file_contains install/ccc-provision-workstation.sh "claude statusline-command"
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.model.id    // ""'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.thinking.enabled // false'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.used  // 0'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.max   // 200000'\'''
+require_file_contains install/ccc-provision-workstation.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
+require_file_contains install/ccc-provision-workstation.sh 'CTX_WARN="!!"'
+require_file_contains install/ccc-provision-workstation.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"
 require_file_contains container-code-companion/web/index.html "Projects"
 require_file_contains container-code-companion/web/index.html "mobile-menu-button"
@@ -134,32 +134,38 @@ require_file_not_contains container-code-companion/web/index.html "Agents"
 require_file_not_contains container-code-companion/web/index.html "Connections"
 require_file_contains container-code-companion/web/index.html "Settings"
 require_file_contains container-code-companion/web/index.html "Preferences"
-require_file_contains ccc-bootstrap.sh "container-code-companion.service"
-require_file_contains ccc-bootstrap.sh "/usr/local/bin/container-code-companion"
-require_file_contains ccc-bootstrap.sh "CONTAINER_CODE_COMPANION_USERNAME"
-require_file_contains ccc-bootstrap.sh "CONTAINER_CODE_COMPANION_PASSWORD"
-require_file_contains ccc-bootstrap.sh 'Container Code Companion uses the $CCC_USER user password'
-require_file_contains ccc-bootstrap.sh 'http://${_ccc_ui_ip}:9090'
-require_file_not_contains ccc-bootstrap.sh 'http://<ip>:9090'
-require_file_contains ccc-bootstrap.sh "CONTAINER_CODE_COMPANION_ADDR=0.0.0.0:9090"
-require_file_contains ccc-bootstrap.sh "systemctl disable --now ccc-dashboard"
-require_file_contains ccc-bootstrap.sh "fuser -k 9090/tcp"
-require_file_contains ccc-bootstrap.sh "systemctl disable --now cockpit.socket"
-require_file_contains ccc-bootstrap.sh "systemctl enable container-code-companion.service"
-require_file_contains ccc-bootstrap.sh "/var/log/ccc-self-update.log"
-require_file_contains ccc-bootstrap.sh "timeout 600 /usr/local/go/bin/go build"
-require_file_contains ccc-bootstrap.sh "CONTAINER_CODE_COMPANION_USERNAME"
-require_file_contains ccc-bootstrap.sh "Set CCC_USER in /etc/ccc/config"
-require_file_contains ccc-bootstrap.sh 'NO_COLOR'
-require_file_contains ccc-bootstrap.sh 'setsid systemctl restart container-code-companion.service'
-require_file_contains ccc-bootstrap.sh 'CCC_INSTALLED_COMMIT'
-require_file_contains ccc-bootstrap.sh 'Update available'
-require_file_contains ccc-bootstrap.sh "Self-update successful"
-require_file_contains ccc-bootstrap.sh "-buildvcs=false"
-require_file_contains ccc-bootstrap.sh 'timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false'
-require_file_contains ccc-bootstrap.sh '-C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion"'
-require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC"'
-require_file_contains ccc-bootstrap.sh 'git config --system --add safe.directory "$SRC"'
+require_file_contains install/ccc-provision-workstation.sh "container-code-companion.service"
+require_file_contains install/ccc-provision-workstation.sh "/usr/local/bin/container-code-companion"
+require_file_contains install/ccc-provision-workstation.sh "CONTAINER_CODE_COMPANION_USERNAME"
+require_file_contains install/ccc-provision-workstation.sh "CONTAINER_CODE_COMPANION_PASSWORD"
+require_file_contains install/ccc-provision-workstation.sh 'Container Code Companion uses the $CCC_USER user password'
+require_file_contains install/ccc-provision-workstation.sh 'http://${_ccc_ui_ip}:9090'
+require_file_not_contains install/ccc-provision-workstation.sh 'http://<ip>:9090'
+require_file_contains install/ccc-provision-workstation.sh "CONTAINER_CODE_COMPANION_ADDR=0.0.0.0:9090"
+require_file_contains install/ccc-provision-workstation.sh "systemctl disable --now ccc-dashboard"
+require_file_contains install/ccc-provision-workstation.sh "fuser -k 9090/tcp"
+require_file_contains install/ccc-provision-workstation.sh "systemctl disable --now cockpit.socket"
+require_file_contains install/ccc-provision-workstation.sh "systemctl enable container-code-companion.service"
+require_file_contains install/ccc-provision-workstation.sh "/var/log/ccc-self-update.log"
+require_file_contains install/ccc-provision-workstation.sh "timeout 600 /usr/local/go/bin/go build"
+require_file_contains install/ccc-provision-workstation.sh "CONTAINER_CODE_COMPANION_USERNAME"
+require_file_contains install/ccc-provision-workstation.sh "Set CCC_USER in /etc/ccc/config"
+require_file_contains install/ccc-provision-workstation.sh 'NO_COLOR'
+require_file_contains install/ccc-provision-workstation.sh 'setsid systemctl restart container-code-companion.service'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALLED_COMMIT'
+require_file_contains install/ccc-provision-workstation.sh 'Update available'
+require_file_contains install/ccc-provision-workstation.sh "Self-update successful"
+require_file_contains install/ccc-provision-workstation.sh "-buildvcs=false"
+require_file_contains install/ccc-provision-workstation.sh 'timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false'
+require_file_contains install/ccc-provision-workstation.sh '-C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion"'
+require_file_contains install/ccc-provision-workstation.sh 'git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC"'
+require_file_contains install/ccc-provision-workstation.sh 'git config --system --add safe.directory "$SRC"'
+require_file_not_contains install/ccc-provision-workstation.sh 'pct exec'
+require_file_not_contains install/ccc-provision-workstation.sh 'pvesh '
+require_file_contains ccc-bootstrap.sh 'stage_workstation_provisioner'
+require_file_contains ccc-bootstrap.sh '/tmp/ccc-provision-workstation.sh'
+require_file_contains ccc-bootstrap.sh 'CCC_INSTALL_MODE=proxmox-lxc'
+require_file_contains ccc-bootstrap.sh 'CCC_SELF_UPDATE_SCRIPT=ccc-bootstrap.sh'
 require_file_contains container-code-companion/web/app.js "let activeUpdateTab = 'app'"
 require_file_contains container-code-companion/web/app.js "let snapshotPollTimer = null"
 require_file_contains container-code-companion/web/app.js "startSnapshotPolling"
@@ -317,14 +323,14 @@ require_file_not_contains container-code-companion/web/app.js '(?:\x1b)?'
 require_file_not_contains container-code-companion/web/app.js '`http://${location.hostname}'
 require_file_not_contains container-code-companion/web/app.js 'formatPercent'
 
-require_file_contains ccc-bootstrap.sh 'CCC_SELF_UPDATE_REF="main"'
-require_file_not_contains ccc-bootstrap.sh 'container-code-companion-native-ui'
-require_file_not_contains ccc-bootstrap.sh "/opt/ccc-dashboard"
-require_file_not_contains ccc-bootstrap.sh "node-pty"
-require_file_not_contains ccc-bootstrap.sh "dashboard-token"
-require_file_not_contains ccc-bootstrap.sh "oculus-configure"
-require_file_not_contains ccc-bootstrap.sh "configure.py"
-require_file_not_contains ccc-bootstrap.sh "localhost:4827"
+require_file_contains install/ccc-provision-workstation.sh 'CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"'
+require_file_not_contains install/ccc-provision-workstation.sh 'container-code-companion-native-ui'
+require_file_not_contains install/ccc-provision-workstation.sh "/opt/ccc-dashboard"
+require_file_not_contains install/ccc-provision-workstation.sh "node-pty"
+require_file_not_contains install/ccc-provision-workstation.sh "dashboard-token"
+require_file_not_contains install/ccc-provision-workstation.sh "oculus-configure"
+require_file_not_contains install/ccc-provision-workstation.sh "configure.py"
+require_file_not_contains install/ccc-provision-workstation.sh "localhost:4827"
 require_file_not_contains README.md "localhost:4827"
 
 require_ordered_patterns() {
@@ -354,10 +360,10 @@ require_ordered_patterns container-code-companion/web/app.js \
 require_ordered_patterns container-code-companion/web/app.js \
   'id="github-copy-btn"' 'id="github-test-btn"' 'id="github-generate-btn"'
 
-awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' ccc-bootstrap.sh > /tmp/ccc-self-update.syntax
+awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
 
-awk '/^cat > .*statusline-command.sh.*STATUSLINE/{flag=1; next} /^STATUSLINE$/{flag=0} flag{print}' ccc-bootstrap.sh > /tmp/ccc-statusline.syntax
+awk '/^cat > .*statusline-command.sh.*STATUSLINE/{flag=1; next} /^STATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-statusline.syntax
 bash -n /tmp/ccc-statusline.syntax
 statusline_test_bin=$(mktemp -d)
 cat > "$statusline_test_bin/jq" <<'FAKEJQ'
