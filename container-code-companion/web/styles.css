@@ -291,6 +291,23 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.18);
 }
 
+.custom-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.custom-title-row .custom-title-display {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+.custom-title-row .small-button {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+}
+
 .panel {
   border: 1px solid var(--border);
   background: var(--panel);
@@ -691,6 +708,17 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   background: var(--topbar);
   color: var(--text);
   padding: 8px 10px;
+}
+
+.project-clone {
+  grid-template-columns: 1fr;
+}
+
+.project-clone-controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, 240px) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .account-create {
@@ -1314,6 +1342,14 @@ td {
   .file-browser,
   .notes-layout {
     grid-template-columns: 1fr;
+  }
+
+  .project-clone-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-title-row {
+    align-items: flex-start;
   }
 
   .file-table-header {

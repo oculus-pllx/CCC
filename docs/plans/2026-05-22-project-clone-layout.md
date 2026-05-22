@@ -130,7 +130,7 @@ git commit -m "feat(ui): expose header message editing"
 - Modify: `container-code-companion/web/styles.css`
 - Test: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add desktop layout styling**
+- [x] **Step 1: Add desktop layout styling**
 
 Add styles that make clone heading and controls independent, and keep the title
 action aligned without stretching the button:
@@ -166,7 +166,7 @@ action aligned without stretching the button:
 }
 ```
 
-- [ ] **Step 2: Stack clone controls on mobile**
+- [x] **Step 2: Stack clone controls on mobile**
 
 Extend the existing narrow-screen media block with:
 
@@ -180,7 +180,7 @@ Extend the existing narrow-screen media block with:
 }
 ```
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -192,7 +192,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 4: Commit the styling checkpoint**
+- [x] **Step 4: Commit the styling checkpoint**
 
 Run:
 
