@@ -156,6 +156,24 @@ func TestCollectProjectsMarksGitProjects(t *testing.T) {
 	}
 }
 
+func TestExplainProjectGitFailureUsesGitHubOutputForPullGuidance(t *testing.T) {
+	result := explainProjectGitFailure(CommandResult{
+		Output: "git@github.com: Permission denied (publickey).",
+	}, "")
+	if !strings.Contains(result.Output, "Settings > GitHub") {
+		t.Fatalf("expected GitHub SSH guidance, got %q", result.Output)
+	}
+}
+
+func TestExplainProjectGitFailureSanitizesCredentialedHTTPSOutput(t *testing.T) {
+	result := explainProjectGitFailure(CommandResult{
+		Output: "fatal: https://user:secret@git.example.test/owner/repo.git authentication failed",
+	}, "")
+	if strings.Contains(result.Output, "user:secret") {
+		t.Fatalf("expected credentialed remote to be sanitized, got %q", result.Output)
+	}
+}
+
 func runGitTestCommand(t *testing.T, cwd string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

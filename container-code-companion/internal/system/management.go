@@ -791,7 +791,8 @@ func isGitWorktree(path string) bool {
 func explainProjectGitFailure(result CommandResult, remote string) CommandResult {
 	result.Output = sanitizeGitOutput(result.Output)
 	lower := strings.ToLower(result.Output)
-	if strings.Contains(lower, "permission denied (publickey)") && strings.Contains(remote, "github.com") {
+	githubRemote := strings.Contains(remote, "github.com") || strings.Contains(lower, "github.com")
+	if strings.Contains(lower, "permission denied (publickey)") && githubRemote {
 		result.Output += "\n\nSSH auth note: authorize this workstation public key in Settings > GitHub before cloning GitHub SSH repositories."
 	}
 	if strings.Contains(lower, "authentication failed") || strings.Contains(lower, "could not read username") {
