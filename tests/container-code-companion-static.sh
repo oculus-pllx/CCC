@@ -310,6 +310,8 @@ require_file_contains container-code-companion/internal/system/management.go 'Na
 require_file_contains container-code-companion/internal/system/management.go "func RunDriveOperation"
 require_file_contains container-code-companion/internal/system/management.go "func explainDriveMountFailure"
 require_file_contains container-code-companion/internal/system/management.go "LXC mount note"
+require_file_contains container-code-companion/internal/system/management.go "Linux host mount note"
+require_file_contains container-code-companion/internal/system/management.go "CCC_INSTALL_MODE"
 require_file_contains container-code-companion/internal/system/management.go "drive mount failed"
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"

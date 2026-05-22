@@ -162,11 +162,18 @@ func TestRunDriveOperationRejectsUnsafeMountRequests(t *testing.T) {
 }
 
 func TestExplainDriveMountFailureAddsLXCContext(t *testing.T) {
-	output := explainDriveMountFailure("mount: /mnt/share: permission denied.")
-	if !strings.Contains(output, "LXC mount note") {
-		t.Fatalf("expected LXC context for permission denied mount, got %q", output)
+	output := explainDriveMountFailure("mount: /mnt/share: permission denied.", "proxmox-lxc")
+	if !strings.Contains(output, "LXC mount note") || !strings.Contains(output, "Proxmox host") {
+		t.Fatalf("expected LXC guidance, got %q", output)
 	}
-	if !strings.Contains(output, "Proxmox host") {
-		t.Fatalf("expected Proxmox host guidance, got %q", output)
+}
+
+func TestExplainDriveMountFailureAddsLinuxHostContext(t *testing.T) {
+	output := explainDriveMountFailure("mount: /mnt/share: permission denied.", "linux-host")
+	if strings.Contains(output, "Proxmox host") {
+		t.Fatalf("did not expect Proxmox guidance, got %q", output)
+	}
+	if !strings.Contains(output, "Linux host mount note") {
+		t.Fatalf("expected Linux host guidance, got %q", output)
 	}
 }

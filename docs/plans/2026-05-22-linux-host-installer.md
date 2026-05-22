@@ -462,7 +462,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: both commands exit `0`.
 
-- [ ] **Step 7: Commit the Linux-host entrypoint**
+- [x] **Step 7: Commit the Linux-host entrypoint**
 
 ```bash
 git add ccc-install-linux.sh tests/container-code-companion-static.sh
@@ -476,7 +476,7 @@ git commit -m "feat(installer): add debian ubuntu host installer"
 - Modify: `container-code-companion/internal/system/management_test.go`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Write failing Go tests for LXC and Linux-host mount failures**
+- [x] **Step 1: Write failing Go tests for LXC and Linux-host mount failures**
 
 Replace the single guidance test in
 `container-code-companion/internal/system/management_test.go` with mode-specific
@@ -501,7 +501,7 @@ func TestExplainDriveMountFailureAddsLinuxHostContext(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the focused Go test and confirm the signature change fails**
+- [x] **Step 2: Run the focused Go test and confirm the signature change fails**
 
 Run:
 
@@ -512,7 +512,7 @@ Run:
 Expected: compile failure because `explainDriveMountFailure` still accepts one
 argument.
 
-- [ ] **Step 3: Implement install-mode guidance**
+- [x] **Step 3: Implement install-mode guidance**
 
 Change `RunDriveOperation` to pass an install mode into
 `explainDriveMountFailure`, with a small config reader that defaults to the LXC
@@ -549,7 +549,7 @@ func explainDriveMountFailure(output, installMode string) string {
 }
 ```
 
-- [ ] **Step 4: Update static checks for both notes**
+- [x] **Step 4: Update static checks for both notes**
 
 Add:
 
@@ -558,7 +558,7 @@ require_file_contains container-code-companion/internal/system/management.go "Li
 require_file_contains container-code-companion/internal/system/management.go "CCC_INSTALL_MODE"
 ```
 
-- [ ] **Step 5: Run focused and full Go tests**
+- [x] **Step 5: Run focused and full Go tests**
 
 Run:
 

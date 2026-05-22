@@ -589,7 +589,7 @@ func RunDriveOperation(operation DriveOperation) (CommandResult, error) {
 			return result, err
 		}
 		if result.ExitCode != 0 {
-			result.Output = explainDriveMountFailure(result.Output)
+			result.Output = explainDriveMountFailure(result.Output, cccInstallMode())
 			return result, errors.New("drive mount failed")
 		}
 		return result, nil
@@ -598,14 +598,35 @@ func RunDriveOperation(operation DriveOperation) (CommandResult, error) {
 	}
 }
 
-func explainDriveMountFailure(output string) string {
+func cccInstallMode() string {
+	data, err := os.ReadFile("/etc/ccc/config")
+	if err != nil {
+		return "proxmox-lxc"
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "CCC_INSTALL_MODE=") {
+			return strings.Trim(strings.TrimPrefix(line, "CCC_INSTALL_MODE="), "\"")
+		}
+	}
+	return "proxmox-lxc"
+}
+
+func explainDriveMountFailure(output, installMode string) string {
 	text := strings.TrimSpace(output)
 	lower := strings.ToLower(text)
 	if strings.Contains(lower, "permission denied") {
-		text += "\n\nLXC mount note: CIFS mounts require mount capability from the Proxmox host/container configuration. If this is an unprivileged LXC, update the container options on the Proxmox side or mount the share on the host and bind-mount it into the container. The GUI cannot grant kernel mount permission from inside the container."
+		if installMode == "linux-host" {
+			text += "\n\nLinux host mount note: confirm the share credentials, mount path permissions, CIFS support, and sudo/mount policy on this machine."
+		} else {
+			text += "\n\nLXC mount note: CIFS mounts require mount capability from the Proxmox host/container configuration. If this is an unprivileged LXC, update the container options on the Proxmox side or mount the share on the host and bind-mount it into the container. The GUI cannot grant kernel mount permission from inside the container."
+		}
 	}
 	if strings.Contains(lower, "unknown filesystem type") || strings.Contains(lower, "bad option") {
-		text += "\n\nCIFS note: make sure cifs-utils is installed in the container and the Proxmox host supports the CIFS mount."
+		if installMode == "linux-host" {
+			text += "\n\nCIFS note: make sure cifs-utils is installed on this host and the kernel supports CIFS mounts."
+		} else {
+			text += "\n\nCIFS note: make sure cifs-utils is installed in the container and the Proxmox host supports the CIFS mount."
+		}
 	}
 	return text
 }
