@@ -36,3 +36,6 @@ Current verification set:
 ## Next Work
 
 The original GUI punchlist is complete. New work should come from fresh field testing, user issues, or explicit feature requests.
+
+Tracked follow-up:
+- Design a non-LXC Linux installer that can be run on an existing Linux machine and installs the CCC workstation stack without creating a Proxmox container.

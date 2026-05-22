@@ -246,6 +246,7 @@ require_file_contains container-code-companion/web/app.js "requestAnimationFrame
 require_file_contains container-code-companion/web/app.js "tab.terminal.resize(cols, rows)"
 require_file_contains container-code-companion/web/styles.css "--terminal-height"
 require_file_contains container-code-companion/web/styles.css ".terminal-pane .xterm"
+require_file_not_contains container-code-companion/web/styles.css ".terminal-pane .xterm-screen {"
 require_file_contains container-code-companion/web/app.js "addExistingProject"
 require_file_contains container-code-companion/web/app.js "add-existing"
 require_file_contains container-code-companion/web/app.js "existing-project-name"
