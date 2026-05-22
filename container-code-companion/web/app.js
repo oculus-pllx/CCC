@@ -629,9 +629,11 @@ function renderProjects() {
     </div>
     <div class="project-create project-clone">
       <strong>Clone Repository</strong>
-      <input id="project-clone-remote" type="text" placeholder="git@github.com:owner/repo.git or https://host/owner/repo.git">
-      <input id="project-clone-name" type="text" placeholder="optional-project-name">
-      <button id="clone-project-button" class="small-button">Clone</button>
+      <div class="project-clone-controls">
+        <input id="project-clone-remote" type="text" placeholder="git@github.com:owner/repo.git or https://host/owner/repo.git">
+        <input id="project-clone-name" type="text" placeholder="optional-project-name">
+        <button id="clone-project-button" class="small-button">Clone</button>
+      </div>
     </div>
     <div class="project-list">
       ${(snapshot.projects || []).map(project => `
@@ -2461,6 +2463,11 @@ function bindCustomTitleEditor() {
   });
 }
 
+function focusHeaderMessageEditor() {
+  selectSection('settings');
+  requestAnimationFrame(() => document.getElementById('custom-title-input')?.focus());
+}
+
 function stripANSI(value) {
   return String(value || '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
 }
@@ -2506,6 +2513,7 @@ document.getElementById('login-panel').addEventListener('submit', login);
 document.getElementById('logout-button').addEventListener('click', logout);
 document.getElementById('refresh-button').addEventListener('click', refresh);
 document.getElementById('top-preferences-button').addEventListener('click', () => selectSection('settings'));
+document.getElementById('custom-title-edit').addEventListener('click', focusHeaderMessageEditor);
 document.getElementById('mobile-menu-button').addEventListener('click', toggleMobileNav);
 document.getElementById('mobile-nav-overlay').addEventListener('click', closeMobileNav);
 document.querySelectorAll('.sidebar button').forEach(button => {

@@ -60,7 +60,7 @@ git commit -m "test(ui): cover clone layout affordances"
 - Modify: `container-code-companion/web/app.js`
 - Test: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Wrap the clone controls with a row hook**
+- [x] **Step 1: Wrap the clone controls with a row hook**
 
 Change the Projects clone block in `renderProjects()` to keep the heading and
 group only the actionable controls:
@@ -76,7 +76,7 @@ group only the actionable controls:
 </div>
 ```
 
-- [ ] **Step 2: Add the header message edit button**
+- [x] **Step 2: Add the header message edit button**
 
 Replace the current title display in `index.html` with:
 
@@ -87,13 +87,13 @@ Replace the current title display in `index.html` with:
 </div>
 ```
 
-- [ ] **Step 3: Add the Preferences focus helper and binding**
+- [x] **Step 3: Add the Preferences focus helper and binding**
 
 Add a helper in `app.js` near the custom title editor functions:
 
 ```js
 function focusHeaderMessageEditor() {
-  navigate('settings');
+  selectSection('settings');
   requestAnimationFrame(() => document.getElementById('custom-title-input')?.focus());
 }
 ```
@@ -104,7 +104,7 @@ Bind it during global event setup with:
 document.getElementById('custom-title-edit')?.addEventListener('click', focusHeaderMessageEditor);
 ```
 
-- [ ] **Step 4: Run static checks and syntax validation**
+- [x] **Step 4: Run static checks and syntax validation**
 
 Run:
 
@@ -115,7 +115,7 @@ node --check container-code-companion/web/app.js
 
 Expected: both commands exit 0.
 
-- [ ] **Step 5: Commit the markup and binding checkpoint**
+- [x] **Step 5: Commit the markup and binding checkpoint**
 
 Run:
 
