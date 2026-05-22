@@ -445,6 +445,54 @@ func TestProtectedProjectOperationAcceptsExistingDirectoryPath(t *testing.T) {
 	}
 }
 
+func TestProtectedProjectOperationAcceptsCloneRemote(t *testing.T) {
+	var received system.ProjectOperation
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		ProjectOperation: func(operation system.ProjectOperation) (system.CommandResult, error) {
+			received = operation
+			return system.CommandResult{Command: operation.Operation, Output: "cloned demo"}, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/project", strings.NewReader(`{"operation":"clone","name":"demo","remote":"git@github.com:owner/demo.git"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK || received.Remote != "git@github.com:owner/demo.git" {
+		t.Fatalf("expected clone remote payload, got status %d and operation %#v", res.Code, received)
+	}
+}
+
+func TestProtectedProjectOperationAcceptsPullName(t *testing.T) {
+	var received system.ProjectOperation
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		ProjectOperation: func(operation system.ProjectOperation) (system.CommandResult, error) {
+			received = operation
+			return system.CommandResult{Command: operation.Operation, Output: "pulled demo"}, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/project", strings.NewReader(`{"operation":"pull","name":"demo"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK || received.Operation != "pull" || received.Name != "demo" {
+		t.Fatalf("expected pull project payload, got status %d and operation %#v", res.Code, received)
+	}
+}
+
 func TestProtectedAccountOperationRunsConfiguredOperator(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest(http.MethodPost, "/api/account", strings.NewReader(`{"operation":"create","username":"newuser","shell":"/bin/bash"}`))

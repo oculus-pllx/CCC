@@ -448,7 +448,7 @@ Run:
 
 Expected: system tests pass.
 
-- [ ] **Step 5: Commit project Git metadata**
+- [x] **Step 5: Commit project Git metadata**
 
 ```bash
 git add container-code-companion/internal/system/management.go container-code-companion/internal/system/management_test.go
@@ -460,7 +460,7 @@ git commit -m "feat(projects): expose git project metadata"
 **Files:**
 - Modify: `container-code-companion/internal/server/server_test.go`
 
-- [ ] **Step 1: Write failing clone payload server test**
+- [x] **Step 1: Write failing clone payload server test**
 
 Add near existing project handler tests:
 
@@ -488,7 +488,7 @@ func TestProtectedProjectOperationAcceptsCloneRemote(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write pull payload server test**
+- [x] **Step 2: Write pull payload server test**
 
 Add:
 
@@ -516,7 +516,7 @@ func TestProtectedProjectOperationAcceptsPullName(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run server tests**
+- [x] **Step 3: Run server tests**
 
 Run:
 
