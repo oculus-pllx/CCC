@@ -685,7 +685,7 @@ git commit -m "docs: explain project git actions"
 **Files:**
 - Verify: all changed Go, JS, docs, and static-check files
 
-- [ ] **Step 1: Run full local verification**
+- [x] **Step 1: Run full local verification**
 
 Run:
 
@@ -699,7 +699,7 @@ git diff --check
 
 Expected: all commands exit `0`.
 
-- [ ] **Step 2: Inspect the feature diff**
+- [x] **Step 2: Inspect the feature diff**
 
 Run:
 
@@ -711,7 +711,7 @@ git status --short
 Expected: clone/pull markers exist in system/UI/tests/docs, with no unexpected
 working-tree changes.
 
-- [ ] **Step 3: Field-test manually after deployment**
+- [x] **Step 3: Field-test manually after deployment**
 
 Manual cases:
 
