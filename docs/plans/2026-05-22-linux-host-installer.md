@@ -324,7 +324,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: both commands exit `0`.
 
-- [ ] **Step 5: Commit host-safe shared provisioning**
+- [x] **Step 5: Commit host-safe shared provisioning**
 
 ```bash
 git add install/ccc-provision-workstation.sh tests/container-code-companion-static.sh
@@ -337,7 +337,7 @@ git commit -m "refactor(installer): separate host policy from provisioning"
 - Create: `ccc-install-linux.sh`
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add failing static checks for the Linux entrypoint**
+- [x] **Step 1: Add failing static checks for the Linux entrypoint**
 
 Add:
 
@@ -359,7 +359,7 @@ require_file_not_contains ccc-install-linux.sh 'pvesh '
 bash -n ccc-install-linux.sh
 ```
 
-- [ ] **Step 2: Run the static suite and confirm the entrypoint checks fail**
+- [x] **Step 2: Run the static suite and confirm the entrypoint checks fail**
 
 Run:
 
@@ -369,7 +369,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: failure saying `missing Linux host installer`.
 
-- [ ] **Step 3: Implement Linux-host preflight and target-user selection**
+- [x] **Step 3: Implement Linux-host preflight and target-user selection**
 
 Create `ccc-install-linux.sh` with these key functions:
 
@@ -407,7 +407,7 @@ choose_target_user() {
 Do not put Proxmox checks, SSH hardening edits, or IPv6 sysctl edits in this
 entrypoint.
 
-- [ ] **Step 4: Stage the shared provisioner and invoke Linux-host mode**
+- [x] **Step 4: Stage the shared provisioner and invoke Linux-host mode**
 
 Use the same adjacent-or-raw lookup pattern as the Proxmox entrypoint:
 
@@ -433,7 +433,7 @@ sudo env \
   "$PROVISIONER"
 ```
 
-- [ ] **Step 5: Configure host credentials and print completion URLs**
+- [x] **Step 5: Configure host credentials and print completion URLs**
 
 After provisioning, write CCC UI credentials and code-server config from Linux
 installer prompts:
@@ -451,7 +451,7 @@ printf 'bind-addr: 0.0.0.0:8080\nauth: password\npassword: "%s"\ncert: false\nus
 Restart `container-code-companion.service`, start `code-server@$CCC_USER`, and
 print URLs using `hostname -I | awk '{print $1}'`.
 
-- [ ] **Step 6: Run syntax and static checks**
+- [x] **Step 6: Run syntax and static checks**
 
 Run:
 

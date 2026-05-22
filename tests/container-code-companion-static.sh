@@ -26,6 +26,21 @@ if git grep -n "$legacy_bootstrap" -- . ':!container-code-companion/web/vendor/*
 fi
 [[ -f ccc-bootstrap.sh ]] || fail "missing ccc-bootstrap.sh"
 [[ ! -e "${legacy_bootstrap}.sh" ]] || fail "legacy bootstrap file still exists"
+[[ -f ccc-install-linux.sh ]] || fail "missing Linux host installer"
+require_file_contains ccc-install-linux.sh 'Container Code Companion Linux Host Installer'
+require_file_contains ccc-install-linux.sh 'Only Debian and Ubuntu are supported.'
+require_file_not_contains ccc-install-linux.sh '99-disable-ipv6'
+require_file_not_contains ccc-install-linux.sh 'PermitRootLogin'
+require_file_contains ccc-install-linux.sh 'CCC_INSTALL_MODE=linux-host'
+require_file_contains ccc-install-linux.sh 'Current user'
+require_file_contains ccc-install-linux.sh 'Create a dedicated CCC user'
+require_file_contains ccc-install-linux.sh 'ccc-provision-workstation.sh'
+require_file_contains ccc-install-linux.sh 'CONTAINER_CODE_COMPANION_ADDR=0.0.0.0:9090'
+require_file_contains ccc-install-linux.sh 'bind-addr: 0.0.0.0:8080'
+require_file_contains ccc-install-linux.sh 'ccc-sync-agent-configs'
+require_file_not_contains ccc-install-linux.sh 'pct '
+require_file_not_contains ccc-install-linux.sh 'pvesh '
+bash -n ccc-install-linux.sh
 [[ -f install/ccc-provision-workstation.sh ]] || fail "missing shared workstation provisioner"
 require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALL_MODE="${CCC_INSTALL_MODE:?'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER:?'
