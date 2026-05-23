@@ -915,6 +915,137 @@ echo ""
 AGENTCONFIGSYNCSCRIPT
 chmod +x /usr/local/bin/ccc-sync-agent-configs
 
+# ── shared workspace migration ────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-migrate-shared-workspace << 'MIGRATESHAREDWORKSPACESCRIPT'
+#!/bin/bash
+set -euo pipefail
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ -r /etc/ccc/config ]] && source /etc/ccc/config
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"
+CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"
+
+usage() {
+  echo "Usage:"
+  echo "  ccc-migrate-shared-workspace --status"
+  echo "  ccc-migrate-shared-workspace --apply"
+}
+
+project_path_state() {
+  if [[ -L "$CCC_HOME/projects" ]]; then
+    local target
+    target=$(readlink "$CCC_HOME/projects" || true)
+    if [[ "$target" == "$CCC_SHARED_PROJECTS" ]]; then
+      echo "symlink to shared root"
+    else
+      echo "symlink to $target"
+    fi
+  elif [[ -d "$CCC_HOME/projects" ]]; then
+    echo "directory"
+  elif [[ -e "$CCC_HOME/projects" ]]; then
+    echo "other path"
+  else
+    echo "missing"
+  fi
+}
+
+project_entry_count() {
+  if [[ -d "$CCC_HOME/projects" && ! -L "$CCC_HOME/projects" ]]; then
+    find "$CCC_HOME/projects" -mindepth 1 -maxdepth 1 -print 2>/dev/null | wc -l
+  else
+    echo 0
+  fi
+}
+
+status() {
+  echo ""
+  echo -e "${B}CCC Shared Workspace Migration Status${N}"
+  echo ""
+  if getent group "$CCC_SHARED_GROUP" >/dev/null; then
+    echo -e "  Group ${C}$CCC_SHARED_GROUP${N}: ${G}present${N}"
+  else
+    echo -e "  Group ${C}$CCC_SHARED_GROUP${N}: ${Y}missing${N}"
+  fi
+  if [[ -d "$CCC_SHARED_PROJECTS" ]]; then
+    echo -e "  Shared projects root ${C}$CCC_SHARED_PROJECTS${N}: ${G}present${N}"
+  else
+    echo -e "  Shared projects root ${C}$CCC_SHARED_PROJECTS${N}: ${Y}missing${N}"
+  fi
+  echo -e "  User projects path ${C}$CCC_HOME/projects${N}: $(project_path_state)"
+  echo -e "  Entries that would copy: ${C}$(project_entry_count)${N}"
+  if [[ -f "$CCC_HOME/.ssh/id_ed25519.pub" ]]; then
+    echo -e "  Current user GitHub key: ${G}present${N} ($CCC_HOME/.ssh/id_ed25519.pub)"
+  else
+    echo -e "  Current user GitHub key: ${Y}not found${N}"
+  fi
+  echo ""
+}
+
+repair_shared_permissions() {
+  chown root:"$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"
+  chmod 2775 "$CCC_SHARED_PROJECTS"
+  chgrp -R "$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"
+  chmod -R g+rwX "$CCC_SHARED_PROJECTS"
+  find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} +
+}
+
+apply() {
+  if [[ "$(id -u)" -ne 0 ]]; then
+    echo -e "${R}Apply must run as root. Try: sudo ccc-migrate-shared-workspace --apply${N}" >&2
+    exit 1
+  fi
+
+  groupadd -f "$CCC_SHARED_GROUP"
+  mkdir -p "$CCC_SHARED_PROJECTS"
+  usermod -aG "$CCC_SHARED_GROUP" "$CCC_USER"
+
+  if [[ -L "$CCC_HOME/projects" ]]; then
+    local target
+    target=$(readlink "$CCC_HOME/projects" || true)
+    if [[ "$target" != "$CCC_SHARED_PROJECTS" ]]; then
+      rm "$CCC_HOME/projects"
+      ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+    fi
+  elif [[ -d "$CCC_HOME/projects" ]]; then
+    rsync -a "$CCC_HOME/projects/" "$CCC_SHARED_PROJECTS/"
+    local backup
+    backup="$CCC_HOME/projects.backup-$(date +%Y%m%d%H%M%S)"
+    while [[ -e "$backup" ]]; do
+      backup="${backup}.$$"
+    done
+    mv "$CCC_HOME/projects" "$backup"
+    ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+    echo -e "  Backup retained: ${C}$backup${N}"
+  elif [[ -e "$CCC_HOME/projects" ]]; then
+    local backup
+    backup="$CCC_HOME/projects.backup-$(date +%Y%m%d%H%M%S)"
+    mv "$CCC_HOME/projects" "$backup"
+    ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+    echo -e "  Non-directory path backed up: ${C}$backup${N}"
+  else
+    ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+  fi
+
+  repair_shared_permissions
+  echo -e "${G}${B}Shared workspace migration applied.${N}"
+  echo -e "  Shared projects: ${C}$CCC_SHARED_PROJECTS${N}"
+  echo -e "  Compatibility link: ${C}$CCC_HOME/projects${N}"
+  echo ""
+}
+
+case "${1:-}" in
+  --status) status ;;
+  --apply) apply ;;
+  -h|--help|"") usage ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
+MIGRATESHAREDWORKSPACESCRIPT
+chmod +x /usr/local/bin/ccc-migrate-shared-workspace
+
 # ── ccc-update ────────────────────────────────────────────────────────────────
 cat > /usr/local/bin/ccc-update << 'UPDATESCRIPT'
 #!/bin/bash

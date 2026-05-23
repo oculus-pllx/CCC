@@ -59,6 +59,13 @@ require_file_contains install/ccc-provision-workstation.sh 'usermod -aG "$CCC_SH
 require_file_contains install/ccc-provision-workstation.sh 'chown root:"$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"'
 require_file_contains install/ccc-provision-workstation.sh 'chmod 2775 "$CCC_SHARED_PROJECTS"'
 require_file_contains install/ccc-provision-workstation.sh 'ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"'
+require_file_contains install/ccc-provision-workstation.sh 'cat > /usr/local/bin/ccc-migrate-shared-workspace'
+require_file_contains install/ccc-provision-workstation.sh 'ccc-migrate-shared-workspace --status'
+require_file_contains install/ccc-provision-workstation.sh 'ccc-migrate-shared-workspace --apply'
+require_file_contains install/ccc-provision-workstation.sh 'rsync -a "$CCC_HOME/projects/" "$CCC_SHARED_PROJECTS/"'
+require_file_contains install/ccc-provision-workstation.sh 'mv "$CCC_HOME/projects" "$backup"'
+require_file_contains install/ccc-provision-workstation.sh 'find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} +'
+require_file_contains install/ccc-provision-workstation.sh '[[ -f "$CCC_HOME/.ssh/id_ed25519.pub" ]]'
 bash -n install/ccc-provision-workstation.sh
 
 legacy_product='agent-''workstation'

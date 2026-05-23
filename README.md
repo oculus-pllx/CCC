@@ -120,6 +120,21 @@ The Linux-host installer installs CCC services, code-server, baseline dev tools,
 
 ---
 
+## Shared Workspace Migration
+
+Fresh installs use `/srv/ccc/projects` as the canonical project root and link `~/projects` there for compatibility.
+
+Existing installs can inspect and apply the migration after updating CCC tooling:
+
+```bash
+ccc-migrate-shared-workspace --status
+sudo ccc-migrate-shared-workspace --apply
+```
+
+The status command reports whether the `ccc` group and shared root exist, what `~/projects` currently points to, how many existing project entries would copy, and whether the current user has an existing GitHub SSH public key. Apply creates the shared root, adds `CCC_USER` to the `ccc` group, rsyncs old `~/projects/` content into `/srv/ccc/projects/`, renames the old path to a timestamped backup, links `~/projects`, and repairs group-write/setgid permissions. Backups are retained.
+
+---
+
 ## First Steps
 
 ```bash
@@ -298,6 +313,7 @@ sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/cl
 ccc-update-status           # show installed vs GitHub provisioner version
 sudo ccc-self-update        # Container Code Companion tooling: commands, MOTD, native UI service
 sudo ccc-sync-agent-configs # shared Claude/Codex/Gemini config from oculus-configs
+ccc-migrate-shared-workspace --status # inspect existing ~/projects migration state
 ccc-update                  # convenience: tooling + app CLI updates, no apt upgrade
 claude update               # Claude Code only
 ```
