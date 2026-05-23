@@ -323,6 +323,12 @@ echo '{"model":{"id":"claude-sonnet-4"},"thinking":{"enabled":true}}' \
 
 Container Code Companion separates updates so OS packages, workstation tooling, and shared agent behavior can move independently.
 
+Update cadence:
+- CCC tooling auto-update runs weekly from cron on Sundays at 3:00 AM ET via `/etc/cron.d/ccc-app-update`.
+- `ccc-update-status` checks GitHub only when you run it, when the MOTD/status flow invokes it, or when the Updates page requests status.
+- OS package updates and `oculus-configs` agent config sync are manual; run `sudo ccc-os-update` and `sudo ccc-sync-agent-configs` when you want them applied.
+- App Catalog package/version checks run on demand from the native UI, not continuously in the background.
+
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean
 ccc-update-status           # show installed vs GitHub provisioner version
