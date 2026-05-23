@@ -209,6 +209,9 @@ function selectSection(section) {
   });
   closeMobileNav();
   renderSection(section);
+  if (section === 'updates') {
+    refreshCCCUpdateStatus();
+  }
 }
 
 function openMobileNav() {
@@ -1036,6 +1039,34 @@ async function runAction(action) {
   }
 }
 
+async function runActionForSnapshot(action) {
+  const result = await postJSON('/api/action', { action });
+  await loadSnapshot();
+  return result;
+}
+
+async function refreshCCCUpdateStatus() {
+  const output = document.getElementById('update-status-output');
+  if (output) {
+    output.textContent = 'Checking Container Code Companion update status...';
+  }
+  try {
+    const result = await runActionForSnapshot('update-status');
+    if (currentSection === 'updates') {
+      renderSection('updates');
+      const refreshedOutput = document.getElementById('update-status-output');
+      if (refreshedOutput && result.output) {
+        refreshedOutput.textContent = stripANSI(result.output);
+      }
+    }
+  } catch (error) {
+    const errorOutput = document.getElementById('update-status-output');
+    if (errorOutput) {
+      errorOutput.textContent = stripANSI(error.message);
+    }
+  }
+}
+
 // Streams ccc-self-update output via SSE. The connection drops when systemctl
 // restarts the service; any disconnect-after-output is treated as success.
 async function runSelfUpdateStream() {
@@ -1134,6 +1165,9 @@ function bindUpdates() {
     button.addEventListener('click', () => {
       activeUpdateTab = button.dataset.updateTab === 'os' ? 'os' : 'app';
       renderSection('updates');
+      if (activeUpdateTab === 'app') {
+        refreshCCCUpdateStatus();
+      }
     });
   });
   document.getElementById('self-update-btn')?.addEventListener('click', runSelfUpdateStream);
