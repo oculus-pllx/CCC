@@ -357,6 +357,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "add-existing"'
 require_file_contains container-code-companion/internal/system/management.go 'case "clone"'
 require_file_contains container-code-companion/internal/system/management.go 'case "pull"'
+require_file_contains container-code-companion/internal/system/management.go 'func projectListingRoot'
+require_file_contains container-code-companion/internal/system/management.go 'filepath.Join(home, "repos")'
 require_file_contains container-code-companion/internal/system/management.go 'case "repair-permissions"'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chgrp -R'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chmod -R g+rwX'

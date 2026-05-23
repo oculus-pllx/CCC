@@ -116,6 +116,24 @@ func TestProjectPermissionHealthReportsSharedRoot(t *testing.T) {
 	}
 }
 
+func TestProjectListingRootFallsBackToLegacyReposWhenSharedRootEmpty(t *testing.T) {
+	home := t.TempDir()
+	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")
+	legacyRoot := filepath.Join(home, "repos")
+	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", sharedRoot)
+	if err := os.MkdirAll(sharedRoot, 0o775); err != nil {
+		t.Fatalf("create shared root: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(legacyRoot, "demo"), 0o755); err != nil {
+		t.Fatalf("create legacy repo: %v", err)
+	}
+
+	if got := projectListingRoot(); got != legacyRoot {
+		t.Fatalf("projectListingRoot() = %q, want %q", got, legacyRoot)
+	}
+}
+
 func TestRunProjectOperationAddsExistingDirectoryAsProjectLink(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

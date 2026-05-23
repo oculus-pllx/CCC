@@ -136,6 +136,8 @@ The status command reports whether the `ccc` group and shared root exist, what `
 
 The Projects page also exposes Migration Status, Apply Migration, and Repair Permissions actions for the shared root.
 
+Compatibility note: if `/srv/ccc/projects` is missing or empty but legacy `~/projects` or `~/repos` contains entries, the Projects page lists the legacy root so existing work remains visible before migration is applied. New clone/create operations still target the canonical shared root.
+
 ## Work Identities
 
 CCC supports multiple local Linux work identities on one personal workstation. Each identity gets its own provider auth/session directories:

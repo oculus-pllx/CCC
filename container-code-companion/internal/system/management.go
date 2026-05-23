@@ -201,7 +201,7 @@ type AccountOperation struct {
 
 func CollectManagementSnapshot() (ManagementSnapshot, error) {
 	home := workstationHome()
-	projectsRoot := sharedProjectsRoot()
+	projectsRoot := projectListingRoot()
 	overview, _ := CollectOverview()
 	snapshot := ManagementSnapshot{
 		Overview:      overview,
@@ -413,7 +413,7 @@ func setupCCCProfileCommand(username string) string {
 
 func BrowseFiles(path string) (FileListing, error) {
 	if strings.TrimSpace(path) == "" {
-		path = sharedProjectsRoot()
+		path = projectListingRoot()
 	}
 	cleaned, err := filepath.Abs(path)
 	if err != nil {
@@ -1253,6 +1253,32 @@ func sharedProjectsRoot() string {
 		return filepath.Clean(root)
 	}
 	return "/srv/ccc/projects"
+}
+
+func projectListingRoot() string {
+	sharedRoot := sharedProjectsRoot()
+	if directoryHasEntries(sharedRoot) {
+		return sharedRoot
+	}
+	for _, root := range legacyProjectRoots() {
+		if directoryHasEntries(root) {
+			return root
+		}
+	}
+	return sharedRoot
+}
+
+func legacyProjectRoots() []string {
+	home := workstationHome()
+	return []string{
+		filepath.Join(home, "projects"),
+		filepath.Join(home, "repos"),
+	}
+}
+
+func directoryHasEntries(path string) bool {
+	entries, err := os.ReadDir(path)
+	return err == nil && len(entries) > 0
 }
 
 func currentUsername() string {
