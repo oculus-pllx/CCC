@@ -22,7 +22,7 @@
 - Modify: `tests/container-code-companion-static.sh`
 - Test: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add static checks**
+- [x] **Step 1: Add static checks**
 
 Add these checks near the existing display effect assertions:
 
@@ -34,7 +34,7 @@ require_file_contains container-code-companion/web/styles.css "body.terminal-eff
 require_file_contains container-code-companion/web/styles.css "body.terminal-effects-suppressed.effect-sync-drift .layout::after"
 ```
 
-- [ ] **Step 2: Run static checks and verify red**
+- [x] **Step 2: Run static checks and verify red**
 
 Run:
 
@@ -44,7 +44,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: FAIL because the terminal suppression class and CSS rules do not exist.
 
-- [ ] **Step 3: Commit the red test checkpoint**
+- [x] **Step 3: Commit the red test checkpoint**
 
 Run:
 
@@ -147,4 +147,3 @@ git status --short --branch
 ```
 
 Expected: only intentional plan checkbox updates remain if any.
-

@@ -506,12 +506,17 @@ require_file_contains container-code-companion/web/styles.css 'transform: transl
 require_file_contains container-code-companion/web/styles.css '.drive-form'
 require_file_contains container-code-companion/web/app.js 'effect-flicker'
 require_file_contains container-code-companion/web/app.js 'effect-sync-drift'
+require_file_contains container-code-companion/web/app.js 'terminal-effects-suppressed'
+require_file_contains container-code-companion/web/app.js "section === 'terminal'"
 require_file_contains container-code-companion/web/app.js 'data-display-effect="flicker"'
 require_file_contains container-code-companion/web/app.js 'data-display-effect="syncDrift"'
 require_file_contains container-code-companion/web/styles.css 'crt-flicker'
 require_file_contains container-code-companion/web/styles.css 'crt-sync-drift'
 require_file_contains container-code-companion/web/styles.css 'body.effect-flicker::before'
 require_file_contains container-code-companion/web/styles.css 'body.effect-sync-drift .layout::after'
+require_file_contains container-code-companion/web/styles.css 'body.terminal-effects-suppressed.effect-flicker::before'
+require_file_contains container-code-companion/web/styles.css 'body.terminal-effects-suppressed::after'
+require_file_contains container-code-companion/web/styles.css 'body.terminal-effects-suppressed.effect-sync-drift .layout::after'
 require_file_contains container-code-companion/web/styles.css '@media (prefers-reduced-motion: reduce)'
 
 # Task 5: Network graph accent
