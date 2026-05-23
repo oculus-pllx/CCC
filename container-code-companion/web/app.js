@@ -53,6 +53,8 @@ let nextTerminalTabId = 1;
 let updatePollTimer = null;
 let snapshotPollTimer = null;
 let activeUpdateTab = 'app';
+let lastCCCUpdateStatusCheck = 0;
+let cccUpdateStatusInFlight = false;
 let networkPollTimer = null;
 let lastNetworkSample = null;
 let networkHistory = [];
@@ -121,6 +123,7 @@ async function pollSnapshot() {
   if (currentSection === 'updates' || currentSection === 'overview') {
     if (currentSection === 'overview') {
       updateOverviewLive();
+      maybeRefreshCCCUpdateStatus();
     } else {
       renderSection(currentSection);
     }
@@ -211,6 +214,8 @@ function selectSection(section) {
   renderSection(section);
   if (section === 'updates') {
     refreshCCCUpdateStatus();
+  } else if (section === 'overview') {
+    maybeRefreshCCCUpdateStatus(true);
   }
 }
 
@@ -1046,6 +1051,9 @@ async function runActionForSnapshot(action) {
 }
 
 async function refreshCCCUpdateStatus() {
+  if (cccUpdateStatusInFlight) return;
+  cccUpdateStatusInFlight = true;
+  lastCCCUpdateStatusCheck = Date.now();
   const output = document.getElementById('update-status-output');
   if (output) {
     output.textContent = 'Checking Container Code Companion update status...';
@@ -1064,7 +1072,15 @@ async function refreshCCCUpdateStatus() {
     if (errorOutput) {
       errorOutput.textContent = stripANSI(error.message);
     }
+  } finally {
+    cccUpdateStatusInFlight = false;
   }
+}
+
+function maybeRefreshCCCUpdateStatus(force = false) {
+  const intervalMs = 5 * 60 * 1000;
+  if (!force && Date.now() - lastCCCUpdateStatusCheck < intervalMs) return;
+  refreshCCCUpdateStatus();
 }
 
 // Streams ccc-self-update output via SSE. The connection drops when systemctl
