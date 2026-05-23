@@ -959,6 +959,7 @@ CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"
 CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"
+CCC_LEGACY_PROJECT_ROOTS="${CCC_LEGACY_PROJECT_ROOTS:-$CCC_HOME/projects:$CCC_HOME/repos}"
 
 usage() {
   echo "Usage:"
@@ -985,10 +986,24 @@ project_path_state() {
 }
 
 project_entry_count() {
-  if [[ -d "$CCC_HOME/projects" && ! -L "$CCC_HOME/projects" ]]; then
-    find "$CCC_HOME/projects" -mindepth 1 -maxdepth 1 -print 2>/dev/null | wc -l
+  local root=$1
+  if [[ -d "$root" && ! -L "$root" ]]; then
+    find "$root" -mindepth 1 -maxdepth 1 -print 2>/dev/null | wc -l
   else
     echo 0
+  fi
+}
+
+legacy_root_state() {
+  local root=$1
+  if [[ -L "$root" ]]; then
+    echo "symlink to $(readlink "$root" || true)"
+  elif [[ -d "$root" ]]; then
+    echo "directory"
+  elif [[ -e "$root" ]]; then
+    echo "other path"
+  else
+    echo "missing"
   fi
 }
 
@@ -1007,7 +1022,11 @@ status() {
     echo -e "  Shared projects root ${C}$CCC_SHARED_PROJECTS${N}: ${Y}missing${N}"
   fi
   echo -e "  User projects path ${C}$CCC_HOME/projects${N}: $(project_path_state)"
-  echo -e "  Entries that would copy: ${C}$(project_entry_count)${N}"
+  IFS=: read -r -a legacy_roots <<< "$CCC_LEGACY_PROJECT_ROOTS"
+  for legacy_root in "${legacy_roots[@]}"; do
+    [[ -n "$legacy_root" ]] || continue
+    echo -e "  Legacy root ${C}$legacy_root${N}: $(legacy_root_state "$legacy_root") (${C}$(project_entry_count "$legacy_root")${N} entries)"
+  done
   if [[ -f "$CCC_HOME/.ssh/id_ed25519.pub" ]]; then
     echo -e "  Current user GitHub key: ${G}present${N} ($CCC_HOME/.ssh/id_ed25519.pub)"
   else
@@ -1022,6 +1041,22 @@ repair_shared_permissions() {
   chgrp -R "$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"
   chmod -R g+rwX "$CCC_SHARED_PROJECTS"
   find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} +
+}
+
+link_legacy_repos_root() {
+  local root=$1
+  [[ -d "$root" && ! -L "$root" ]] || return 0
+  while IFS= read -r -d '' project; do
+    local name dest
+    name=$(basename "$project")
+    dest="$CCC_SHARED_PROJECTS/$name"
+    if [[ -e "$dest" || -L "$dest" ]]; then
+      echo -e "  Existing shared project left unchanged: ${C}$dest${N}"
+      continue
+    fi
+    ln -s "$project" "$dest"
+    echo -e "  Linked legacy repo: ${C}$dest${N} -> $project"
+  done < <(find "$root" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
 }
 
 apply() {
@@ -1060,6 +1095,8 @@ apply() {
   else
     ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
   fi
+
+  link_legacy_repos_root "$CCC_HOME/repos"
 
   repair_shared_permissions
   echo -e "${G}${B}Shared workspace migration applied.${N}"
