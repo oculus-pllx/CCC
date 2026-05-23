@@ -629,13 +629,14 @@ function renderProjects() {
   const projectRoot = snapshot.projectRoot || {};
   return `
     <div class="project-root-health">
+      <h3>Shared Workspace</h3>
       <dl class="facts">
         <dt>Project root</dt><dd>${escapeHTML(projectRoot.root || '/srv/ccc/projects')}</dd>
         <dt>Permission health</dt><dd>${escapeHTML(projectRoot.summary || 'unknown')} ${projectRoot.mode ? `(${escapeHTML(projectRoot.mode)})` : ''}</dd>
       </dl>
       <div class="action-row">
-        <button id="shared-workspace-status-button" class="small-button">Migration Status</button>
-        <button id="shared-workspace-apply-button" class="small-button">Apply Migration</button>
+        <button id="shared-workspace-status-button" class="small-button">Check Migration</button>
+        <button id="shared-workspace-apply-button" class="small-button">Migrate Existing Projects</button>
         <button id="repair-project-permissions-button" class="small-button">Repair Permissions</button>
       </div>
     </div>
@@ -2122,7 +2123,11 @@ function bindProjects() {
   document.getElementById('clone-project-button')?.addEventListener('click', cloneProject);
   document.getElementById('repair-project-permissions-button')?.addEventListener('click', repairProjectPermissions);
   document.getElementById('shared-workspace-status-button')?.addEventListener('click', () => runProjectPageAction('shared-workspace-status'));
-  document.getElementById('shared-workspace-apply-button')?.addEventListener('click', () => runProjectPageAction('shared-workspace-apply'));
+  document.getElementById('shared-workspace-apply-button')?.addEventListener('click', () => {
+    if (confirm('Migrate existing projects into the shared workspace?')) {
+      runProjectPageAction('shared-workspace-apply');
+    }
+  });
   document.querySelectorAll('[data-project-browse]').forEach(button => {
     button.addEventListener('click', () => {
       filePath = button.dataset.projectBrowse;
