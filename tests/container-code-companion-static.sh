@@ -117,6 +117,13 @@ require_file_contains README.md "GitHub CLI"
 require_file_contains install/ccc-provision-workstation.sh "Ubuntu 26.04 Chromium support may lag Playwright releases"
 require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID:-}" == "26.04"'
 require_file_contains README.md "Debian 13 is the safer CCC path when browser automation matters"
+require_file_contains ccc-bootstrap.sh "1) Ubuntu 24.04 LTS  (default)"
+require_file_contains ccc-bootstrap.sh "2) Ubuntu 26.04 LTS"
+require_file_contains ccc-bootstrap.sh "3) Debian 13 (Trixie)"
+require_file_contains ccc-bootstrap.sh 'ubuntu-24\.04-standard_24\.04-[0-9]+_amd64\.tar\.zst'
+require_file_contains ccc-bootstrap.sh 'ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst'
+require_file_contains ccc-bootstrap.sh 'debian-13-standard_13\.[0-9]+-[0-9]+_amd64\.tar\.zst'
+require_file_contains README.md "Ubuntu 24.04 LTS (default), Ubuntu 26.04 LTS, or Debian 13"
 require_file_contains install/ccc-provision-workstation.sh '"$schema": "https://json.schemastore.org/claude-code-settings.json"'
 require_file_not_contains install/ccc-provision-workstation.sh "oculus-settings.json"
 require_file_contains install/ccc-provision-workstation.sh '"statusLine": {'

@@ -21,7 +21,7 @@
 **Files:**
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add static assertions**
+- [x] **Step 1: Add static assertions**
 
 Add checks for:
 
@@ -35,7 +35,7 @@ require_file_contains ccc-bootstrap.sh 'debian-13-standard_13\.[0-9]+-[0-9]+_amd
 require_file_contains README.md "Ubuntu 24.04 LTS (default), Ubuntu 26.04 LTS, or Debian 13"
 ```
 
-- [ ] **Step 2: Run static checks and verify red**
+- [x] **Step 2: Run static checks and verify red**
 
 Run:
 
@@ -45,7 +45,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: FAIL because Ubuntu 24.04 is not yet present.
 
-- [ ] **Step 3: Commit red test checkpoint**
+- [x] **Step 3: Commit red test checkpoint**
 
 Run:
 
@@ -142,4 +142,3 @@ git status --short --branch
 ```
 
 Expected: only intentional plan checkbox updates remain if any.
-
