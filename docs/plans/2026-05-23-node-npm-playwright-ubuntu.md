@@ -21,7 +21,7 @@
 **Files:**
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add static assertions**
+- [x] **Step 1: Add static assertions**
 
 Add:
 
@@ -32,7 +32,7 @@ require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID" == "26.0
 require_file_contains README.md "Debian 13 is the safer CCC path when browser automation matters"
 ```
 
-- [ ] **Step 2: Run static checks and verify red**
+- [x] **Step 2: Run static checks and verify red**
 
 Run:
 
@@ -42,7 +42,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: FAIL because these markers are not present.
 
-- [ ] **Step 3: Commit red test checkpoint**
+- [x] **Step 3: Commit red test checkpoint**
 
 Run:
 
@@ -123,4 +123,3 @@ git status --short --branch
 ```
 
 Expected: only intentional plan checkbox updates remain if any.
-

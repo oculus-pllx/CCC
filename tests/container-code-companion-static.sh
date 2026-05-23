@@ -109,10 +109,14 @@ require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -
 require_file_contains install/ccc-provision-workstation.sh 'command -v bwrap'
 require_file_contains install/ccc-provision-workstation.sh 'command -v gh'
 require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
+require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
 require_file_contains install/ccc-provision-workstation.sh 'command -v tmux'
 require_file_contains install/ccc-provision-workstation.sh 'command -v code-server'
 require_file_contains README.md "bubblewrap"
 require_file_contains README.md "GitHub CLI"
+require_file_contains install/ccc-provision-workstation.sh "Ubuntu 26.04 Chromium support may lag Playwright releases"
+require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID" == "26.04"'
+require_file_contains README.md "Debian 13 is the safer CCC path when browser automation matters"
 require_file_contains install/ccc-provision-workstation.sh '"$schema": "https://json.schemastore.org/claude-code-settings.json"'
 require_file_not_contains install/ccc-provision-workstation.sh "oculus-settings.json"
 require_file_contains install/ccc-provision-workstation.sh '"statusLine": {'
