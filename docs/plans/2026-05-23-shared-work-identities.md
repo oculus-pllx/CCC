@@ -165,21 +165,21 @@ GUI:
 
 ## Phase 5: Project Permission Health
 
-Status: Next.
+Status: Complete.
 
 ### Files
 
-- Modify `container-code-companion/internal/system/management.go`
-- Modify `container-code-companion/web/app.js`
-- Add tests and static checks
+- [x] Modify `container-code-companion/internal/system/management.go`
+- [x] Modify `container-code-companion/web/app.js`
+- [x] Add tests and static checks
 
 ### Behavior
 
 Projects page should show:
 
-- shared root path
-- permission health summary
-- `Repair Permissions` action
+- [x] shared root path
+- [x] permission health summary
+- [x] `Repair Permissions` action
 
 Repair command:
 

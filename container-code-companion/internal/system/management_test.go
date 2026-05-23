@@ -100,6 +100,22 @@ func TestRunProjectOperationCloneTargetsSharedRoot(t *testing.T) {
 	}
 }
 
+func TestProjectPermissionHealthReportsSharedRoot(t *testing.T) {
+	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")
+	t.Setenv("CCC_SHARED_PROJECTS", sharedRoot)
+	if err := os.MkdirAll(sharedRoot, 0o775); err != nil {
+		t.Fatalf("create shared root: %v", err)
+	}
+
+	health := collectProjectPermissionHealth()
+	if health.Root != sharedRoot {
+		t.Fatalf("Root = %q, want %q", health.Root, sharedRoot)
+	}
+	if !health.Exists {
+		t.Fatal("expected shared root to exist")
+	}
+}
+
 func TestRunProjectOperationAddsExistingDirectoryAsProjectLink(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

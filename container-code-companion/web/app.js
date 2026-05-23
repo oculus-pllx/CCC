@@ -618,7 +618,15 @@ function renderTerminal() {
 }
 
 function renderProjects() {
+  const projectRoot = snapshot.projectRoot || {};
   return `
+    <div class="project-root-health">
+      <dl class="facts">
+        <dt>Project root</dt><dd>${escapeHTML(projectRoot.root || '/srv/ccc/projects')}</dd>
+        <dt>Permission health</dt><dd>${escapeHTML(projectRoot.summary || 'unknown')} ${projectRoot.mode ? `(${escapeHTML(projectRoot.mode)})` : ''}</dd>
+      </dl>
+      <button id="repair-project-permissions-button" class="small-button">Repair Permissions</button>
+    </div>
     <div class="project-create">
       <input id="project-name" type="text" placeholder="new-project">
       <select id="project-template">
@@ -2058,6 +2066,7 @@ function bindProjects() {
   document.getElementById('create-project-button').addEventListener('click', createProject);
   document.getElementById('add-existing-project-button').addEventListener('click', addExistingProject);
   document.getElementById('clone-project-button')?.addEventListener('click', cloneProject);
+  document.getElementById('repair-project-permissions-button')?.addEventListener('click', repairProjectPermissions);
   document.querySelectorAll('[data-project-browse]').forEach(button => {
     button.addEventListener('click', () => {
       filePath = button.dataset.projectBrowse;
@@ -2078,6 +2087,10 @@ function bindProjects() {
   document.querySelectorAll('[data-project-delete]').forEach(button => {
     button.addEventListener('click', () => deleteProject(button.dataset.projectDelete));
   });
+}
+
+async function repairProjectPermissions() {
+  await runProjectOperation({ operation: 'repair-permissions' });
 }
 
 async function createProject() {

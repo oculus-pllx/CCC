@@ -332,6 +332,10 @@ require_file_contains container-code-companion/web/app.js "project-clone-control
 require_file_contains container-code-companion/web/app.js "cloneProject"
 require_file_contains container-code-companion/web/app.js "data-project-pull"
 require_file_contains container-code-companion/web/app.js "pullProject"
+require_file_contains container-code-companion/web/app.js "Project root"
+require_file_contains container-code-companion/web/app.js "Permission health"
+require_file_contains container-code-companion/web/app.js "Repair Permissions"
+require_file_contains container-code-companion/web/app.js "repair-permissions"
 require_file_contains container-code-companion/web/index.html "custom-title-edit"
 require_file_contains container-code-companion/web/app.js "focusHeaderMessageEditor"
 require_file_contains container-code-companion/internal/system/management.go 'Path      string `json:"path"`'
@@ -341,6 +345,10 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "add-existing"'
 require_file_contains container-code-companion/internal/system/management.go 'case "clone"'
 require_file_contains container-code-companion/internal/system/management.go 'case "pull"'
+require_file_contains container-code-companion/internal/system/management.go 'case "repair-permissions"'
+require_file_contains container-code-companion/internal/system/management.go 'sudo chgrp -R'
+require_file_contains container-code-companion/internal/system/management.go 'sudo chmod -R g+rwX'
+require_file_contains container-code-companion/internal/system/management.go 'sudo find'
 require_file_contains container-code-companion/internal/system/management.go "os.Symlink"
 require_file_contains container-code-companion/internal/server/server.go "/api/tools"
 require_file_contains container-code-companion/internal/server/server.go "/api/drive"

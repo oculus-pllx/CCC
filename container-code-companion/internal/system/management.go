@@ -29,6 +29,7 @@ type ManagementSnapshot struct {
 	Files         []FileEntry       `json:"files"`
 	Updates       UpdateStatus      `json:"updates"`
 	Projects      []ProjectStatus   `json:"projects"`
+	ProjectRoot   ProjectRootStatus `json:"projectRoot"`
 	AgentConfigs  []AgentConfigFile `json:"agentConfigs"`
 	OculusConfigs RepoStatus        `json:"oculusConfigs"`
 }
@@ -113,6 +114,15 @@ type ProjectStatus struct {
 	GitBranch string `json:"gitBranch"`
 	GitRemote string `json:"gitRemote"`
 	GitStatus string `json:"gitStatus"`
+}
+
+type ProjectRootStatus struct {
+	Root          string `json:"root"`
+	Exists        bool   `json:"exists"`
+	Mode          string `json:"mode"`
+	GroupWritable bool   `json:"groupWritable"`
+	Setgid        bool   `json:"setgid"`
+	Summary       string `json:"summary"`
 }
 
 type AgentConfigFile struct {
@@ -202,6 +212,7 @@ func CollectManagementSnapshot() (ManagementSnapshot, error) {
 		Files:         listFiles(projectsRoot, 80),
 		Updates:       collectUpdates(),
 		Projects:      collectProjects(projectsRoot),
+		ProjectRoot:   collectProjectPermissionHealth(),
 		AgentConfigs:  collectAgentConfigs(home),
 		OculusConfigs: collectRepoStatus("/opt/oculus-configs"),
 	}
@@ -792,9 +803,39 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 			return CommandResult{}, err
 		}
 		return CommandResult{Command: "delete " + operation.Name, Output: "deleted " + operation.Name}, nil
+	case "repair-permissions":
+		group := os.Getenv("CCC_SHARED_GROUP")
+		if strings.TrimSpace(group) == "" {
+			group = "ccc"
+		}
+		command := strings.Join([]string{
+			"sudo chgrp -R " + shellQuote(group) + " " + shellQuote(projectsRoot),
+			"sudo chmod -R g+rwX " + shellQuote(projectsRoot),
+			"sudo find " + shellQuote(projectsRoot) + " -type d -exec chmod g+s {} +",
+		}, " && ")
+		return RunShellCommand(command, workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("project operation %q is not allowed", operation.Operation)
 	}
+}
+
+func collectProjectPermissionHealth() ProjectRootStatus {
+	root := sharedProjectsRoot()
+	status := ProjectRootStatus{Root: root, Summary: "missing"}
+	info, err := os.Stat(root)
+	if err != nil {
+		return status
+	}
+	status.Exists = true
+	status.Mode = info.Mode().String()
+	status.GroupWritable = info.Mode().Perm()&0o020 != 0
+	status.Setgid = info.Mode()&os.ModeSetgid != 0
+	if status.GroupWritable && status.Setgid {
+		status.Summary = "healthy"
+	} else {
+		status.Summary = "repair recommended"
+	}
+	return status
 }
 
 func collectServices() []ServiceStatus {
