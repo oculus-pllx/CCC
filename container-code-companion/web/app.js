@@ -202,6 +202,7 @@ function startNetworkBackground() {
 
 function selectSection(section) {
   currentSection = section;
+  document.body.classList.toggle('terminal-effects-suppressed', section === 'terminal');
   document.getElementById('section-title').textContent = titles[section] || section;
   document.querySelectorAll('.sidebar button').forEach(button => {
     button.classList.toggle('active', button.dataset.section === section);

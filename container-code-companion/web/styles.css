@@ -88,6 +88,13 @@ body.effect-sync-drift .layout::after {
   animation: crt-sync-drift 9s infinite linear;
 }
 
+body.terminal-effects-suppressed.effect-flicker::before,
+body.terminal-effects-suppressed::after,
+body.terminal-effects-suppressed.effect-sync-drift .layout::after {
+  display: none;
+  animation: none;
+}
+
 @keyframes crt-flicker {
   0%, 100% { opacity: 0.20; }
   4% { opacity: 0.34; }

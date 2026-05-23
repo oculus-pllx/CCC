@@ -59,7 +59,7 @@ git commit -m "test(ui): cover terminal effect suppression"
 - Modify: `container-code-companion/web/app.js`
 - Test: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Toggle the body class from `selectSection()`**
+- [x] **Step 1: Toggle the body class from `selectSection()`**
 
 In `selectSection(section)`, add:
 
@@ -67,7 +67,7 @@ In `selectSection(section)`, add:
 document.body.classList.toggle('terminal-effects-suppressed', section === 'terminal');
 ```
 
-- [ ] **Step 2: Run static checks and syntax validation**
+- [x] **Step 2: Run static checks and syntax validation**
 
 Run:
 
@@ -84,7 +84,7 @@ Expected: static checks still fail because CSS suppression rules are not present
 - Modify: `container-code-companion/web/styles.css`
 - Test: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add suppression CSS**
+- [x] **Step 1: Add suppression CSS**
 
 Add this CSS near the existing effect rules:
 
@@ -97,7 +97,7 @@ body.terminal-effects-suppressed.effect-sync-drift .layout::after {
 }
 ```
 
-- [ ] **Step 2: Run focused verification**
+- [x] **Step 2: Run focused verification**
 
 Run:
 
@@ -109,7 +109,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 3: Commit the implementation checkpoint**
+- [x] **Step 3: Commit the implementation checkpoint**
 
 Run:
 
