@@ -44,4 +44,12 @@ Current verification set:
 
 ## Next Work
 
-The original GUI punchlist is complete. New work should come from fresh field testing, user issues, or explicit feature requests.
+Next planned build is shared work identities:
+- shared project root at `/srv/ccc/projects`
+- managed machine GitHub SSH key under `/etc/ccc/ssh`
+- GUI-driven migration for existing installs
+- Accounts actions to setup/sync per-user CCC agent profiles without copying provider auth
+
+Blueprints:
+- `docs/specs/2026-05-23-shared-work-identities-design.md`
+- `docs/plans/2026-05-23-shared-work-identities.md`
