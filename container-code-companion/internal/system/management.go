@@ -348,11 +348,52 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 		return RunShellCommand("sudo chsh -s "+shellQuote(operation.Shell)+" "+shellQuote(operation.Username), workstationHome())
 	case "set-groups":
 		return RunShellCommand("sudo usermod -G "+shellQuote(operation.Groups)+" "+shellQuote(operation.Username), workstationHome())
+	case "setup-ccc-profile":
+		return RunShellCommand(setupCCCProfileCommand(operation.Username), workstationHome())
+	case "sync-agent-configs":
+		return RunShellCommand("sudo ccc-sync-agent-configs --user "+shellQuote(operation.Username), workstationHome())
 	case "delete":
 		return RunShellCommand("sudo userdel -r "+shellQuote(operation.Username), workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("account operation %q is not allowed", operation.Operation)
 	}
+}
+
+func setupCCCProfileCommand(username string) string {
+	home := "/home/" + username
+	group := os.Getenv("CCC_SHARED_GROUP")
+	if strings.TrimSpace(group) == "" {
+		group = "ccc"
+	}
+	projectsRoot := sharedProjectsRoot()
+	githubKeyPath := githubMachineKeyPath()
+	githubConfig := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + githubKeyPath + "\n  IdentitiesOnly yes\n"
+	commands := []string{
+		"test $(id -u " + shellQuote(username) + ") -ge 1000",
+		"sudo groupadd -f " + shellQuote(group),
+		"sudo usermod -aG " + shellQuote(group) + " " + shellQuote(username),
+		"sudo mkdir -p " + shellQuote(projectsRoot),
+		"sudo chown root:" + shellQuote(group) + " " + shellQuote(projectsRoot),
+		"sudo chmod 2775 " + shellQuote(projectsRoot),
+		"sudo rm -rf " + shellQuote(home+"/projects"),
+		"sudo ln -sfn " + shellQuote(projectsRoot) + " " + shellQuote(home+"/projects"),
+		"sudo mkdir -p " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh"),
+		"sudo chmod 700 " + shellQuote(home+"/.ssh"),
+		"sudo ccc-sync-agent-configs --user " + shellQuote(username),
+	}
+	if fileExists(githubKeyPath) || fileExists(githubKeyPath+".pub") {
+		commands = append(commands,
+			"printf %s "+shellQuote(githubConfig)+" | sudo tee "+shellQuote(home+"/.ssh/config")+" >/dev/null",
+			"sudo chmod 600 "+shellQuote(home+"/.ssh/config"),
+		)
+	} else {
+		commands = append(commands, "true # IdentityFile "+githubKeyPath)
+	}
+	commands = append(commands,
+		"sudo chown -R "+shellQuote(username+":"+username)+" "+shellQuote(home+"/.claude")+" "+shellQuote(home+"/.codex")+" "+shellQuote(home+"/.gemini")+" "+shellQuote(home+"/.ssh"),
+		"printf '%s\\n' 'Profile ready. First-login checklist: run claude, codex, gemini, and optionally gh auth login.'",
+	)
+	return strings.Join(commands, " && ")
 }
 
 func BrowseFiles(path string) (FileListing, error) {

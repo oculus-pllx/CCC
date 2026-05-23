@@ -403,11 +403,14 @@ function renderAccounts() {
             <span>${escapeHTML(account.groups || 'no groups')} · ${escapeHTML(account.shell)}</span>
           </div>
           <div class="action-row">
+            <button class="small-button" data-account-setup-profile="${escapeAttribute(account.username)}">Setup CCC Profile</button>
+            <button class="small-button" data-account-sync-configs="${escapeAttribute(account.username)}">Sync Agent Configs</button>
             <button class="small-button" data-account-password="${escapeAttribute(account.username)}">Password</button>
             <button class="small-button" data-account-shell="${escapeAttribute(account.username)}" data-current-shell="${escapeAttribute(account.shell)}">Shell</button>
             <button class="small-button" data-account-groups="${escapeAttribute(account.username)}" data-current-groups="${escapeAttribute(account.groups)}">Groups</button>
             <button class="small-button danger-button" data-account-delete="${escapeAttribute(account.username)}">Delete</button>
           </div>
+          <p class="section-description">First login checklist: run <code>claude</code>, <code>codex</code>, <code>gemini</code>, and optionally <code>gh auth login</code>.</p>
         </section>
       `).join('') || '<p>No user accounts found.</p>'}
     </div>
@@ -1127,6 +1130,12 @@ function bindUpdates() {
 
 function bindAccounts() {
   document.getElementById('create-account-button').addEventListener('click', createAccount);
+  document.querySelectorAll('[data-account-setup-profile]').forEach(button => {
+    button.addEventListener('click', () => setupCCCProfile(button.dataset.accountSetupProfile));
+  });
+  document.querySelectorAll('[data-account-sync-configs]').forEach(button => {
+    button.addEventListener('click', () => syncAccountAgentConfigs(button.dataset.accountSyncConfigs));
+  });
   document.querySelectorAll('[data-account-password]').forEach(button => {
     button.addEventListener('click', () => setAccountPassword(button.dataset.accountPassword));
   });
@@ -1139,6 +1148,14 @@ function bindAccounts() {
   document.querySelectorAll('[data-account-delete]').forEach(button => {
     button.addEventListener('click', () => deleteAccount(button.dataset.accountDelete));
   });
+}
+
+async function setupCCCProfile(username) {
+  await runAccountOperation({ operation: 'setup-ccc-profile', username });
+}
+
+async function syncAccountAgentConfigs(username) {
+  await runAccountOperation({ operation: 'sync-agent-configs', username });
 }
 
 async function createAccount() {

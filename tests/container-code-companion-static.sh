@@ -66,6 +66,9 @@ require_file_contains install/ccc-provision-workstation.sh 'rsync -a "$CCC_HOME/
 require_file_contains install/ccc-provision-workstation.sh 'mv "$CCC_HOME/projects" "$backup"'
 require_file_contains install/ccc-provision-workstation.sh 'find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} +'
 require_file_contains install/ccc-provision-workstation.sh '[[ -f "$CCC_HOME/.ssh/id_ed25519.pub" ]]'
+require_file_contains install/ccc-provision-workstation.sh 'ccc-sync-agent-configs --user "$user"'
+require_file_contains install/ccc-provision-workstation.sh '--all-users)'
+require_file_contains install/ccc-provision-workstation.sh '--user requires a username'
 bash -n install/ccc-provision-workstation.sh
 
 legacy_product='agent-''workstation'
@@ -361,6 +364,11 @@ require_file_contains container-code-companion/internal/system/management.go "CC
 require_file_contains container-code-companion/internal/system/management.go "drive mount failed"
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"
+require_file_contains container-code-companion/web/app.js "Setup CCC Profile"
+require_file_contains container-code-companion/web/app.js "Sync Agent Configs"
+require_file_contains container-code-companion/web/app.js "setup-ccc-profile"
+require_file_contains container-code-companion/web/app.js "sync-agent-configs"
+require_file_contains container-code-companion/web/app.js "gh auth login"
 require_file_contains container-code-companion/web/app.js "data-nav-updates"
 require_file_contains container-code-companion/web/app.js "copyTextToClipboard"
 require_file_contains container-code-companion/web/app.js "fallbackCopyText"
@@ -370,6 +378,9 @@ require_file_contains container-code-companion/web/app.js "github-action-row"
 require_file_contains container-code-companion/internal/system/management.go 'return "/etc/ccc/ssh/github_ed25519"'
 require_file_contains container-code-companion/internal/system/management.go 'case "configure-users"'
 require_file_contains container-code-companion/internal/system/management.go 'case "promote-current-user-key"'
+require_file_contains container-code-companion/internal/system/management.go 'case "setup-ccc-profile"'
+require_file_contains container-code-companion/internal/system/management.go 'case "sync-agent-configs"'
+require_file_contains container-code-companion/internal/system/management.go 'sudo ccc-sync-agent-configs --user'
 require_file_contains container-code-companion/internal/system/management.go 'IdentityFile " + keyPath'
 require_file_contains container-code-companion/internal/system/management.go 'ssh", "-T", "-o", "StrictHostKeyChecking=accept-new"'
 require_file_contains container-code-companion/web/app.js '<button class="small-button" id="github-copy-btn" disabled>Copy Machine Public Key</button>'

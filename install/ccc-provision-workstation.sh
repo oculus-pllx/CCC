@@ -290,7 +290,24 @@ OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculu
 OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
 OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
 PULL=1
-[[ "${1:-}" == "--no-pull" ]] && PULL=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-pull) PULL=0; shift ;;
+    --user)
+      CCC_USER="${2:?--user requires a username}"
+      CCC_HOME="$(getent passwd "$CCC_USER" | cut -d: -f6)"
+      [[ -n "$CCC_HOME" ]] || { echo "Unknown user: $CCC_USER" >&2; exit 1; }
+      shift 2
+      ;;
+    --all-users)
+      getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1}' | while read -r user; do
+        sudo ccc-sync-agent-configs --user "$user"
+      done
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+done
 
 say()  { echo -e "  $*"; }
 ok()   { say "${G}✓${N} $*"; }
@@ -815,7 +832,24 @@ OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculu
 OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
 OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
 PULL=1
-[[ "${1:-}" == "--no-pull" ]] && PULL=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-pull) PULL=0; shift ;;
+    --user)
+      CCC_USER="${2:?--user requires a username}"
+      CCC_HOME="$(getent passwd "$CCC_USER" | cut -d: -f6)"
+      [[ -n "$CCC_HOME" ]] || { echo "Unknown user: $CCC_USER" >&2; exit 1; }
+      shift 2
+      ;;
+    --all-users)
+      getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1}' | while read -r user; do
+        sudo ccc-sync-agent-configs --user "$user"
+      done
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+done
 
 say()  { echo -e "  $*"; }
 ok()   { say "${G}✓${N} $*"; }

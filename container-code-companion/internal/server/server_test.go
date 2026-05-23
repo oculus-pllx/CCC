@@ -416,6 +416,33 @@ func TestProtectedProjectOperationRunsConfiguredOperator(t *testing.T) {
 	}
 }
 
+func TestProtectedAccountOperationAcceptsSetupCCCProfile(t *testing.T) {
+	var received system.AccountOperation
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		AccountOperation: func(operation system.AccountOperation) (system.CommandResult, error) {
+			received = operation
+			return system.CommandResult{Command: operation.Operation, Output: "profile ready"}, nil
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/account", strings.NewReader(`{"operation":"setup-ccc-profile","username":"work-id"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	if received.Operation != "setup-ccc-profile" || received.Username != "work-id" {
+		t.Fatalf("expected setup profile operation, got %#v", received)
+	}
+}
+
 func TestProtectedProjectOperationAcceptsExistingDirectoryPath(t *testing.T) {
 	var received system.ProjectOperation
 	srv := New(Config{

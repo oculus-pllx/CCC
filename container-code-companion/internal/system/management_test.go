@@ -44,6 +44,22 @@ func TestCollectGitHubStatusUsesManagedMachineKey(t *testing.T) {
 	}
 }
 
+func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T) {
+	command := setupCCCProfileCommand("work-id")
+	for _, want := range []string{
+		"id -u 'work-id'",
+		"sudo usermod -aG 'ccc' 'work-id'",
+		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
+		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
+		"sudo ccc-sync-agent-configs --user 'work-id'",
+		"IdentityFile /etc/ccc/ssh/github_ed25519",
+	} {
+		if !strings.Contains(command, want) {
+			t.Fatalf("setup command missing %q:\n%s", want, command)
+		}
+	}
+}
+
 func TestRunProjectOperationCreatesProjectUnderSharedRoot(t *testing.T) {
 	home := t.TempDir()
 	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")

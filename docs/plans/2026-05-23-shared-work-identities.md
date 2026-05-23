@@ -119,15 +119,15 @@ GUI:
 
 ## Phase 4: Work Identity Profile Setup
 
-Status: Next.
+Status: Complete.
 
 ### Files
 
-- Modify generated `ccc-sync-agent-configs`
-- Modify `container-code-companion/internal/system/management.go`
-- Modify `container-code-companion/internal/server/server.go`
-- Modify `container-code-companion/web/app.js`
-- Add tests in `management_test.go` and `server_test.go`
+- [x] Modify generated `ccc-sync-agent-configs`
+- [x] Modify `container-code-companion/internal/system/management.go`
+- [x] Modify `container-code-companion/internal/server/server.go`
+- [x] Modify `container-code-companion/web/app.js`
+- [x] Add tests in `management_test.go` and `server_test.go`
 
 ### Behavior
 
@@ -146,24 +146,26 @@ Add account operation:
 
 Setup should:
 
-- validate user exists and UID >= 1000
-- add user to `ccc`
-- link `~/projects` to `/srv/ccc/projects`
-- create `~/.claude`, `~/.codex`, `~/.gemini`
-- sync baseline configs from `/opt/oculus-configs`
-- install statusline script
-- install shell/tmux/git defaults
-- write `~/.ssh/config` pointing to managed GitHub key if it exists
-- skip provider auth/session files
+- [x] validate user exists and UID >= 1000
+- [x] add user to `ccc`
+- [x] link `~/projects` to `/srv/ccc/projects`
+- [x] create `~/.claude`, `~/.codex`, `~/.gemini`
+- [x] sync baseline configs from `/opt/oculus-configs`
+- [x] install statusline script
+- [x] install shell/tmux/git defaults
+- [x] write `~/.ssh/config` pointing to managed GitHub key if it exists
+- [x] skip provider auth/session files
 
 GUI:
 
-- Add `Setup CCC Profile` button per account.
-- Add `Sync Agent Configs` button per account.
-- Show checklist: login as user, run `claude`, `codex`, `gemini`, optional
+- [x] Add `Setup CCC Profile` button per account.
+- [x] Add `Sync Agent Configs` button per account.
+- [x] Show checklist: login as user, run `claude`, `codex`, `gemini`, optional
   `gh auth login`.
 
 ## Phase 5: Project Permission Health
+
+Status: Next.
 
 ### Files
 
