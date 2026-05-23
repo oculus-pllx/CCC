@@ -10,6 +10,8 @@ CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-workstation}"
 CCC_CODE_SERVER_SERVICE="${CCC_CODE_SERVER_SERVICE:-code-server@$CCC_USER}"
 CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
 CCC_SELF_UPDATE_REF="${CCC_SELF_UPDATE_REF:-main}"
+CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"
+CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"
 
 case "$CCC_INSTALL_MODE" in
   proxmox-lxc|linux-host) ;;
@@ -34,6 +36,8 @@ CCC_CODE_SERVER_SERVICE="$CCC_CODE_SERVER_SERVICE"
 CCC_SELF_UPDATE_REPO="$CCC_SELF_UPDATE_REPO"
 CCC_SELF_UPDATE_REF="$CCC_SELF_UPDATE_REF"
 CCC_SELF_UPDATE_SCRIPT="$CCC_SELF_UPDATE_SCRIPT"
+CCC_SHARED_GROUP="$CCC_SHARED_GROUP"
+CCC_SHARED_PROJECTS="$CCC_SHARED_PROJECTS"
 OCULUS_CONFIGS_REPO="https://github.com/oculus-pllx/oculus-configs.git"
 OCULUS_CONFIGS_REF="main"
 OCULUS_CONFIGS_DIR="/opt/oculus-configs"
@@ -42,6 +46,29 @@ EOF
 }
 _STEPS=29
 step() { echo ">>> [$1/${_STEPS}] $2"; }
+
+setup_shared_projects_root() {
+  groupadd -f "$CCC_SHARED_GROUP"
+  mkdir -p "$CCC_SHARED_PROJECTS"
+  chown root:"$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"
+  chmod 2775 "$CCC_SHARED_PROJECTS"
+  usermod -aG "$CCC_SHARED_GROUP" "$CCC_USER"
+
+  if [[ -L "$CCC_HOME/projects" ]]; then
+    ln -sfn "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+  elif [[ -d "$CCC_HOME/projects" ]]; then
+    if [[ -z "$(find "$CCC_HOME/projects" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+      rmdir "$CCC_HOME/projects"
+      ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+    else
+      echo "    Existing non-empty $CCC_HOME/projects left in place; run migration to move it into $CCC_SHARED_PROJECTS."
+    fi
+  elif [[ ! -e "$CCC_HOME/projects" ]]; then
+    ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"
+  else
+    echo "    Existing $CCC_HOME/projects is not a directory or symlink; run migration before replacing it."
+  fi
+}
 
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
 if [[ "$CCC_INSTALL_MODE" == "proxmox-lxc" ]]; then
@@ -177,6 +204,7 @@ useradd -m -s /bin/bash -d "$CCC_HOME" "$CCC_USER" 2>/dev/null || true
 usermod -aG sudo "$CCC_USER"
 echo "$CCC_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$CCC_USER"
 chmod 0440 "/etc/sudoers.d/$CCC_USER"
+setup_shared_projects_root
 
 write_ccc_config
 
@@ -315,7 +343,7 @@ echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
 echo ""
 
 mkdir -p "$CCC_HOME/projects" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
-chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates" "$CCC_HOME/projects"
+chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
 
 if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
@@ -466,7 +494,7 @@ sudo -u "$CCC_USER" tee "$CCC_HOME/projects/WELCOME.md" > /dev/null << 'WELCOMEM
 - **New terminal tab**: Terminal → New Terminal (or click **+** in terminal tab bar)
 - **Split terminal**: click the split icon in the terminal tab bar
 - **Switch tabs**: click tab names in the right-side tab panel
-- **Open folder**: File → Open Folder → `/home/claude-code/projects`
+- **Open folder**: File → Open Folder → `/srv/ccc/projects`
 
 ## tmux (SSH sessions)
 
@@ -840,7 +868,7 @@ echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
 echo ""
 
 mkdir -p "$CCC_HOME/projects" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
-chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates" "$CCC_HOME/projects"
+chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
 
 if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"

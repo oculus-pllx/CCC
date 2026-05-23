@@ -27,11 +27,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
 - **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
+- **Shared project workspace** — projects live at `/srv/ccc/projects`, with `~/projects` linked there for compatibility
 - **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
 - **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, mobile drawer navigation, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, notes, terminal, projects, updates, app catalog, map drives, provider configs, and GitHub SSH key management
-- **Projects Git actions** — clone SSH or HTTPS Git repos into Projects and pull fast-forward Git updates for existing Git projects
+- **Projects Git actions** — clone SSH or HTTPS Git repos into `/srv/ccc/projects` and pull fast-forward Git updates for existing Git projects
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
 - **`ccc` help command** — full reference available on every login
@@ -197,7 +198,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
-- **Projects** — create projects from templates, initialize git, open in Files, open in code-server, rename, and delete
+- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, and delete
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
 - **Accounts** — create users, change passwords, shells, groups, and delete users
@@ -271,7 +272,7 @@ A default statusline script is installed at `~/.claude/bin/statusline-command.sh
 
 Output format:
 ```
-claude-code@ccc-dev:~/projects (main) [sonnet-4 | think] [ctx:42%] 3:14pm
+claude-code@ccc-dev:/srv/ccc/projects/app (main) [sonnet-4 | think] [ctx:42%] 3:14pm
 ```
 
 To replace with your own:

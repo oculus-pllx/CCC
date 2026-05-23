@@ -8,9 +8,57 @@ import (
 	"testing"
 )
 
+func TestSharedProjectsRootDefaultsToSrvCCCProjects(t *testing.T) {
+	t.Setenv("CCC_SHARED_PROJECTS", "")
+	if got := sharedProjectsRoot(); got != "/srv/ccc/projects" {
+		t.Fatalf("sharedProjectsRoot() = %q, want /srv/ccc/projects", got)
+	}
+}
+
+func TestRunProjectOperationCreatesProjectUnderSharedRoot(t *testing.T) {
+	home := t.TempDir()
+	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")
+	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", sharedRoot)
+
+	result, err := RunProjectOperation(ProjectOperation{Operation: "create", Name: "demo"})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if result.Output != "created demo" {
+		t.Fatalf("unexpected output: %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(sharedRoot, "demo", ".git")); err != nil {
+		t.Fatalf("expected project git repo under shared root: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, "projects", "demo")); !os.IsNotExist(err) {
+		t.Fatalf("expected home projects path to remain unused, got err %v", err)
+	}
+}
+
+func TestRunProjectOperationCloneTargetsSharedRoot(t *testing.T) {
+	home := t.TempDir()
+	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")
+	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", sharedRoot)
+
+	target := filepath.Join(sharedRoot, "CCC")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("create existing target: %v", err)
+	}
+	_, err := RunProjectOperation(ProjectOperation{
+		Operation: "clone",
+		Remote:    "https://github.com/oculus-pllx/CCC.git",
+	})
+	if err == nil || !strings.Contains(err.Error(), "project already exists") {
+		t.Fatalf("expected clone target collision in shared root, got %v", err)
+	}
+}
+
 func TestRunProjectOperationAddsExistingDirectoryAsProjectLink(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", filepath.Join(home, "projects"))
 	existing := filepath.Join(home, "work", "existing-project")
 	if err := os.MkdirAll(existing, 0o755); err != nil {
 		t.Fatalf("create existing project: %v", err)
@@ -56,6 +104,7 @@ func TestRunProjectOperationAddsExistingDirectoryAsProjectLink(t *testing.T) {
 func TestRunProjectOperationRejectsExistingProjectFilePath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", filepath.Join(home, "projects"))
 	existingFile := filepath.Join(home, "work", "not-a-dir.txt")
 	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
 		t.Fatalf("create work dir: %v", err)
@@ -105,6 +154,7 @@ func TestValidateGitRemoteRejectsCredentialedAndShellRemotes(t *testing.T) {
 func TestRunProjectOperationRejectsCloneTargetCollision(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", filepath.Join(home, "projects"))
 	target := filepath.Join(home, "projects", "CCC")
 	if err := os.MkdirAll(target, 0o755); err != nil {
 		t.Fatalf("create existing target: %v", err)
@@ -121,6 +171,7 @@ func TestRunProjectOperationRejectsCloneTargetCollision(t *testing.T) {
 func TestRunProjectOperationRejectsPullForNonGitProject(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", filepath.Join(home, "projects"))
 	if err := os.MkdirAll(filepath.Join(home, "projects", "plain"), 0o755); err != nil {
 		t.Fatalf("create plain project: %v", err)
 	}
@@ -132,6 +183,7 @@ func TestRunProjectOperationRejectsPullForNonGitProject(t *testing.T) {
 func TestRunProjectOperationPullsFastForwardGitProject(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("CCC_SHARED_PROJECTS", filepath.Join(home, "projects"))
 	project := filepath.Join(home, "projects", "demo")
 	if err := os.MkdirAll(project, 0o755); err != nil {
 		t.Fatalf("create project: %v", err)

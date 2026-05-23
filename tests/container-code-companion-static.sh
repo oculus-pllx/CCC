@@ -47,9 +47,18 @@ require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER
 require_file_contains install/ccc-provision-workstation.sh 'CCC_HOME="${CCC_HOME:?'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:?'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-workstation}"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALL_MODE="$CCC_INSTALL_MODE"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_GROUP="$CCC_SHARED_GROUP"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_PROJECTS="$CCC_SHARED_PROJECTS"'
 require_file_contains install/ccc-provision-workstation.sh 'case "$CCC_INSTALL_MODE" in'
 require_file_contains install/ccc-provision-workstation.sh 'proxmox-lxc|linux-host)'
+require_file_contains install/ccc-provision-workstation.sh 'groupadd -f "$CCC_SHARED_GROUP"'
+require_file_contains install/ccc-provision-workstation.sh 'usermod -aG "$CCC_SHARED_GROUP" "$CCC_USER"'
+require_file_contains install/ccc-provision-workstation.sh 'chown root:"$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"'
+require_file_contains install/ccc-provision-workstation.sh 'chmod 2775 "$CCC_SHARED_PROJECTS"'
+require_file_contains install/ccc-provision-workstation.sh 'ln -s "$CCC_SHARED_PROJECTS" "$CCC_HOME/projects"'
 bash -n install/ccc-provision-workstation.sh
 
 legacy_product='agent-''workstation'

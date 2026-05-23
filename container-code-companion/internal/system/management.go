@@ -191,6 +191,7 @@ type AccountOperation struct {
 
 func CollectManagementSnapshot() (ManagementSnapshot, error) {
 	home := workstationHome()
+	projectsRoot := sharedProjectsRoot()
 	overview, _ := CollectOverview()
 	snapshot := ManagementSnapshot{
 		Overview:      overview,
@@ -198,9 +199,9 @@ func CollectManagementSnapshot() (ManagementSnapshot, error) {
 		Logs:          collectLogs(),
 		Network:       collectNetwork(),
 		Accounts:      collectAccounts(),
-		Files:         listFiles(filepath.Join(home, "projects"), 80),
+		Files:         listFiles(projectsRoot, 80),
 		Updates:       collectUpdates(),
-		Projects:      collectProjects(filepath.Join(home, "projects")),
+		Projects:      collectProjects(projectsRoot),
 		AgentConfigs:  collectAgentConfigs(home),
 		OculusConfigs: collectRepoStatus("/opt/oculus-configs"),
 	}
@@ -213,7 +214,7 @@ func RunShellCommand(command string, cwd string) (CommandResult, error) {
 		return CommandResult{}, errors.New("command is required")
 	}
 	if cwd == "" {
-		cwd = filepath.Join(workstationHome(), "projects")
+		cwd = sharedProjectsRoot()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
@@ -356,7 +357,7 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 
 func BrowseFiles(path string) (FileListing, error) {
 	if strings.TrimSpace(path) == "" {
-		path = filepath.Join(workstationHome(), "projects")
+		path = sharedProjectsRoot()
 	}
 	cleaned, err := filepath.Abs(path)
 	if err != nil {
@@ -638,8 +639,8 @@ func explainDriveMountFailure(output, installMode string) string {
 }
 
 func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
-	projectsRoot := filepath.Join(workstationHome(), "projects")
-	if err := os.MkdirAll(projectsRoot, 0o755); err != nil {
+	projectsRoot := sharedProjectsRoot()
+	if err := os.MkdirAll(projectsRoot, 0o775); err != nil {
 		return CommandResult{}, err
 	}
 	switch operation.Operation {
@@ -1159,6 +1160,13 @@ func workstationHome() string {
 		return u.HomeDir
 	}
 	return "/home/" + currentUsername()
+}
+
+func sharedProjectsRoot() string {
+	if root := strings.TrimSpace(os.Getenv("CCC_SHARED_PROJECTS")); root != "" {
+		return filepath.Clean(root)
+	}
+	return "/srv/ccc/projects"
 }
 
 func currentUsername() string {
