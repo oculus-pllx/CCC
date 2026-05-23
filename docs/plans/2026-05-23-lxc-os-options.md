@@ -59,15 +59,15 @@ git commit -m "test(bootstrap): cover lxc os choices"
 **Files:**
 - Modify: `ccc-bootstrap.sh`
 
-- [ ] **Step 1: Change OS menu and case branches**
+- [x] **Step 1: Change OS menu and case branches**
 
 Make option 1 Ubuntu 24.04 default, option 2 Ubuntu 26.04, and option 3 Debian 13.
 
-- [ ] **Step 2: Update related labels/comments**
+- [x] **Step 2: Update related labels/comments**
 
 Change hardcoded Ubuntu 26.04 template comments and Debian fallback hint text so they match the new option numbers.
 
-- [ ] **Step 3: Run focused shell validation**
+- [x] **Step 3: Run focused shell validation**
 
 Run:
 
@@ -83,15 +83,15 @@ Expected: static checks may still fail on README until docs are updated; shell s
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Update OS-choice text**
+- [x] **Step 1: Update OS-choice text**
 
 Document Ubuntu 24.04 LTS default, Ubuntu 26.04 LTS, and Debian 13.
 
-- [ ] **Step 2: Update template troubleshooting**
+- [x] **Step 2: Update template troubleshooting**
 
 Replace Ubuntu 26.04-only template troubleshooting with selected-template guidance and example filters for all three OS choices.
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -103,7 +103,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 4: Commit implementation**
+- [x] **Step 4: Commit implementation**
 
 Run:
 

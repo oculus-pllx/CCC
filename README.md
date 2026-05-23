@@ -21,7 +21,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 
 ## What You Get
 
-- **Ubuntu 26.04 LTS** or **Debian 13 (Trixie)** Proxmox LXC path, plus an existing Debian/Ubuntu Linux-host installer
+- **Ubuntu 24.04 LTS (default), Ubuntu 26.04 LTS, or Debian 13** Proxmox LXC path, plus an existing Debian/Ubuntu Linux-host installer
 - **Non-root working user** — `claude-code` in the LXC path, current user or an optional dedicated CCC user on existing Linux
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
@@ -99,7 +99,7 @@ The script is interactive. You'll be prompted for:
 | SSH public key | optional | Installed for chosen username |
 | High Availability | — | Cluster only — lists HA groups, optional group selection |
 
-**OS choice** is the first prompt — Ubuntu 26.04 LTS (default) or Debian 13 (Trixie). Useful fallback when Ubuntu/Canonical is having issues.
+**OS choice** is the first prompt — Ubuntu 24.04 LTS (default), Ubuntu 26.04 LTS, or Debian 13 (Trixie). Ubuntu 24.04 is the compatibility default, Ubuntu 26.04 is available for newer-LTS testing, and Debian 13 is the safer choice when browser automation matters.
 
 After OS selection, the script checks:
 1. Canonical status API (`status.canonical.com`) — Ubuntu only, warns on active outages, suggests switching to Debian on major/critical
@@ -322,10 +322,12 @@ pct destroy <CT_ID>
 
 ## Troubleshooting
 
-**Ubuntu 26.04 template not found**
+**Selected LXC template not found**
 ```bash
 pveam update
+pveam available --section system | grep ubuntu-24
 pveam available --section system | grep ubuntu-26
+pveam available --section system | grep debian-13
 ```
 If still missing, check that your Proxmox host can reach `download.proxmox.com`.
 
@@ -364,7 +366,7 @@ echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
 ```
 
 **Ubuntu infrastructure down**
-Check https://status.canonical.com/ — the script checks this automatically after OS selection. If Ubuntu is down, re-run and select option 2 (Debian 13) to bypass Canonical entirely.
+Check https://status.canonical.com/ — the script checks this automatically after OS selection. If Ubuntu is down, re-run and select option 3 (Debian 13) to bypass Canonical entirely.
 
 **HA registration failed**
 Add manually from the Proxmox host:
@@ -413,7 +415,7 @@ If the error mentions `unknown filesystem type` or `bad option`, confirm `cifs-u
 ## Notes
 
 - Root login is disabled. Use `ssh claude-code@<ip>`.
-- The Ubuntu 26.04 LXC template is auto-resolved via `pveam` — run `pveam update` on your Proxmox host if it can't be found.
+- The selected LXC template is auto-resolved via `pveam` — run `pveam update` on your Proxmox host if it can't be found.
 - `yq` is the [mikefarah Go binary](https://github.com/mikefarah/yq), not the apt Python wrapper.
 - Redis server is installed but disabled at boot. Start it when tests need it.
 - Rust is installed twice (root + claude-code user). Root install is a known cleanup candidate.

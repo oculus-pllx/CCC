@@ -81,7 +81,7 @@ check_apt_connectivity() {
           [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
         major|critical)
           warn "Canonical status: ${indicator^^} OUTAGE — ${description}"
-          warn "Consider using Debian instead: re-run and select option 2."
+          warn "Consider using Debian instead: re-run and select option 3."
           warn "See https://status.canonical.com/"
           read -rp "Continue anyway? (y/N): " _cont
           [[ "$_cont" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; } ;;
@@ -115,14 +115,21 @@ get_config() {
 
   # ── OS selection ─────────────────────────────────────────────────────────────
   echo "  OS options:"
-  echo "    1) Ubuntu 26.04 LTS  (default)"
-  echo "    2) Debian 13 (Trixie)"
+  echo "    1) Ubuntu 24.04 LTS  (default)"
+  echo "    2) Ubuntu 26.04 LTS"
+  echo "    3) Debian 13 (Trixie)"
   echo ""
   read -rp "OS [1]: " _os_choice
   _os_choice="${_os_choice:-1}"
 
   case "$_os_choice" in
     2)
+      CT_OS="ubuntu"
+      CT_OSTYPE="ubuntu"
+      _tmpl_pattern='^ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst$'
+      _tmpl_label="Ubuntu 26.04 LTS"
+      ;;
+    3)
       CT_OS="debian"
       CT_OSTYPE="debian"
       _tmpl_pattern='^debian-13-standard_13\.[0-9]+-[0-9]+_amd64\.tar\.zst$'
@@ -131,8 +138,8 @@ get_config() {
     *)
       CT_OS="ubuntu"
       CT_OSTYPE="ubuntu"
-      _tmpl_pattern='^ubuntu-26\.04-standard_26\.04-[0-9]+_amd64\.tar\.zst$'
-      _tmpl_label="Ubuntu 26.04"
+      _tmpl_pattern='^ubuntu-24\.04-standard_24\.04-[0-9]+_amd64\.tar\.zst$'
+      _tmpl_label="Ubuntu 24.04 LTS"
       ;;
   esac
 
@@ -303,7 +310,7 @@ get_config() {
   [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
 }
 
-# ── Download Ubuntu 26.04 Template ───────────────────────────────────────────
+# ── Download Selected LXC Template ───────────────────────────────────────────
 get_template() {
   info "Checking for template: $TEMPLATE"
   if ! pveam list local 2>/dev/null | grep -q "$TEMPLATE"; then
