@@ -367,7 +367,16 @@ require_file_contains container-code-companion/web/app.js "fallbackCopyText"
 require_file_contains container-code-companion/web/app.js "Copy Failed"
 require_file_contains container-code-companion/web/app.js "copyGitHubPublicKey"
 require_file_contains container-code-companion/web/app.js "github-action-row"
-require_file_contains container-code-companion/web/app.js '<button class="small-button" id="github-copy-btn" disabled>Copy Public Key</button>'
+require_file_contains container-code-companion/internal/system/management.go 'return "/etc/ccc/ssh/github_ed25519"'
+require_file_contains container-code-companion/internal/system/management.go 'case "configure-users"'
+require_file_contains container-code-companion/internal/system/management.go 'case "promote-current-user-key"'
+require_file_contains container-code-companion/internal/system/management.go 'IdentityFile " + keyPath'
+require_file_contains container-code-companion/internal/system/management.go 'ssh", "-T", "-o", "StrictHostKeyChecking=accept-new"'
+require_file_contains container-code-companion/web/app.js '<button class="small-button" id="github-copy-btn" disabled>Copy Machine Public Key</button>'
+require_file_contains container-code-companion/web/app.js 'id="github-configure-btn"'
+require_file_contains container-code-companion/web/app.js 'id="github-promote-btn"'
+require_file_contains container-code-companion/web/app.js 'Configure For All Work Identities'
+require_file_contains container-code-companion/web/app.js 'Promote Current User Key'
 require_file_not_contains container-code-companion/web/app.js ".catch(() => {})"
 require_file_contains container-code-companion/web/app.js "network-legend"
 require_file_contains container-code-companion/web/app.js "Persistent network changes"

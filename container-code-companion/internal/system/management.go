@@ -1203,43 +1203,59 @@ func fileSize(info os.FileInfo, err error) int64 {
 }
 
 type GitHubStatus struct {
-	PublicKey  string `json:"publicKey"`
-	KeyExists  bool   `json:"keyExists"`
-	KeyPath    string `json:"keyPath"`
-	TestOutput string `json:"testOutput,omitempty"`
+	PublicKey         string   `json:"publicKey"`
+	KeyExists         bool     `json:"keyExists"`
+	KeyPath           string   `json:"keyPath"`
+	TestOutput        string   `json:"testOutput,omitempty"`
+	ConfiguredUsers   []string `json:"configuredUsers"`
+	CurrentUserKey    string   `json:"currentUserKey,omitempty"`
+	CurrentUserKeySet bool     `json:"currentUserKeyExists"`
 }
 
 func CollectGitHubStatus() (GitHubStatus, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return GitHubStatus{}, err
+	keyPath := githubMachineKeyPath()
+	pub, err := os.ReadFile(keyPath + ".pub")
+	status := GitHubStatus{
+		KeyPath:           keyPath,
+		ConfiguredUsers:   githubConfiguredUsers(keyPath),
+		CurrentUserKey:    filepath.Join(workstationHome(), ".ssh", "id_ed25519"),
+		CurrentUserKeySet: fileExists(filepath.Join(workstationHome(), ".ssh", "id_ed25519.pub")),
 	}
-	keyPath := filepath.Join(home, ".ssh", "id_ed25519.pub")
-	pub, err := os.ReadFile(keyPath)
 	if err != nil {
-		return GitHubStatus{KeyExists: false, KeyPath: filepath.Join(home, ".ssh", "id_ed25519")}, nil
+		return status, nil
 	}
-	return GitHubStatus{
-		KeyExists: true,
-		KeyPath:   filepath.Join(home, ".ssh", "id_ed25519"),
-		PublicKey: strings.TrimSpace(string(pub)),
-	}, nil
+	status.KeyExists = true
+	status.PublicKey = strings.TrimSpace(string(pub))
+	return status, nil
 }
 
-func RunGitHubOperation(action string) (CommandResult, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return CommandResult{}, err
-	}
-	sshDir := filepath.Join(home, ".ssh")
-	keyPath := filepath.Join(sshDir, "id_ed25519")
+func RunGitHubOperation(action string, usernames ...string) (CommandResult, error) {
+	keyPath := githubMachineKeyPath()
+	sshDir := filepath.Dir(keyPath)
 
 	switch action {
 	case "generate-key":
-		if err := os.MkdirAll(sshDir, 0700); err != nil {
+		if os.Getenv("CCC_GITHUB_KEY_PATH") == "" {
+			group := os.Getenv("CCC_SHARED_GROUP")
+			if strings.TrimSpace(group) == "" {
+				group = "ccc"
+			}
+			command := strings.Join([]string{
+				"sudo mkdir -p " + shellQuote(sshDir),
+				"sudo chown root:" + shellQuote(group) + " " + shellQuote(sshDir),
+				"sudo chmod 0750 " + shellQuote(sshDir),
+				"sudo rm -f " + shellQuote(keyPath) + " " + shellQuote(keyPath+".pub"),
+				"sudo ssh-keygen -t ed25519 -f " + shellQuote(keyPath) + " -N '' -C container-code-companion",
+				"sudo chown root:" + shellQuote(group) + " " + shellQuote(keyPath) + " " + shellQuote(keyPath+".pub"),
+				"sudo chmod 0640 " + shellQuote(keyPath),
+				"sudo chmod 0644 " + shellQuote(keyPath+".pub"),
+				"cat " + shellQuote(keyPath+".pub"),
+			}, " && ")
+			return RunShellCommand(command, workstationHome())
+		}
+		if err := prepareGitHubMachineKeyDir(sshDir); err != nil {
 			return CommandResult{}, err
 		}
-		// Remove existing key pair so ssh-keygen doesn't prompt
 		os.Remove(keyPath)
 		os.Remove(keyPath + ".pub")
 		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", "", "-C", "container-code-companion")
@@ -1251,6 +1267,8 @@ func RunGitHubOperation(action string) (CommandResult, error) {
 		if err != nil {
 			return CommandResult{Command: "ssh-keygen", Output: "Key generated but cannot read public key: " + err.Error(), ExitCode: 1}, err
 		}
+		_ = os.Chmod(keyPath, 0o640)
+		_ = os.Chmod(keyPath+".pub", 0o644)
 		return CommandResult{Command: "ssh-keygen", Output: strings.TrimSpace(string(pub)), ExitCode: 0}, nil
 
 	case "test-connection":
@@ -1268,8 +1286,185 @@ func RunGitHubOperation(action string) (CommandResult, error) {
 			exitCode = cmd.ProcessState.ExitCode()
 		}
 		return CommandResult{Command: "ssh -T git@github.com", Output: text, ExitCode: exitCode}, nil
+	case "configure-users":
+		if os.Getenv("CCC_GITHUB_KEY_PATH") == "" {
+			return configureGitHubMachineKeyForUsersWithSudo(keyPath, usernames)
+		}
+		configured, err := configureGitHubMachineKeyForUsers(keyPath, usernames)
+		if err != nil {
+			return CommandResult{Command: "configure-users", Output: err.Error(), ExitCode: 1}, err
+		}
+		return CommandResult{Command: "configure-users", Output: "Configured GitHub SSH key for: " + strings.Join(configured, ", "), ExitCode: 0}, nil
+	case "promote-current-user-key":
+		source := filepath.Join(workstationHome(), ".ssh", "id_ed25519")
+		if os.Getenv("CCC_GITHUB_KEY_PATH") == "" {
+			group := os.Getenv("CCC_SHARED_GROUP")
+			if strings.TrimSpace(group) == "" {
+				group = "ccc"
+			}
+			command := strings.Join([]string{
+				"test -f " + shellQuote(source),
+				"test -f " + shellQuote(source+".pub"),
+				"test ! -e " + shellQuote(keyPath),
+				"test ! -e " + shellQuote(keyPath+".pub"),
+				"sudo mkdir -p " + shellQuote(filepath.Dir(keyPath)),
+				"sudo cp " + shellQuote(source) + " " + shellQuote(keyPath),
+				"sudo cp " + shellQuote(source+".pub") + " " + shellQuote(keyPath+".pub"),
+				"sudo chown root:" + shellQuote(group) + " " + shellQuote(keyPath) + " " + shellQuote(keyPath+".pub"),
+				"sudo chmod 0640 " + shellQuote(keyPath),
+				"sudo chmod 0644 " + shellQuote(keyPath+".pub"),
+				"cat " + shellQuote(keyPath+".pub"),
+			}, " && ")
+			return RunShellCommand(command, workstationHome())
+		}
+		if err := promoteCurrentUserGitHubKey(source, keyPath); err != nil {
+			return CommandResult{Command: "promote-current-user-key", Output: err.Error(), ExitCode: 1}, err
+		}
+		pub, _ := os.ReadFile(keyPath + ".pub")
+		return CommandResult{Command: "promote-current-user-key", Output: strings.TrimSpace(string(pub)), ExitCode: 0}, nil
 
 	default:
 		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
 	}
+}
+
+func githubMachineKeyPath() string {
+	if path := strings.TrimSpace(os.Getenv("CCC_GITHUB_KEY_PATH")); path != "" {
+		return filepath.Clean(path)
+	}
+	return "/etc/ccc/ssh/github_ed25519"
+}
+
+func prepareGitHubMachineKeyDir(path string) error {
+	if err := os.MkdirAll(path, 0o750); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0o750)
+}
+
+func githubConfiguredUsers(keyPath string) []string {
+	entries, err := os.ReadDir("/home")
+	if err != nil {
+		return nil
+	}
+	var users []string
+	needle := "IdentityFile " + keyPath
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		configPath := filepath.Join("/home", entry.Name(), ".ssh", "config")
+		content, err := os.ReadFile(configPath)
+		if err == nil && strings.Contains(string(content), needle) {
+			users = append(users, entry.Name())
+		}
+	}
+	sort.Strings(users)
+	return users
+}
+
+func configureGitHubMachineKeyForUsers(keyPath string, usernames []string) ([]string, error) {
+	if len(usernames) == 0 {
+		for _, account := range collectAccounts() {
+			if account.Username != "" && account.Home != "" {
+				usernames = append(usernames, account.Username)
+			}
+		}
+	}
+	var configured []string
+	for _, username := range usernames {
+		username = strings.TrimSpace(username)
+		if username == "" {
+			continue
+		}
+		u, err := user.Lookup(username)
+		if err != nil {
+			return configured, err
+		}
+		sshDir := filepath.Join(u.HomeDir, ".ssh")
+		if err := os.MkdirAll(sshDir, 0o700); err != nil {
+			return configured, err
+		}
+		config := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + keyPath + "\n  IdentitiesOnly yes\n"
+		if err := os.WriteFile(filepath.Join(sshDir, "config"), []byte(config), 0o600); err != nil {
+			return configured, err
+		}
+		configured = append(configured, username)
+	}
+	return configured, nil
+}
+
+func configureGitHubMachineKeyForUsersWithSudo(keyPath string, usernames []string) (CommandResult, error) {
+	if len(usernames) == 0 {
+		for _, account := range collectAccounts() {
+			if account.Username != "" {
+				usernames = append(usernames, account.Username)
+			}
+		}
+	}
+	var commands []string
+	var configured []string
+	config := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + keyPath + "\n  IdentitiesOnly yes\n"
+	for _, username := range usernames {
+		username = strings.TrimSpace(username)
+		if !safeProjectName(username) {
+			continue
+		}
+		u, err := user.Lookup(username)
+		if err != nil {
+			return CommandResult{Command: "configure-users", Output: err.Error(), ExitCode: 1}, err
+		}
+		sshDir := filepath.Join(u.HomeDir, ".ssh")
+		configPath := filepath.Join(sshDir, "config")
+		commands = append(commands,
+			"sudo mkdir -p "+shellQuote(sshDir),
+			"printf %s "+shellQuote(config)+" | sudo tee "+shellQuote(configPath)+" >/dev/null",
+			"sudo chown -R "+shellQuote(username+":"+username)+" "+shellQuote(sshDir),
+			"sudo chmod 0700 "+shellQuote(sshDir),
+			"sudo chmod 0600 "+shellQuote(configPath),
+		)
+		configured = append(configured, username)
+	}
+	if len(commands) == 0 {
+		return CommandResult{Command: "configure-users", Output: "No valid work identities selected.", ExitCode: 1}, errors.New("no valid work identities selected")
+	}
+	result, err := RunShellCommand(strings.Join(commands, " && "), workstationHome())
+	if err != nil {
+		return result, err
+	}
+	result.Command = "configure-users"
+	result.Output = strings.TrimSpace(result.Output)
+	if result.ExitCode == 0 {
+		result.Output = "Configured GitHub SSH key for: " + strings.Join(configured, ", ")
+	}
+	return result, nil
+}
+
+func promoteCurrentUserGitHubKey(source, target string) error {
+	if !fileExists(source) || !fileExists(source+".pub") {
+		return errors.New("current user key pair not found")
+	}
+	if fileExists(target) || fileExists(target+".pub") {
+		return errors.New("managed machine key already exists")
+	}
+	if err := prepareGitHubMachineKeyDir(filepath.Dir(target)); err != nil {
+		return err
+	}
+	privateKey, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	publicKey, err := os.ReadFile(source + ".pub")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(target, privateKey, 0o640); err != nil {
+		return err
+	}
+	return os.WriteFile(target+".pub", publicKey, 0o644)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

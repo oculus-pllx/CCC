@@ -15,6 +15,35 @@ func TestSharedProjectsRootDefaultsToSrvCCCProjects(t *testing.T) {
 	}
 }
 
+func TestGitHubMachineKeyPathDefaultsToEtcCCCSSH(t *testing.T) {
+	t.Setenv("CCC_GITHUB_KEY_PATH", "")
+	if got := githubMachineKeyPath(); got != "/etc/ccc/ssh/github_ed25519" {
+		t.Fatalf("githubMachineKeyPath() = %q, want /etc/ccc/ssh/github_ed25519", got)
+	}
+}
+
+func TestCollectGitHubStatusUsesManagedMachineKey(t *testing.T) {
+	keyPath := filepath.Join(t.TempDir(), "github_ed25519")
+	t.Setenv("CCC_GITHUB_KEY_PATH", keyPath)
+	if err := os.WriteFile(keyPath+".pub", []byte("ssh-ed25519 AAAATEST managed-key\n"), 0o644); err != nil {
+		t.Fatalf("write public key: %v", err)
+	}
+
+	status, err := CollectGitHubStatus()
+	if err != nil {
+		t.Fatalf("collect github status: %v", err)
+	}
+	if !status.KeyExists {
+		t.Fatal("expected managed key to exist")
+	}
+	if status.KeyPath != keyPath {
+		t.Fatalf("KeyPath = %q, want %q", status.KeyPath, keyPath)
+	}
+	if status.PublicKey != "ssh-ed25519 AAAATEST managed-key" {
+		t.Fatalf("unexpected public key: %q", status.PublicKey)
+	}
+}
+
 func TestRunProjectOperationCreatesProjectUnderSharedRoot(t *testing.T) {
 	home := t.TempDir()
 	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")

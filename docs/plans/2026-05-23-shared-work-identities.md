@@ -83,15 +83,15 @@ Apply:
 
 ## Phase 3: Managed GitHub Machine Key
 
-Status: Next.
+Status: Complete.
 
 ### Files
 
-- Modify `container-code-companion/internal/system/management.go`
-- Modify `container-code-companion/internal/system/management_test.go`
-- Modify `container-code-companion/web/app.js`
-- Modify `README.md`
-- Modify `tests/container-code-companion-static.sh`
+- [x] Modify `container-code-companion/internal/system/management.go`
+- [x] Modify `container-code-companion/internal/system/management_test.go`
+- [x] Modify `container-code-companion/web/app.js`
+- [x] Modify `README.md`
+- [x] Modify `tests/container-code-companion-static.sh`
 
 ### Behavior
 
@@ -103,21 +103,23 @@ Move GitHub key workflow from per-user key path to:
 
 Backend operations:
 
-- status: report key exists, public key, path, and configured users
-- generate-key: create `/etc/ccc/ssh`, group `ccc`, private key `0640`,
+- [x] status: report key exists, public key, path, and configured users
+- [x] generate-key: create `/etc/ccc/ssh`, group `ccc`, private key `0640`,
   public key `0644`
-- test-connection: run `ssh -T -i /etc/ccc/ssh/github_ed25519 git@github.com`
-- configure-users: write each selected user's `~/.ssh/config`
-- promote-current-user-key: copy `CCC_USER` key into managed path only after
+- [x] test-connection: run `ssh -T -i /etc/ccc/ssh/github_ed25519 git@github.com`
+- [x] configure-users: write each selected user's `~/.ssh/config`
+- [x] promote-current-user-key: copy `CCC_USER` key into managed path only after
   explicit GUI action
 
 GUI:
 
-- Rename copy to "Copy Machine Public Key".
-- Add "Configure For All Work Identities".
-- Add "Promote Current User Key" when old key exists and managed key is absent.
+- [x] Rename copy to "Copy Machine Public Key".
+- [x] Add "Configure For All Work Identities".
+- [x] Add "Promote Current User Key" when old key exists and managed key is absent.
 
 ## Phase 4: Work Identity Profile Setup
+
+Status: Next.
 
 ### Files
 

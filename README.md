@@ -219,7 +219,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Accounts** — create users, change passwords, shells, groups, and delete users
 - **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
-- **GitHub** — copy the public key, test GitHub SSH access, and generate a new SSH key
+- **GitHub** — manage the shared machine key at `/etc/ccc/ssh/github_ed25519`, copy its public key, test GitHub SSH access, configure work identities, and explicitly promote an existing user key when needed
 - **Settings** — theme swatches, editable header message, time/location, mobile-friendly controls, and CRT display effects
 
 Display effects are local browser preferences. Monitor flicker is enabled by default; sync drift can be enabled from Settings.
@@ -236,7 +236,7 @@ Current state:
 - App and OS updates are separated.
 - App Catalog can query installed tools and run install/update actions.
 - Mobile navigation uses a collapsible drawer.
-- GitHub SSH key workflow is ordered copy, test, generate.
+- GitHub SSH key workflow now uses a managed machine key under `/etc/ccc/ssh` for shared repository access across work identities.
 - Map Drives documents the Proxmox/LXC mount limitation and reports CIFS permission failures clearly.
 
 ---

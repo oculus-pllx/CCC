@@ -711,14 +711,16 @@ function renderOculus() {
 
 function renderGitHub() {
   return `
-    <p class="section-description">Create an SSH key for this workstation and authorize it on GitHub to enable git operations over SSH.</p>
+    <p class="section-description">Manage the shared machine SSH key for GitHub repository access from CCC work identities.</p>
     <div id="github-key-panel">
       <p class="muted">Loading SSH key status...</p>
     </div>
     <div class="action-row github-action-row">
-      <button class="small-button" id="github-copy-btn" disabled>Copy Public Key</button>
+      <button class="small-button" id="github-copy-btn" disabled>Copy Machine Public Key</button>
       <button class="small-button" id="github-test-btn">Test GitHub Connection</button>
       <button class="small-button" id="github-generate-btn">Generate New SSH Key</button>
+      <button class="small-button" id="github-configure-btn">Configure For All Work Identities</button>
+      <button class="small-button" id="github-promote-btn" hidden>Promote Current User Key</button>
     </div>
     <pre id="github-output" class="output" hidden></pre>
   `;
@@ -1208,6 +1210,8 @@ function bindGitHub() {
   document.getElementById('github-copy-btn').addEventListener('click', copyGitHubPublicKey);
   document.getElementById('github-generate-btn').addEventListener('click', generateGitHubKey);
   document.getElementById('github-test-btn').addEventListener('click', testGitHubConnection);
+  document.getElementById('github-configure-btn').addEventListener('click', configureGitHubForAllUsers);
+  document.getElementById('github-promote-btn').addEventListener('click', promoteCurrentUserGitHubKey);
 }
 
 async function loadGitHubStatus() {
@@ -1222,6 +1226,7 @@ async function loadGitHubStatus() {
         <dl class="facts">
           <dt>Key path</dt><dd>${escapeHTML(status.keyPath)}</dd>
           <dt>Public key</dt><dd><code class="pubkey">${escapeHTML(status.publicKey)}</code></dd>
+          <dt>Configured users</dt><dd>${escapeHTML((status.configuredUsers || []).join(', ') || 'none yet')}</dd>
         </dl>
         <p class="section-description">Copy the public key above, then <a href="https://github.com/settings/ssh/new" target="_blank" rel="noopener">add it to GitHub</a>.</p>
       `;
@@ -1238,6 +1243,10 @@ async function loadGitHubStatus() {
         delete copyButton.dataset.publicKey;
       }
     }
+    const promoteButton = document.getElementById('github-promote-btn');
+    if (promoteButton) {
+      promoteButton.hidden = Boolean(status.keyExists) || !status.currentUserKeyExists;
+    }
   } catch (err) {
     panel.innerHTML = `<p class="error-text">Failed to load SSH key status: ${escapeHTML(err.message)}</p>`;
     const copyButton = document.getElementById('github-copy-btn');
@@ -1245,6 +1254,8 @@ async function loadGitHubStatus() {
       copyButton.disabled = true;
       delete copyButton.dataset.publicKey;
     }
+    const promoteButton = document.getElementById('github-promote-btn');
+    if (promoteButton) promoteButton.hidden = true;
   }
 }
 
@@ -1296,7 +1307,7 @@ function fallbackCopyText(text) {
 function showCopyButtonState(button, label) {
   if (!button) return;
   button.textContent = label;
-  setTimeout(() => { button.textContent = 'Copy Public Key'; }, 2000);
+  setTimeout(() => { button.textContent = 'Copy Machine Public Key'; }, 2000);
 }
 
 async function generateGitHubKey() {
@@ -1321,6 +1332,35 @@ async function testGitHubConnection() {
   try {
     const result = await postJSON('/api/github', { action: 'test-connection' });
     output.textContent = result.output || '(no output)';
+  } catch (err) {
+    output.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function configureGitHubForAllUsers() {
+  const output = document.getElementById('github-output');
+  output.hidden = false;
+  output.textContent = 'Configuring work identities for the machine GitHub key...';
+  try {
+    const usernames = (snapshot?.accounts || []).map(account => account.username).filter(Boolean);
+    const result = await postJSON('/api/github', { action: 'configure-users', usernames });
+    output.textContent = result.output || 'Configured.';
+    loadGitHubStatus();
+  } catch (err) {
+    output.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function promoteCurrentUserGitHubKey() {
+  const output = document.getElementById('github-output');
+  output.hidden = false;
+  output.textContent = 'Promoting current user key to managed machine key...';
+  try {
+    const result = await postJSON('/api/github', { action: 'promote-current-user-key' });
+    output.textContent = result.exitCode === 0
+      ? `Machine key promoted.\n\nPublic key:\n${result.output}`
+      : `Failed:\n${result.output}`;
+    loadGitHubStatus();
   } catch (err) {
     output.textContent = `Error: ${err.message}`;
   }

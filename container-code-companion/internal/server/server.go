@@ -672,13 +672,14 @@ func (s *Server) handleGitHub(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, status)
 	case http.MethodPost:
 		var body struct {
-			Action string `json:"action"`
+			Action    string   `json:"action"`
+			Usernames []string `json:"usernames"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
-		result, err := system.RunGitHubOperation(body.Action)
+		result, err := system.RunGitHubOperation(body.Action, body.Usernames...)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "output": result.Output})
 			return
