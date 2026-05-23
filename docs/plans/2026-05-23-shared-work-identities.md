@@ -12,42 +12,46 @@
 
 ## Phase 1: Shared Workspace Foundation
 
+Status: Complete in `95be375 Add shared project workspace foundation`.
+
 ### Files
 
-- Modify `install/ccc-provision-workstation.sh`
-- Modify `container-code-companion/internal/system/management.go`
-- Modify `container-code-companion/internal/system/management_test.go`
-- Modify `tests/container-code-companion-static.sh`
-- Modify `README.md`
+- [x] Modify `install/ccc-provision-workstation.sh`
+- [x] Modify `container-code-companion/internal/system/management.go`
+- [x] Modify `container-code-companion/internal/system/management_test.go`
+- [x] Modify `tests/container-code-companion-static.sh`
+- [x] Modify `README.md`
 
 ### Behavior
 
-- Add `CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"`.
-- Add `CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"`.
-- Fresh installs create group `ccc`, create `/srv/ccc/projects`, set `root:ccc`
+- [x] Add `CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"`.
+- [x] Add `CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"`.
+- [x] Fresh installs create group `ccc`, create `/srv/ccc/projects`, set `root:ccc`
   and mode `2775`, add `CCC_USER` to `ccc`, and make `$CCC_HOME/projects` a
   symlink to `/srv/ccc/projects`.
-- Backend uses shared project root instead of `filepath.Join(workstationHome(),
+- [x] Backend uses shared project root instead of `filepath.Join(workstationHome(),
   "projects")`.
-- Preserve compatibility if `/srv/ccc/projects` does not exist by creating it
+- [x] Preserve compatibility if `/srv/ccc/projects` does not exist by creating it
   on demand.
 
 ### Tests
 
-- Add Go tests for a `sharedProjectsRoot()` helper returning `/srv/ccc/projects`
+- [x] Add Go tests for a `sharedProjectsRoot()` helper returning `/srv/ccc/projects`
   by default.
-- Add Go tests that `RunProjectOperation` creates/clones under the shared root.
-- Add static checks for `CCC_SHARED_PROJECTS`, `/srv/ccc/projects`, `groupadd`,
+- [x] Add Go tests that `RunProjectOperation` creates/clones under the shared root.
+- [x] Add static checks for `CCC_SHARED_PROJECTS`, `/srv/ccc/projects`, `groupadd`,
   `usermod -aG "$CCC_SHARED_GROUP"`, and `chmod 2775`.
 
 ## Phase 2: Migration Command For Existing Installs
 
+Status: Complete in `d1c200f Add shared workspace migration command`.
+
 ### Files
 
-- Modify `install/ccc-provision-workstation.sh`
-- Add generated command `/usr/local/bin/ccc-migrate-shared-workspace`
-- Add or modify system tests/static tests as practical
-- Update `README.md`
+- [x] Modify `install/ccc-provision-workstation.sh`
+- [x] Add generated command `/usr/local/bin/ccc-migrate-shared-workspace`
+- [x] Add or modify system tests/static tests as practical
+- [x] Update `README.md`
 
 ### Behavior
 
@@ -60,24 +64,26 @@ ccc-migrate-shared-workspace --apply
 
 Status reports:
 
-- whether group `ccc` exists
-- whether `/srv/ccc/projects` exists
-- whether `$CCC_HOME/projects` is a directory, symlink, missing, or already shared
-- number of entries that would move/copy
-- whether a current user GitHub key exists
+- [x] whether group `ccc` exists
+- [x] whether `/srv/ccc/projects` exists
+- [x] whether `$CCC_HOME/projects` is a directory, symlink, missing, or already shared
+- [x] number of entries that would move/copy
+- [x] whether a current user GitHub key exists
 
 Apply:
 
-- creates group/root path
-- adds `CCC_USER` to `ccc`
-- rsyncs existing `$CCC_HOME/projects/` into `/srv/ccc/projects/`
-- renames existing `$CCC_HOME/projects` to timestamped backup
-- symlinks `$CCC_HOME/projects` to `/srv/ccc/projects`
-- repairs permissions
+- [x] creates group/root path
+- [x] adds `CCC_USER` to `ccc`
+- [x] rsyncs existing `$CCC_HOME/projects/` into `/srv/ccc/projects/`
+- [x] renames existing `$CCC_HOME/projects` to timestamped backup
+- [x] symlinks `$CCC_HOME/projects` to `/srv/ccc/projects`
+- [x] repairs permissions
 
-Do not delete the backup automatically.
+- [x] Do not delete the backup automatically.
 
 ## Phase 3: Managed GitHub Machine Key
+
+Status: Next.
 
 ### Files
 
@@ -218,4 +224,3 @@ git diff --check
 - GitHub page manages `/etc/ccc/ssh/github_ed25519`.
 - Accounts page can setup a user's CCC profile without copying provider auth.
 - README and PROJECT_STATUS describe the new model.
-
