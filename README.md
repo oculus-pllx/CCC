@@ -132,6 +132,8 @@ ccc-migrate-shared-workspace --status
 sudo ccc-migrate-shared-workspace --apply
 ```
 
+Before applying migration on an active workstation, save/commit/stash any work and close editors or terminals whose current directory is inside the old project root, such as `/home/oculus/projects`. This prevents new writes from landing in the timestamped backup after the rsync step.
+
 The status command reports whether the `ccc` group and shared root exist, what `~/projects` currently points to, any legacy `~/projects` or `~/repos` entries, and whether the current user has an existing GitHub SSH public key. Apply creates the shared root, adds `CCC_USER` to the `ccc` group, rsyncs old `~/projects/` content into `/srv/ccc/projects/`, renames the old path to a timestamped backup, links `~/projects`, links existing `~/repos` project directories into the shared root without moving them, and repairs group-write/setgid permissions. Backups are retained.
 
 The Projects page also exposes a Shared Workspace panel with Check Migration, Migrate Existing Projects, and Repair Permissions actions for the shared root.

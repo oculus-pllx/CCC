@@ -67,6 +67,7 @@ Status reports:
 - [x] whether group `ccc` exists
 - [x] whether `/srv/ccc/projects` exists
 - [x] whether `$CCC_HOME/projects` is a directory, symlink, missing, or already shared
+- [x] whether legacy `$CCC_HOME/repos` contains existing project entries
 - [x] number of entries that would move/copy
 - [x] whether a current user GitHub key exists
 
@@ -77,6 +78,7 @@ Apply:
 - [x] rsyncs existing `$CCC_HOME/projects/` into `/srv/ccc/projects/`
 - [x] renames existing `$CCC_HOME/projects` to timestamped backup
 - [x] symlinks `$CCC_HOME/projects` to `/srv/ccc/projects`
+- [x] links existing `$CCC_HOME/repos` project directories into `/srv/ccc/projects` without moving them
 - [x] repairs permissions
 
 - [x] Do not delete the backup automatically.
