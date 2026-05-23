@@ -191,22 +191,24 @@ sudo find /srv/ccc/projects -type d -exec chmod g+s {} +
 
 ## Phase 6: Documentation And Status
 
+Status: Complete.
+
 ### Files
 
-- Modify `README.md`
-- Modify `PROJECT_STATUS.md`
-- Keep spec/plan checked in
+- [x] Modify `README.md`
+- [x] Modify `PROJECT_STATUS.md`
+- [x] Keep spec/plan checked in
 
 ### Behavior
 
 Document:
 
-- personal multi-account model
-- shared `/srv/ccc/projects`
-- managed GitHub machine key
-- what stays per-user
-- how to migrate an existing install
-- how to setup a new work identity from the GUI
+- [x] personal multi-account model
+- [x] shared `/srv/ccc/projects`
+- [x] managed GitHub machine key
+- [x] what stays per-user
+- [x] how to migrate an existing install
+- [x] how to setup a new work identity from the GUI
 
 ## Verification Commands
 
@@ -222,9 +224,9 @@ git diff --check
 
 ## Completion Criteria
 
-- Fresh install creates shared workspace structure.
-- Existing install can migrate via GUI/command without deleting old projects.
-- Projects clone/pull operate against `/srv/ccc/projects`.
-- GitHub page manages `/etc/ccc/ssh/github_ed25519`.
-- Accounts page can setup a user's CCC profile without copying provider auth.
-- README and PROJECT_STATUS describe the new model.
+- [x] Fresh install creates shared workspace structure.
+- [x] Existing install can migrate via GUI/command without deleting old projects.
+- [x] Projects clone/pull operate against `/srv/ccc/projects`.
+- [x] GitHub page manages `/etc/ccc/ssh/github_ed25519`.
+- [x] Accounts page can setup a user's CCC profile without copying provider auth.
+- [x] README and PROJECT_STATUS describe the new model.

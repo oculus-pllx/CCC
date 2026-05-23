@@ -14,6 +14,7 @@ Recent work completed:
 - Moved GitHub SSH management to the managed machine key at `/etc/ccc/ssh/github_ed25519`, with GUI actions to copy, generate, test, configure work identities, and explicitly promote an existing user key.
 - Added Accounts actions to setup CCC profiles and sync agent configs per work identity without copying provider auth/session state.
 - Added Projects shared-root permission health and a repair action for group-write/setgid permissions.
+- Added Projects GUI actions for shared workspace migration status and apply.
 - Rebranded the project as Container Code Companion with Parallax Group branding.
 - Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 - Added Proxmox LXC OS choices for Ubuntu 24.04 LTS, Ubuntu 26.04 LTS, and Debian 13, with Ubuntu 24.04 as the compatibility default.
@@ -50,13 +51,13 @@ Current verification set:
 
 ## Next Work
 
-Shared work identities is in progress:
+Shared work identities is complete:
 - Complete: shared project root at `/srv/ccc/projects`
 - Complete: CLI migration for existing installs via `ccc-migrate-shared-workspace`
 - Complete: managed machine GitHub SSH key under `/etc/ccc/ssh`
 - Complete: Accounts actions to setup/sync per-user CCC agent profiles without copying provider auth
 - Complete: project permission health and repair action
-- Next: final documentation pass and GUI-driven migration/status actions
+- Complete: Projects GUI migration/status actions
 
 Blueprints:
 - `docs/specs/2026-05-23-shared-work-identities-design.md`

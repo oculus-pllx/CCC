@@ -28,6 +28,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
 - **Shared project workspace** — projects live at `/srv/ccc/projects`, with `~/projects` linked there for compatibility
+- **Shared work identities** — local Linux users keep separate Claude/Codex/Gemini auth state while sharing projects, baseline configs, and a managed GitHub machine key
 - **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
@@ -133,6 +134,20 @@ sudo ccc-migrate-shared-workspace --apply
 
 The status command reports whether the `ccc` group and shared root exist, what `~/projects` currently points to, how many existing project entries would copy, and whether the current user has an existing GitHub SSH public key. Apply creates the shared root, adds `CCC_USER` to the `ccc` group, rsyncs old `~/projects/` content into `/srv/ccc/projects/`, renames the old path to a timestamped backup, links `~/projects`, and repairs group-write/setgid permissions. Backups are retained.
 
+The Projects page also exposes Migration Status, Apply Migration, and Repair Permissions actions for the shared root.
+
+## Work Identities
+
+CCC supports multiple local Linux work identities on one personal workstation. Each identity gets its own provider auth/session directories:
+
+- `~/.claude/`
+- `~/.codex/`
+- `~/.gemini/`
+- `~/.gitconfig`
+- `~/.ssh/config`
+
+Projects stay shared at `/srv/ccc/projects`. The managed GitHub machine key lives at `/etc/ccc/ssh/github_ed25519`; the GitHub page can generate it, copy the public key, test SSH access, configure work identities, or explicitly promote an existing current-user key. Provider auth tokens are not copied between users. After setup, sign in as the work identity and run `claude`, `codex`, `gemini`, and optionally `gh auth login`.
+
 ---
 
 ## First Steps
@@ -213,10 +228,10 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
-- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, and delete
+- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
-- **Accounts** — create users, change passwords, shells, groups, and delete users
+- **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, and delete users
 - **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
 - **GitHub** — manage the shared machine key at `/etc/ccc/ssh/github_ed25519`, copy its public key, test GitHub SSH access, configure work identities, and explicitly promote an existing user key when needed

@@ -260,6 +260,10 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 		return RunShellCommand("sudo systemctl restart code-server@$(id -un).service", workstationHome())
 	case "restart-container-code-companion":
 		return RunShellCommand("sudo systemctl restart container-code-companion.service", workstationHome())
+	case "shared-workspace-status":
+		return RunShellCommand("ccc-migrate-shared-workspace --status", workstationHome())
+	case "shared-workspace-apply":
+		return RunShellCommand("sudo ccc-migrate-shared-workspace --apply", workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
 	}

@@ -625,7 +625,11 @@ function renderProjects() {
         <dt>Project root</dt><dd>${escapeHTML(projectRoot.root || '/srv/ccc/projects')}</dd>
         <dt>Permission health</dt><dd>${escapeHTML(projectRoot.summary || 'unknown')} ${projectRoot.mode ? `(${escapeHTML(projectRoot.mode)})` : ''}</dd>
       </dl>
-      <button id="repair-project-permissions-button" class="small-button">Repair Permissions</button>
+      <div class="action-row">
+        <button id="shared-workspace-status-button" class="small-button">Migration Status</button>
+        <button id="shared-workspace-apply-button" class="small-button">Apply Migration</button>
+        <button id="repair-project-permissions-button" class="small-button">Repair Permissions</button>
+      </div>
     </div>
     <div class="project-create">
       <input id="project-name" type="text" placeholder="new-project">
@@ -2067,6 +2071,8 @@ function bindProjects() {
   document.getElementById('add-existing-project-button').addEventListener('click', addExistingProject);
   document.getElementById('clone-project-button')?.addEventListener('click', cloneProject);
   document.getElementById('repair-project-permissions-button')?.addEventListener('click', repairProjectPermissions);
+  document.getElementById('shared-workspace-status-button')?.addEventListener('click', () => runProjectPageAction('shared-workspace-status'));
+  document.getElementById('shared-workspace-apply-button')?.addEventListener('click', () => runProjectPageAction('shared-workspace-apply'));
   document.querySelectorAll('[data-project-browse]').forEach(button => {
     button.addEventListener('click', () => {
       filePath = button.dataset.projectBrowse;
@@ -2091,6 +2097,20 @@ function bindProjects() {
 
 async function repairProjectPermissions() {
   await runProjectOperation({ operation: 'repair-permissions' });
+}
+
+async function runProjectPageAction(action) {
+  const output = document.getElementById('project-output');
+  output.hidden = false;
+  output.textContent = 'Running...';
+  try {
+    const result = await postJSON('/api/action', { action });
+    output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
+    await loadSnapshot();
+    renderSection('projects');
+  } catch (error) {
+    output.textContent = stripANSI(error.message);
+  }
 }
 
 async function createProject() {
