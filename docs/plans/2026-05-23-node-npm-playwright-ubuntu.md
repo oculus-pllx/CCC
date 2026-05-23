@@ -28,7 +28,7 @@ Add:
 ```bash
 require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
 require_file_contains install/ccc-provision-workstation.sh "Ubuntu 26.04 Chromium support may lag Playwright releases"
-require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID" == "26.04"'
+require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID:-}" == "26.04"'
 require_file_contains README.md "Debian 13 is the safer CCC path when browser automation matters"
 ```
 
@@ -57,7 +57,7 @@ git commit -m "test(installer): cover npm and chromium guidance"
 - Modify: `install/ccc-provision-workstation.sh`
 - Modify: `README.md`
 
-- [ ] **Step 1: Install npm explicitly**
+- [x] **Step 1: Install npm explicitly**
 
 Change the Node install command to:
 
@@ -65,15 +65,15 @@ Change the Node install command to:
 apt-get install -y -qq nodejs npm
 ```
 
-- [ ] **Step 2: Warn in `ccc-install-playwright` on Ubuntu 26.04**
+- [x] **Step 2: Warn in `ccc-install-playwright` on Ubuntu 26.04**
 
 Add an `/etc/os-release` check in the generated script before `npx --yes playwright install --with-deps chromium`.
 
-- [ ] **Step 3: Update README guidance**
+- [x] **Step 3: Update README guidance**
 
 Add clear notes that npm is installed explicitly and that Debian 13 is the safer CCC path when browser automation matters.
 
-- [ ] **Step 4: Run focused verification**
+- [x] **Step 4: Run focused verification**
 
 Run:
 
@@ -85,7 +85,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 5: Commit implementation**
+- [x] **Step 5: Commit implementation**
 
 Run:
 

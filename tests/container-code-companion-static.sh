@@ -115,7 +115,7 @@ require_file_contains install/ccc-provision-workstation.sh 'command -v code-serv
 require_file_contains README.md "bubblewrap"
 require_file_contains README.md "GitHub CLI"
 require_file_contains install/ccc-provision-workstation.sh "Ubuntu 26.04 Chromium support may lag Playwright releases"
-require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID" == "26.04"'
+require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID:-}" == "26.04"'
 require_file_contains README.md "Debian 13 is the safer CCC path when browser automation matters"
 require_file_contains install/ccc-provision-workstation.sh '"$schema": "https://json.schemastore.org/claude-code-settings.json"'
 require_file_not_contains install/ccc-provision-workstation.sh "oculus-settings.json"

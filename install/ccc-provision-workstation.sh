@@ -150,7 +150,7 @@ echo "    yq $(/usr/local/bin/yq --version | awk '{print $NF}')"
 # ── Node.js 22 LTS ───────────────────────────────────────────────────────────
 step 9 "Node.js 22 LTS"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y -qq nodejs
+apt-get install -y -qq nodejs npm
 echo "    Node $(node --version) / npm $(npm --version)"
 
 # ── Global npm: TypeScript runtime only ───────────────────────────────────────
@@ -1102,6 +1102,16 @@ echo ""
 export HOME="$CCC_HOME"
 export DEBIAN_FRONTEND=noninteractive
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+if [[ -r /etc/os-release ]]; then
+  source /etc/os-release
+  if [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" == "26.04" ]]; then
+    echo -e "${Y}Ubuntu 26.04 Chromium support may lag Playwright releases.${N}"
+    echo -e "${Y}Ubuntu's chromium-browser package is snap-transitioned, which is a poor fit for many LXC containers.${N}"
+    echo -e "${Y}Debian 13 is the safer CCC path when browser automation matters.${N}"
+    echo ""
+  fi
+fi
 
 echo -e "${C}[1/3]${N} Installing Playwright npm package..."
 npx --yes playwright install --with-deps chromium

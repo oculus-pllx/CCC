@@ -150,7 +150,7 @@ ccc
 ## Container Specs
 
 ### Languages & Runtimes
-- **Node.js 22 LTS** — npm, typescript, ts-node, tsx
+- **Node.js 22 LTS** — npm installed explicitly, typescript, ts-node, tsx
 - **Python 3** — pip (`--break-system-packages`), venv
 - **Go** (latest) — via official tarball, on PATH
 - **Rust** (latest) — via rustup, installed for claude-code user
@@ -340,6 +340,7 @@ Playwright is skipped during provisioning — Chromium download hangs in LXC. In
 ```bash
 ccc-install-playwright
 ```
+On Ubuntu 26.04, Chromium/Playwright support can lag upstream releases and Ubuntu's `chromium-browser` package is snap-transitioned. Debian 13 is the safer CCC path when browser automation matters.
 
 **Claude Code binary not found after provision**
 ```bash
