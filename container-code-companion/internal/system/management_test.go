@@ -54,6 +54,9 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"sudo ccc-sync-agent-configs --user 'work-id'",
 		"CCC shell projects login",
 		"cd ~/projects",
+		"CCC shell environment",
+		"export PATH=\"$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH\"",
+		"npm install -g --prefix '/home/work-id/.local' @anthropic-ai/claude-code @openai/codex @google/gemini-cli",
 		"IdentityFile /etc/ccc/ssh/github_ed25519",
 	} {
 		if !strings.Contains(command, want) {

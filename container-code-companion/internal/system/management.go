@@ -406,7 +406,9 @@ func setupCCCProfileCommand(username string) string {
 	projectsRoot := sharedProjectsRoot()
 	githubKeyPath := githubMachineKeyPath()
 	githubConfig := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + githubKeyPath + "\n  IdentitiesOnly yes\n"
+	shellEnvBlock := "\n# CCC shell environment\nexport EDITOR=nano\nexport LANG=en_US.UTF-8\nexport TZ=America/New_York\nexport PATH=\"$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH\"\n"
 	shellProjectsBlock := "\n# CCC shell projects login\n[[ \"$PWD\" == \"$HOME\" ]] && cd ~/projects 2>/dev/null || true\n"
+	providerInstallCommand := "sudo -u " + shellQuote(username) + " env HOME=" + shellQuote(home) + " PATH=" + shellQuote(home+"/.local/bin:/usr/local/bin:/usr/bin:/bin") + ` npm install -g --prefix ` + shellQuote(home+"/.local") + " @anthropic-ai/claude-code @openai/codex @google/gemini-cli"
 	commands := []string{
 		"test $(id -u " + shellQuote(username) + ") -ge 1000",
 		"sudo groupadd -f " + shellQuote(group),
@@ -416,12 +418,17 @@ func setupCCCProfileCommand(username string) string {
 		"sudo chmod 2775 " + shellQuote(projectsRoot),
 		"sudo rm -rf " + shellQuote(home+"/projects"),
 		"sudo ln -sfn " + shellQuote(projectsRoot) + " " + shellQuote(home+"/projects"),
-		"sudo mkdir -p " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh"),
+		"sudo mkdir -p " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh") + " " + shellQuote(home+"/.local"),
 		"sudo chmod 700 " + shellQuote(home+"/.ssh"),
 		"sudo ccc-sync-agent-configs --user " + shellQuote(username),
 		"sudo touch " + shellQuote(home+"/.bashrc"),
+		"sudo sed -i '/# CCC shell environment/,+4d' " + shellQuote(home+"/.bashrc"),
 		"sudo sed -i '/# CCC shell projects login/,+1d' " + shellQuote(home+"/.bashrc"),
+		"printf %s " + shellQuote(shellEnvBlock) + " | sudo tee -a " + shellQuote(home+"/.bashrc") + " >/dev/null",
 		"printf %s " + shellQuote(shellProjectsBlock) + " | sudo tee -a " + shellQuote(home+"/.bashrc") + " >/dev/null",
+		"sudo chown -R " + shellQuote(username+":"+username) + " " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh") + " " + shellQuote(home+"/.local"),
+		"sudo chown " + shellQuote(username+":"+username) + " " + shellQuote(home+"/.bashrc"),
+		providerInstallCommand,
 	}
 	if fileExists(githubKeyPath) || fileExists(githubKeyPath+".pub") {
 		commands = append(commands,
@@ -432,9 +439,9 @@ func setupCCCProfileCommand(username string) string {
 		commands = append(commands, "true # IdentityFile "+githubKeyPath)
 	}
 	commands = append(commands,
-		"sudo chown -R "+shellQuote(username+":"+username)+" "+shellQuote(home+"/.claude")+" "+shellQuote(home+"/.codex")+" "+shellQuote(home+"/.gemini")+" "+shellQuote(home+"/.ssh"),
+		"sudo chown -R "+shellQuote(username+":"+username)+" "+shellQuote(home+"/.claude")+" "+shellQuote(home+"/.codex")+" "+shellQuote(home+"/.gemini")+" "+shellQuote(home+"/.ssh")+" "+shellQuote(home+"/.local"),
 		"sudo chown "+shellQuote(username+":"+username)+" "+shellQuote(home+"/.bashrc"),
-		"printf '%s\\n' 'Profile ready. First-login checklist: run claude, codex, gemini, and optionally gh auth login.'",
+		"printf '%s\\n' 'Profile ready. Provider CLIs installed. First-login checklist: run claude, codex, gemini, and optionally gh auth login.'",
 	)
 	return strings.Join(commands, " && ")
 }
