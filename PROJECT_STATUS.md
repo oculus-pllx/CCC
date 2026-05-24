@@ -18,6 +18,8 @@ Recent work completed:
 - Added legacy project-root compatibility so existing `~/projects` or `~/repos` work remains visible before migration, and clarified the Projects Shared Workspace controls.
 - Added per-user shell login setup so additional work identities enter `~/projects` after CCC profile setup.
 - Made CCC update checks visible on Overview and Updates so users can see when `ccc-update-status` is querying GitHub and when it last checked.
+- Added Overview SSH connection counts grouped by user, including duplicate sessions for the same work identity.
+- Improved visible CCC update checks so completed checks summarize the actual `ccc-update-status` result instead of leaving users at a generic checking message.
 - Kept Projects migration and Accounts operation output visible after page refreshes so status/errors do not disappear.
 - Updated the generated `~/projects/WELCOME.md` with shared workspace, migration, work identity, and managed GitHub key instructions.
 - Fixed CCC self-update so it re-runs the provisioner's updateable section from the latest GitHub checkout, updating helper commands and service files along with the web UI.

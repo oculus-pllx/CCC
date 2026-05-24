@@ -62,6 +62,33 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 	}
 }
 
+func TestParseWhoSSHSessionsGroupsDuplicateUsers(t *testing.T) {
+	input := strings.Join([]string{
+		"oculus   pts/0        2026-05-24 09:15 (192.0.2.10)",
+		"claude   pts/1        2026-05-24 09:20 (198.51.100.7)",
+		"oculus   pts/2        2026-05-24 09:25 (192.0.2.10)",
+		"reboot   system boot  2026-05-24 09:00",
+	}, "\n")
+
+	summary := parseWhoSSHSessions(input)
+
+	if summary.Total != 3 {
+		t.Fatalf("Total = %d, want 3", summary.Total)
+	}
+	if summary.UniqueUsers != 2 {
+		t.Fatalf("UniqueUsers = %d, want 2", summary.UniqueUsers)
+	}
+	if len(summary.Users) != 2 {
+		t.Fatalf("Users length = %d, want 2: %#v", len(summary.Users), summary.Users)
+	}
+	if summary.Users[0].Username != "oculus" || summary.Users[0].Count != 2 {
+		t.Fatalf("first user = %#v, want oculus x2", summary.Users[0])
+	}
+	if summary.Users[1].Username != "claude" || summary.Users[1].Count != 1 {
+		t.Fatalf("second user = %#v, want claude x1", summary.Users[1])
+	}
+}
+
 func TestRunProjectOperationCreatesProjectUnderSharedRoot(t *testing.T) {
 	home := t.TempDir()
 	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")

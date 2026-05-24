@@ -32,7 +32,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
-- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, mobile drawer navigation, 7 accent color presets, optional CRT display effects, system overview, services, logs, networking, accounts, files, notes, terminal, projects, updates, app catalog, map drives, provider configs, and GitHub SSH key management
+- **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, mobile drawer navigation, 7 accent color presets, optional CRT display effects, system overview, SSH connection counts, services, logs, networking, accounts, files, notes, terminal, projects, updates, app catalog, map drives, provider configs, and GitHub SSH key management
 - **Projects Git actions** — clone SSH or HTTPS Git repos into `/srv/ccc/projects` and pull fast-forward Git updates for existing Git projects
 - **Native terminal tabs** — browser PTY sessions backed by Go, xterm.js, and tmux-capable shells
 - **Custom statusline** at `~/.claude/bin/statusline-command.sh`
@@ -235,7 +235,7 @@ Open `http://<container-ip>:9090` after provisioning and sign in with the workin
 
 The native UI is built into the Go service, not Cockpit and not a Node dashboard. It currently includes:
 
-- **Overview** — host, IP, uptime, services, projects, resource gauges, update status, and recent logs
+- **Overview** — host, IP, uptime, services, projects, SSH connection counts by user, resource gauges, update status, and recent logs
 - **Updates** — separate App and OS tabs; App updates stream `ccc-self-update` output and reconnect after service restart
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
@@ -341,7 +341,7 @@ Update cadence:
 - OS package updates and `oculus-configs` agent config sync are manual; run `sudo ccc-os-update` and `sudo ccc-sync-agent-configs` when you want them applied.
 - App Catalog package/version checks run on demand from the native UI, not continuously in the background.
 
-The Overview and Updates pages show when CCC is checking GitHub with `ccc-update-status` and the most recent browser-session check time.
+The Overview and Updates pages show when CCC is checking GitHub with `ccc-update-status`, the most recent browser-session check time, and whether that check returned current, update-available, not-recorded, or failed status.
 
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean

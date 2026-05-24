@@ -300,6 +300,7 @@ function renderOverview() {
   const updateText = stripANSI(snapshot.updates?.containerCodeCompanion || '');
   const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
   const updateBadge = updateStatusBadge(updateText, updateLog);
+  const sshSessions = snapshot.sshSessions || { total: 0, uniqueUsers: 0, users: [] };
   const configs = snapshot.agentConfigs || [];
   const presentConfigs = configs.filter(config => config.exists).length;
   const logs = snapshot.logs || [];
@@ -312,6 +313,7 @@ function renderOverview() {
         ${statusTile('Uptime', data.uptime?.display || 'unknown')}
         ${statusTile('Services', `${activeServices}/${totalServices} active`)}
         ${statusTile('Projects', `${(snapshot.projects || []).length}`)}
+        ${statusTile('SSH', `${sshSessions.total || 0} sessions`)}
       </section>
 
       <section class="gauge-grid">
@@ -331,6 +333,13 @@ function renderOverview() {
           <h3>Provider Configs</h3>
           <span class="badge ${presentConfigs === configs.length ? 'ok' : 'warn'}">${presentConfigs}/${configs.length} present</span>
           ${configs.map(config => `<div class="mini-row"><span>${escapeHTML(config.name)}</span><strong>${config.exists ? 'ready' : 'missing'}</strong></div>`).join('')}
+        </div>
+        <div class="dash-panel">
+          <h3>SSH Connections</h3>
+          <span id="ssh-session-summary" class="badge ${sshSessions.total ? 'ok' : ''}">${escapeHTML(formatSSHSessionSummary(sshSessions))}</span>
+          <div id="ssh-session-users">
+            ${renderSSHSessionRows(sshSessions)}
+          </div>
         </div>
         <div class="dash-panel">
           <h3>Services</h3>
@@ -1066,23 +1075,36 @@ async function refreshCCCUpdateStatus() {
   }
   try {
     const result = await runActionForSnapshot('update-status');
-    cccUpdateStatusMessage = `Last checked ${new Date(lastCCCUpdateStatusCheck).toLocaleTimeString()} with ccc-update-status.`;
-    if (currentSection === 'updates') {
-      renderSection('updates');
-      const refreshedOutput = document.getElementById('update-status-output');
-      if (refreshedOutput && result.output) {
-        refreshedOutput.textContent = stripANSI(result.output);
-      }
+    const checkedAt = new Date();
+    const cleanOutput = stripANSI(result.output || '');
+    if (cleanOutput && snapshot.updates) {
+      snapshot.updates.containerCodeCompanion = cleanOutput;
     }
+    cccUpdateStatusMessage = `Last checked ${checkedAt.toLocaleTimeString()}. ${summarizeCCCUpdateStatus(cleanOutput)}`;
+    if (currentSection === 'updates' || currentSection === 'overview') {
+      renderSection(currentSection);
+    }
+    updateCCCUpdateStatusMessage();
   } catch (error) {
-    cccUpdateStatusMessage = `Last check failed ${new Date().toLocaleTimeString()}.`;
+    cccUpdateStatusMessage = `Last check failed ${new Date().toLocaleTimeString()}. ${stripANSI(error.message)}`;
     const errorOutput = document.getElementById('update-status-output');
     if (errorOutput) {
       errorOutput.textContent = stripANSI(error.message);
     }
+    updateCCCUpdateStatusMessage();
   } finally {
     cccUpdateStatusInFlight = false;
   }
+}
+
+function summarizeCCCUpdateStatus(output) {
+  const text = stripANSI(output || '');
+  if (text.includes('Up to date')) return 'Up to date.';
+  if (text.includes('Update available')) return 'Update available.';
+  if (text.includes('No version recorded') || text.includes('Installed: not recorded')) return 'Version not recorded.';
+  if (text.includes('Could not reach GitHub')) return 'Could not reach GitHub.';
+  if (text.trim()) return 'Check completed.';
+  return 'No output returned.';
 }
 
 function updateCCCUpdateStatusMessage() {
@@ -2465,6 +2487,28 @@ function updatePanelText(statusText, logText) {
   return [successLine, statusText].filter(Boolean).join('\n');
 }
 
+function formatSSHSessionSummary(summary = {}) {
+  const total = Number(summary.total || 0);
+  const uniqueUsers = Number(summary.uniqueUsers || 0);
+  if (total === 0) return '0 sessions';
+  const sessionLabel = total === 1 ? 'session' : 'sessions';
+  const userLabel = uniqueUsers === 1 ? 'user' : 'users';
+  return `${total} ${sessionLabel} · ${uniqueUsers} ${userLabel}`;
+}
+
+function renderSSHSessionRows(summary = {}) {
+  const users = Array.isArray(summary.users) ? summary.users : [];
+  if (!users.length) {
+    return '<p class="muted">No active SSH sessions.</p>';
+  }
+  return users.map(user => `
+    <div class="mini-row">
+      <span>${escapeHTML(user.username || 'unknown')}</span>
+      <strong>${Number(user.count || 0)} connected</strong>
+    </div>
+  `).join('');
+}
+
 function formatOSPackageStatus(text) {
   const lines = stripANSI(text)
     .split('\n')
@@ -2498,6 +2542,20 @@ function updateOverviewLive() {
   updateGauge('cpu', loadPercent(data.load?.one, data.cpu?.cores), `${formatLoad(data.load)} · ${data.cpu?.cores || 1} cores`);
   updateGauge('memory', data.memory?.usedPercent, `${formatBytes(usedBytes(data.memory))} / ${formatBytes(data.memory?.totalBytes || 0)}`);
   updateGauge('disk', data.disk?.usedPercent, `${formatBytes(data.disk?.usedBytes || 0)} / ${formatBytes(data.disk?.totalBytes || 0)} on ${data.disk?.mount || '/'}`);
+  updateSSHSessionPanel();
+}
+
+function updateSSHSessionPanel() {
+  const summary = snapshot?.sshSessions || { total: 0, uniqueUsers: 0, users: [] };
+  const summaryEl = document.getElementById('ssh-session-summary');
+  if (summaryEl) {
+    summaryEl.textContent = formatSSHSessionSummary(summary);
+    summaryEl.classList.toggle('ok', Number(summary.total || 0) > 0);
+  }
+  const usersEl = document.getElementById('ssh-session-users');
+  if (usersEl) {
+    usersEl.innerHTML = renderSSHSessionRows(summary);
+  }
 }
 
 function updateGauge(key, value, detail) {

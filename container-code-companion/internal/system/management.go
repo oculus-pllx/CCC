@@ -25,6 +25,7 @@ type ManagementSnapshot struct {
 	Services      []ServiceStatus   `json:"services"`
 	Logs          []LogBlock        `json:"logs"`
 	Network       NetworkStatus     `json:"network"`
+	SSHSessions   SSHSessionSummary `json:"sshSessions"`
 	Accounts      []AccountStatus   `json:"accounts"`
 	Files         []FileEntry       `json:"files"`
 	Updates       UpdateStatus      `json:"updates"`
@@ -59,6 +60,17 @@ type NetworkInterfaceActivity struct {
 	Name    string `json:"name"`
 	RXBytes uint64 `json:"rxBytes"`
 	TXBytes uint64 `json:"txBytes"`
+}
+
+type SSHSessionSummary struct {
+	Total       int              `json:"total"`
+	UniqueUsers int              `json:"uniqueUsers"`
+	Users       []SSHUserSession `json:"users"`
+}
+
+type SSHUserSession struct {
+	Username string `json:"username"`
+	Count    int    `json:"count"`
 }
 
 type AccountStatus struct {
@@ -208,6 +220,7 @@ func CollectManagementSnapshot() (ManagementSnapshot, error) {
 		Services:      collectServices(),
 		Logs:          collectLogs(),
 		Network:       collectNetwork(),
+		SSHSessions:   collectSSHSessions(),
 		Accounts:      collectAccounts(),
 		Files:         listFiles(projectsRoot, 80),
 		Updates:       collectUpdates(),
@@ -1119,6 +1132,43 @@ func CollectNetworkActivity() (NetworkActivity, error) {
 		})
 	}
 	return activity, nil
+}
+
+func collectSSHSessions() SSHSessionSummary {
+	return parseWhoSSHSessions(runText("who"))
+}
+
+func parseWhoSSHSessions(output string) SSHSessionSummary {
+	counts := map[string]int{}
+	total := 0
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		username := fields[0]
+		tty := fields[1]
+		if username == "" || !strings.HasPrefix(tty, "pts/") {
+			continue
+		}
+		counts[username]++
+		total++
+	}
+	users := make([]SSHUserSession, 0, len(counts))
+	for username, count := range counts {
+		users = append(users, SSHUserSession{Username: username, Count: count})
+	}
+	sort.Slice(users, func(i, j int) bool {
+		if users[i].Count == users[j].Count {
+			return users[i].Username < users[j].Username
+		}
+		return users[i].Count > users[j].Count
+	})
+	return SSHSessionSummary{
+		Total:       total,
+		UniqueUsers: len(users),
+		Users:       users,
+	}
 }
 
 func collectAccounts() []AccountStatus {
