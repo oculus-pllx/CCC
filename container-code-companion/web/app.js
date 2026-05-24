@@ -55,6 +55,7 @@ let snapshotPollTimer = null;
 let activeUpdateTab = 'app';
 let lastCCCUpdateStatusCheck = 0;
 let cccUpdateStatusInFlight = false;
+let cccUpdateStatusMessage = 'Not checked in this browser session.';
 let networkPollTimer = null;
 let lastNetworkSample = null;
 let networkHistory = [];
@@ -323,6 +324,7 @@ function renderOverview() {
         <div class="dash-panel">
           <h3>Update Status</h3>
           <button class="badge badge-link ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' ? 'warn' : ''}" data-nav-updates>${escapeHTML(updateBadge)}</button>
+          <p id="overview-update-check-state" class="muted update-check-state">${escapeHTML(cccUpdateStatusMessage)}</p>
           <pre class="mini-output">${escapeHTML(firstUsefulLines(updatePanelText(updateText, updateLog), 8))}</pre>
         </div>
         <div class="dash-panel">
@@ -554,6 +556,7 @@ function renderAppUpdateTab(updateText, updateLog) {
     <div class="action-row">
       <button class="small-button" id="self-update-btn">Update App</button>
     </div>
+    <p id="update-check-state" class="muted update-check-state">${escapeHTML(cccUpdateStatusMessage)}</p>
     <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Container Code Companion update status.')}</pre>
     ${logPreview ? `
       <div class="update-log-panel">
@@ -1055,12 +1058,15 @@ async function refreshCCCUpdateStatus() {
   if (cccUpdateStatusInFlight) return;
   cccUpdateStatusInFlight = true;
   lastCCCUpdateStatusCheck = Date.now();
+  cccUpdateStatusMessage = 'Checking GitHub with ccc-update-status...';
+  updateCCCUpdateStatusMessage();
   const output = document.getElementById('update-status-output');
   if (output) {
     output.textContent = 'Checking Container Code Companion update status...';
   }
   try {
     const result = await runActionForSnapshot('update-status');
+    cccUpdateStatusMessage = `Last checked ${new Date(lastCCCUpdateStatusCheck).toLocaleTimeString()} with ccc-update-status.`;
     if (currentSection === 'updates') {
       renderSection('updates');
       const refreshedOutput = document.getElementById('update-status-output');
@@ -1069,6 +1075,7 @@ async function refreshCCCUpdateStatus() {
       }
     }
   } catch (error) {
+    cccUpdateStatusMessage = `Last check failed ${new Date().toLocaleTimeString()}.`;
     const errorOutput = document.getElementById('update-status-output');
     if (errorOutput) {
       errorOutput.textContent = stripANSI(error.message);
@@ -1076,6 +1083,12 @@ async function refreshCCCUpdateStatus() {
   } finally {
     cccUpdateStatusInFlight = false;
   }
+}
+
+function updateCCCUpdateStatusMessage() {
+  document.querySelectorAll('.update-check-state').forEach(el => {
+    el.textContent = cccUpdateStatusMessage;
+  });
 }
 
 function maybeRefreshCCCUpdateStatus(force = false) {
