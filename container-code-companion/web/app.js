@@ -699,9 +699,9 @@ function renderConfigs() {
           <div>
             <strong>${escapeHTML(config.name)}</strong>
             <p>${escapeHTML(config.path)}</p>
-            <span>${config.exists ? escapeHTML(formatBytes(config.size)) : 'missing'}</span>
+            <span>${config.exists ? escapeHTML(config.isDir ? 'directory' : formatBytes(config.size)) : 'missing'}</span>
           </div>
-          <button class="small-button" data-config-edit="${escapeAttribute(config.path)}">Edit</button>
+          ${config.isDir ? '<span class="badge ok">synced</span>' : `<button class="small-button" data-config-edit="${escapeAttribute(config.path)}">Edit</button>`}
         </section>
       `).join('')}
     </div>

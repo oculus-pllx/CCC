@@ -131,8 +131,11 @@ require_file_contains install/ccc-provision-workstation.sh "/etc/ccc/ssh/github_
 require_file_contains install/ccc-provision-workstation.sh "Setup CCC Profile"
 require_file_contains README.md "ccc-sync-agent-configs"
 require_file_contains install/ccc-provision-workstation.sh "codex/AGENTS.md"
+require_file_contains install/ccc-provision-workstation.sh "codex/skills"
 require_file_contains install/ccc-provision-workstation.sh "gemini/GEMINI.md"
+require_file_contains install/ccc-provision-workstation.sh "gemini/skills"
 require_file_contains install/ccc-provision-workstation.sh "mcp.template.json"
+require_file_contains install/ccc-provision-workstation.sh "NO_COLOR"
 require_file_contains install/ccc-provision-workstation.sh "bubblewrap"
 require_file_contains install/ccc-provision-workstation.sh "GitHub CLI"
 require_file_contains install/ccc-provision-workstation.sh "githubcli-archive-keyring.gpg"
@@ -445,6 +448,9 @@ require_file_contains container-code-companion/internal/system/management.go 'CC
 require_file_contains container-code-companion/internal/system/management.go '@anthropic-ai/claude-code @openai/codex @google/gemini-cli'
 require_file_contains container-code-companion/internal/system/management.go 'Provider CLIs installed'
 require_file_contains container-code-companion/internal/system/management.go 'sudo env NO_COLOR=1 ccc-sync-agent-configs --user'
+require_file_contains container-code-companion/internal/system/management.go 'Codex skills'
+require_file_contains container-code-companion/internal/system/management.go 'Gemini skills'
+require_file_contains container-code-companion/web/app.js 'config.isDir'
 require_file_contains container-code-companion/web/app.js 'function stripANSI'
 require_file_contains container-code-companion/web/app.js 'replace(/\[(?:\d{1,2};)*\d{1,2}m/g,'
 require_file_contains container-code-companion/internal/system/management.go 'cd ~/projects'

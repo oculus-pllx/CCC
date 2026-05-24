@@ -14,6 +14,7 @@ Recent work completed:
 - Moved GitHub SSH management to the managed machine key at `/etc/ccc/ssh/github_ed25519`, with GUI actions to copy, generate, test, configure work identities, and explicitly promote an existing user key.
 - Added Accounts actions to setup CCC profiles and sync agent configs per work identity without copying provider auth/session state.
 - Updated CCC profile setup to install Claude Code, Codex, and Gemini CLI binaries into each additional work identity's `~/.local` so provider commands launch from that account.
+- Updated agent config sync/status so `oculus-configs` stays a shared root-owned checkout, per-user sync copies Claude rules plus Codex/Gemini skills, and Provider Configs shows the synced directories.
 - Forced account profile/config sync actions to run with `NO_COLOR=1` and added UI cleanup for malformed color remnants in account output.
 - Moved malformed ANSI color cleanup into the shared browser output sanitizer so bracket-only color remnants are removed across output panels.
 - Added Projects shared-root permission health and a repair action for group-write/setgid permissions.
@@ -76,6 +77,7 @@ Shared work identities is complete:
 - Complete: legacy `~/projects` and `~/repos` visibility before migration
 - Complete: additional work identity shell login defaults to `~/projects`
 - Complete: visible CCC update check state and persistent operation output for migration/account actions
+- Complete: per-user agent config/skills sync visibility for Claude, Codex, Gemini, and templates
 
 Blueprints:
 - `docs/specs/2026-05-23-shared-work-identities-design.md`

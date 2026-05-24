@@ -143,6 +143,7 @@ type AgentConfigFile struct {
 	Path   string `json:"path"`
 	Exists bool   `json:"exists"`
 	Size   int64  `json:"size"`
+	IsDir  bool   `json:"isDir"`
 }
 
 type RepoStatus struct {
@@ -1271,9 +1272,14 @@ func collectAgentConfigs(home string) []AgentConfigFile {
 		path string
 	}{
 		{"Claude CLAUDE.md", filepath.Join(home, ".claude", "CLAUDE.md")},
-		{"Codex AGENTS.md", filepath.Join(home, ".codex", "AGENTS.md")},
-		{"Gemini GEMINI.md", filepath.Join(home, ".gemini", "GEMINI.md")},
+		{"Claude rules", filepath.Join(home, ".claude", "rules")},
 		{"Claude MCP", filepath.Join(home, ".claude", "mcp.json")},
+		{"Claude MCP template", filepath.Join(home, ".claude", "mcp.template.json")},
+		{"Codex AGENTS.md", filepath.Join(home, ".codex", "AGENTS.md")},
+		{"Codex skills", filepath.Join(home, ".codex", "skills")},
+		{"Gemini GEMINI.md", filepath.Join(home, ".gemini", "GEMINI.md")},
+		{"Gemini skills", filepath.Join(home, ".gemini", "skills")},
+		{"Project templates", filepath.Join(home, "Templates")},
 	}
 	configs := make([]AgentConfigFile, 0, len(paths))
 	for _, item := range paths {
@@ -1283,6 +1289,7 @@ func collectAgentConfigs(home string) []AgentConfigFile {
 			Path:   item.path,
 			Exists: err == nil,
 			Size:   fileSize(info, err),
+			IsDir:  err == nil && info.IsDir(),
 		})
 	}
 	return configs

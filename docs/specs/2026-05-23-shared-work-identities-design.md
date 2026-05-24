@@ -179,6 +179,9 @@ Fresh installs should:
 - Generate or defer managed GitHub machine key setup through the GUI.
 - Install `ccc-sync-agent-configs` with `--user USER` and `--all-users`
   support.
+- Keep `/opt/oculus-configs` as a shared root-owned checkout; per-user sync
+  copies managed Claude rules, Codex skills, Gemini skills, and templates into
+  the selected user's home.
 
 ## Update/Migration Changes
 
@@ -220,4 +223,3 @@ Those can come later if needed.
 - A shared GitHub SSH key grants repo access to every local user in `ccc`. This
   matches the personal workstation model but is not appropriate for untrusted
   users.
-

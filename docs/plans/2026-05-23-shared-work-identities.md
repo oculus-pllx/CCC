@@ -153,6 +153,8 @@ Setup should:
 - [x] link `~/projects` to `/srv/ccc/projects`
 - [x] create `~/.claude`, `~/.codex`, `~/.gemini`
 - [x] sync baseline configs from `/opt/oculus-configs`
+- [x] sync Claude rules, Codex skills, Gemini skills, and project templates for
+  the selected work identity
 - [x] install statusline script
 - [x] install shell/tmux/git defaults
 - [x] install shell login helper so the user starts in `~/projects`

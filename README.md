@@ -176,8 +176,8 @@ ccc-onboarding
 # 3. Authenticate Claude Code
 claude
 
-# 4. Sync shared Claude/Codex/Gemini configs from oculus-configs
-ccc-sync-agent-configs
+# 4. Sync shared Claude/Codex/Gemini configs and skills from oculus-configs
+sudo ccc-sync-agent-configs
 
 # 5. Install Playwright + headless Chromium (optional, takes 5–15 min)
 ccc-install-playwright
@@ -221,10 +221,12 @@ ccc
 
 ### Shared Agent Config
 - **Claude** — `~/.claude/CLAUDE.md`, `~/.claude/rules/`, and MCP template from `oculus-configs`
-- **Codex** — `~/.codex/AGENTS.md` and optional `~/.codex/skills/`
-- **Gemini** — `~/.gemini/GEMINI.md` and optional `~/.gemini/skills/`
+- **Codex** — `~/.codex/AGENTS.md` and `~/.codex/skills/` from `oculus-configs/codex/`
+- **Gemini** — `~/.gemini/GEMINI.md` and `~/.gemini/skills/` from `oculus-configs/gemini/`
 - **Templates** — copied from `oculus-configs/templates/` into `~/Templates/`
-- Sync manually with `ccc-sync-agent-configs`
+- Sync the current CCC user with `sudo ccc-sync-agent-configs`
+- Sync another work identity with `sudo ccc-sync-agent-configs --user <username>`
+- Sync all normal login users with `sudo ccc-sync-agent-configs --all-users`
 
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
@@ -282,7 +284,7 @@ ccc-update-status       # show installed vs GitHub provisioner version
 ccc-self-update         # update Container Code Companion tooling from GitHub
 ccc-update              # update Container Code Companion tooling + app CLIs
 ccc-os-update           # update OS packages with apt
-ccc-sync-agent-configs  # update Claude/Codex/Gemini configs from oculus-configs
+sudo ccc-sync-agent-configs # update Claude/Codex/Gemini configs and skills from oculus-configs
 ccc-doctor              # health check: network, runtimes, services, disk
 ccc-install-playwright  # install Playwright + headless Chromium (optional)
 ccc-install-codex       # install OpenAI Codex CLI (optional)
@@ -367,7 +369,7 @@ curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/install/ccc-pr
 sudo bash -lc 'set -a; . /etc/ccc/config; set +a; CCC_UPDATEABLE_ONLY=1 bash /tmp/ccc-provision-workstation.sh'
 ```
 
-`ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
+`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account; Provider Configs shows the managed files plus the synced rules/skills/template directories.
 
 ---
 

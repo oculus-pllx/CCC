@@ -298,7 +298,11 @@ SETTINGS
 cat > /usr/local/bin/ccc-sync-agent-configs << 'AGENTCONFIGSYNCSCRIPT'
 #!/bin/bash
 set -euo pipefail
-B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+if [[ -n "${NO_COLOR:-}" ]]; then
+  B=''; G=''; C=''; Y=''; R=''; N=''
+else
+  B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+fi
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
@@ -381,13 +385,16 @@ chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$
 if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
   git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
+  chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
   ok "oculus-configs cloned"
 elif [[ "$PULL" -eq 1 ]]; then
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
-  run_as_user git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
-  run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
-  run_as_user git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
+  chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
+  if [[ "$(id -u)" -eq 0 ]] && ! git config --global --get-all safe.directory | grep -Fxq "$OCULUS_CONFIGS_DIR"; then
+    git config --global --add safe.directory "$OCULUS_CONFIGS_DIR"
+  fi
+  git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
+  git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
+  git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
   ok "oculus-configs updated"
 else
   ok "oculus-configs checkout present"
@@ -877,7 +884,11 @@ rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
 cat > /usr/local/bin/ccc-sync-agent-configs << 'AGENTCONFIGSYNCSCRIPT'
 #!/bin/bash
 set -euo pipefail
-B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+if [[ -n "${NO_COLOR:-}" ]]; then
+  B=''; G=''; C=''; Y=''; R=''; N=''
+else
+  B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+fi
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
@@ -960,13 +971,16 @@ chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$
 if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
   git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
+  chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
   ok "oculus-configs cloned"
 elif [[ "$PULL" -eq 1 ]]; then
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$OCULUS_CONFIGS_DIR"
-  run_as_user git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
-  run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || run_as_user git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
-  run_as_user git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
+  chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
+  if [[ "$(id -u)" -eq 0 ]] && ! git config --global --get-all safe.directory | grep -Fxq "$OCULUS_CONFIGS_DIR"; then
+    git config --global --add safe.directory "$OCULUS_CONFIGS_DIR"
+  fi
+  git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
+  git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
+  git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
   ok "oculus-configs updated"
 else
   ok "oculus-configs checkout present"

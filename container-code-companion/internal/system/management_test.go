@@ -65,6 +65,44 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 	}
 }
 
+func TestCollectAgentConfigsIncludesSyncedSkillDirectories(t *testing.T) {
+	home := t.TempDir()
+	for _, path := range []string{
+		filepath.Join(home, ".claude", "CLAUDE.md"),
+		filepath.Join(home, ".claude", "rules"),
+		filepath.Join(home, ".codex", "AGENTS.md"),
+		filepath.Join(home, ".codex", "skills"),
+		filepath.Join(home, ".gemini", "GEMINI.md"),
+		filepath.Join(home, ".gemini", "skills"),
+	} {
+		if strings.HasSuffix(path, ".md") {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+			}
+			if err := os.WriteFile(path, []byte("managed config\n"), 0o644); err != nil {
+				t.Fatalf("write %s: %v", path, err)
+			}
+			continue
+		}
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+	}
+
+	configs := collectAgentConfigs(home)
+	names := map[string]bool{}
+	for _, config := range configs {
+		if config.Exists {
+			names[config.Name] = true
+		}
+	}
+	for _, want := range []string{"Claude rules", "Codex skills", "Gemini skills"} {
+		if !names[want] {
+			t.Fatalf("expected existing config %q in %#v", want, configs)
+		}
+	}
+}
+
 func TestParseWhoSSHSessionsGroupsDuplicateUsers(t *testing.T) {
 	input := strings.Join([]string{
 		"oculus   pts/0        2026-05-24 09:15 (192.0.2.10)",
