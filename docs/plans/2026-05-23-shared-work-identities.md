@@ -155,6 +155,8 @@ Setup should:
 - [x] sync baseline configs from `/opt/oculus-configs`
 - [x] sync Claude rules, Codex skills, Gemini skills, and project templates for
   the selected work identity
+- [x] install CCC-managed Claude `settings.json` and statusline baseline for
+  each synced work identity
 - [x] validate expected synced files/directories before reporting account config
   sync success
 - [x] install statusline script

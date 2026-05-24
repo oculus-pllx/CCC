@@ -185,6 +185,9 @@ Fresh installs should:
 - Keep `/opt/oculus-configs` as a shared root-owned checkout; per-user sync
   copies managed Claude rules, Codex skills, Gemini skills, and templates into
   the selected user's home.
+- Per-user sync also installs the CCC-managed Claude `settings.json` and
+  `~/.claude/bin/statusline-command.sh` baseline so additional accounts get the
+  same provider permission/statusline behavior as the original user.
 - Account profile setup and Sync Agent Configs should validate that the expected
   per-user config/skills files exist before reporting success. Profile setup
   should also validate provider CLI binaries under `~/.local/bin`.

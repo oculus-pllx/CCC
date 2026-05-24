@@ -138,6 +138,9 @@ require_file_contains install/ccc-provision-workstation.sh "gemini/GEMINI.md"
 require_file_contains install/ccc-provision-workstation.sh "gemini/skills"
 require_file_contains install/ccc-provision-workstation.sh "mcp.template.json"
 require_file_contains install/ccc-provision-workstation.sh "NO_COLOR"
+require_file_contains install/ccc-provision-workstation.sh "write_claude_baseline"
+require_file_contains install/ccc-provision-workstation.sh "Claude settings synced"
+require_file_contains install/ccc-provision-workstation.sh "Claude statusline synced"
 require_file_contains install/ccc-provision-workstation.sh "bubblewrap"
 require_file_contains install/ccc-provision-workstation.sh "GitHub CLI"
 require_file_contains install/ccc-provision-workstation.sh "githubcli-archive-keyring.gpg"
@@ -454,6 +457,8 @@ require_file_contains container-code-companion/internal/system/management.go 'Pr
 require_file_contains container-code-companion/internal/system/management.go 'sudo env NO_COLOR=1 ccc-sync-agent-configs --user'
 require_file_contains container-code-companion/internal/system/management.go 'agentConfigSyncCommand'
 require_file_contains container-code-companion/internal/system/management.go 'sudo test -d " + shellQuote(home+"/.codex/skills")'
+require_file_contains container-code-companion/internal/system/management.go 'sudo test -f " + shellQuote(home+"/.claude/settings.json")'
+require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.claude/bin/statusline-command.sh")'
 require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.local/bin/codex")'
 require_file_contains container-code-companion/internal/system/management.go 'Codex skills'
 require_file_contains container-code-companion/internal/system/management.go 'Gemini skills'

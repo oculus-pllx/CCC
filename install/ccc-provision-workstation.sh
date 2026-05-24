@@ -374,6 +374,75 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
+write_claude_baseline() {
+  mkdir -p "$CCC_HOME/.claude/bin"
+  cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "MultiEdit(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "TodoRead(*)",
+      "TodoWrite(*)",
+      "Grep(*)",
+      "Glob(*)",
+      "LS(*)",
+      "Task(*)",
+      "mcp__*"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
+    "MAX_THINKING_TOKENS": "31999"
+  },
+  "alwaysThinkingEnabled": true,
+  "enableRemoteControl": true,
+  "statusLine": {
+    "command": "~/.claude/bin/statusline-command.sh"
+  }
+}
+CLAUDESETTINGS
+  cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
+#!/bin/bash
+set -euo pipefail
+INPUT=$(cat || true)
+MODEL="claude"
+THINK=""
+CTX=""
+if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT" ]]; then
+  MODEL=$(printf '%s' "$INPUT" | jq -r '.model.id // "claude"' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
+  [[ "$(printf '%s' "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)" == "true" ]] && THINK=" | think"
+  USED=$(printf '%s' "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
+  MAX=$(printf '%s' "$INPUT" | jq -r '.context.max // 0' 2>/dev/null)
+  if [[ "$MAX" =~ ^[0-9]+$ && "$USED" =~ ^[0-9]+$ && "$MAX" -gt 0 ]]; then
+    PCT=$(( USED * 100 / MAX ))
+    WARN=""
+    [[ "$PCT" -ge 60 ]] && WARN="!"
+    CTX=" [ctx:${PCT}%${WARN}]"
+  fi
+fi
+[[ -z "$MODEL" ]] && MODEL="claude"
+BRANCH=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
+fi
+DIR=$(pwd | sed "s|^$HOME|~|")
+TIME=$(date +"%I:%M%P" | sed 's/^0//')
+echo "${USER}@$(hostname -s):${DIR}${BRANCH} [${MODEL}${THINK}]${CTX} ${TIME}"
+CLAUDESTATUSLINE
+  chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json" "$CCC_HOME/.claude/bin/statusline-command.sh"
+  ok "Claude settings synced"
+  ok "Claude statusline synced"
+}
+
 echo ""
 echo -e "${B}Agent Config Sync${N}"
 echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
@@ -400,6 +469,7 @@ else
   ok "oculus-configs checkout present"
 fi
 
+write_claude_baseline
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
 
@@ -962,6 +1032,75 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
+write_claude_baseline() {
+  mkdir -p "$CCC_HOME/.claude/bin"
+  cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "MultiEdit(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "TodoRead(*)",
+      "TodoWrite(*)",
+      "Grep(*)",
+      "Glob(*)",
+      "LS(*)",
+      "Task(*)",
+      "mcp__*"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
+    "MAX_THINKING_TOKENS": "31999"
+  },
+  "alwaysThinkingEnabled": true,
+  "enableRemoteControl": true,
+  "statusLine": {
+    "command": "~/.claude/bin/statusline-command.sh"
+  }
+}
+CLAUDESETTINGS
+  cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
+#!/bin/bash
+set -euo pipefail
+INPUT=$(cat || true)
+MODEL="claude"
+THINK=""
+CTX=""
+if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT" ]]; then
+  MODEL=$(printf '%s' "$INPUT" | jq -r '.model.id // "claude"' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
+  [[ "$(printf '%s' "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)" == "true" ]] && THINK=" | think"
+  USED=$(printf '%s' "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
+  MAX=$(printf '%s' "$INPUT" | jq -r '.context.max // 0' 2>/dev/null)
+  if [[ "$MAX" =~ ^[0-9]+$ && "$USED" =~ ^[0-9]+$ && "$MAX" -gt 0 ]]; then
+    PCT=$(( USED * 100 / MAX ))
+    WARN=""
+    [[ "$PCT" -ge 60 ]] && WARN="!"
+    CTX=" [ctx:${PCT}%${WARN}]"
+  fi
+fi
+[[ -z "$MODEL" ]] && MODEL="claude"
+BRANCH=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
+fi
+DIR=$(pwd | sed "s|^$HOME|~|")
+TIME=$(date +"%I:%M%P" | sed 's/^0//')
+echo "${USER}@$(hostname -s):${DIR}${BRANCH} [${MODEL}${THINK}]${CTX} ${TIME}"
+CLAUDESTATUSLINE
+  chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json" "$CCC_HOME/.claude/bin/statusline-command.sh"
+  ok "Claude settings synced"
+  ok "Claude statusline synced"
+}
+
 echo ""
 echo -e "${B}Agent Config Sync${N}"
 echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
@@ -988,6 +1127,7 @@ else
   ok "oculus-configs checkout present"
 fi
 
+write_claude_baseline
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
 

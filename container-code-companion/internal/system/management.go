@@ -459,6 +459,8 @@ func agentConfigSyncCommand(username string) string {
 	return strings.Join([]string{
 		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user " + shellQuote(username),
 		"sudo test -f " + shellQuote(home+"/.claude/CLAUDE.md"),
+		"sudo test -f " + shellQuote(home+"/.claude/settings.json"),
+		"sudo test -x " + shellQuote(home+"/.claude/bin/statusline-command.sh"),
 		"sudo test -d " + shellQuote(home+"/.claude/rules"),
 		"sudo test -f " + shellQuote(home+"/.codex/AGENTS.md"),
 		"sudo test -d " + shellQuote(home+"/.codex/skills"),
@@ -1300,6 +1302,8 @@ func collectAgentConfigs(home string) []AgentConfigFile {
 		path string
 	}{
 		{"Claude CLAUDE.md", filepath.Join(home, ".claude", "CLAUDE.md")},
+		{"Claude settings.json", filepath.Join(home, ".claude", "settings.json")},
+		{"Claude statusline", filepath.Join(home, ".claude", "bin", "statusline-command.sh")},
 		{"Claude rules", filepath.Join(home, ".claude", "rules")},
 		{"Claude MCP", filepath.Join(home, ".claude", "mcp.json")},
 		{"Claude MCP template", filepath.Join(home, ".claude", "mcp.template.json")},

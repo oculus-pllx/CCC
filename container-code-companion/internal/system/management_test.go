@@ -52,6 +52,8 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
 		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user 'work-id'",
+		"sudo test -f '/home/work-id/.claude/settings.json'",
+		"sudo test -x '/home/work-id/.claude/bin/statusline-command.sh'",
 		"sudo test -f '/home/work-id/.codex/AGENTS.md'",
 		"sudo test -d '/home/work-id/.codex/skills'",
 		"sudo test -f '/home/work-id/.gemini/GEMINI.md'",
@@ -78,6 +80,8 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 	for _, want := range []string{
 		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user 'work-id'",
 		"sudo test -f '/home/work-id/.claude/CLAUDE.md'",
+		"sudo test -f '/home/work-id/.claude/settings.json'",
+		"sudo test -x '/home/work-id/.claude/bin/statusline-command.sh'",
 		"sudo test -d '/home/work-id/.claude/rules'",
 		"sudo test -f '/home/work-id/.codex/AGENTS.md'",
 		"sudo test -d '/home/work-id/.codex/skills'",
@@ -111,13 +115,15 @@ func TestCollectAgentConfigsIncludesSyncedSkillDirectories(t *testing.T) {
 	home := t.TempDir()
 	for _, path := range []string{
 		filepath.Join(home, ".claude", "CLAUDE.md"),
+		filepath.Join(home, ".claude", "settings.json"),
+		filepath.Join(home, ".claude", "bin", "statusline-command.sh"),
 		filepath.Join(home, ".claude", "rules"),
 		filepath.Join(home, ".codex", "AGENTS.md"),
 		filepath.Join(home, ".codex", "skills"),
 		filepath.Join(home, ".gemini", "GEMINI.md"),
 		filepath.Join(home, ".gemini", "skills"),
 	} {
-		if strings.HasSuffix(path, ".md") {
+		if strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".json") || strings.HasSuffix(path, "statusline-command.sh") {
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
 			}
@@ -138,7 +144,7 @@ func TestCollectAgentConfigsIncludesSyncedSkillDirectories(t *testing.T) {
 			names[config.Name] = true
 		}
 	}
-	for _, want := range []string{"Claude rules", "Codex skills", "Gemini skills"} {
+	for _, want := range []string{"Claude settings.json", "Claude statusline", "Claude rules", "Codex skills", "Gemini skills"} {
 		if !names[want] {
 			t.Fatalf("expected existing config %q in %#v", want, configs)
 		}

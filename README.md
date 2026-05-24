@@ -156,7 +156,7 @@ CCC supports multiple local Linux work identities on one personal workstation. E
 - `~/.gitconfig`
 - `~/.ssh/config`
 
-Projects stay shared at `/srv/ccc/projects`. Setup CCC Profile adds the user to `ccc`, links `~/projects`, syncs Claude/Codex/Gemini config and skills into that user's home, installs the provider CLIs into `~/.local/bin`, validates those files exist, and repairs shared project permissions. The managed GitHub machine key lives at `/etc/ccc/ssh/github_ed25519`; the GitHub page can generate it, copy the public key, test SSH access, configure work identities, or explicitly promote an existing current-user key. Provider auth tokens are not copied between users. After setup, sign out and back in as the work identity so the new `ccc` group membership is active, then run `claude`, `codex`, `gemini`, and optionally `gh auth login`.
+Projects stay shared at `/srv/ccc/projects`. Setup CCC Profile adds the user to `ccc`, links `~/projects`, syncs Claude/Codex/Gemini config and skills into that user's home, installs the Claude settings/statusline baseline, installs the provider CLIs into `~/.local/bin`, validates those files exist, and repairs shared project permissions. The managed GitHub machine key lives at `/etc/ccc/ssh/github_ed25519`; the GitHub page can generate it, copy the public key, test SSH access, configure work identities, or explicitly promote an existing current-user key. Provider auth tokens are not copied between users. After setup, sign out and back in as the work identity so the new `ccc` group membership is active, then run `claude`, `codex`, `gemini`, and optionally `gh auth login`.
 
 `Setup CCC Profile` also installs the shell environment/PATH helper, installs the Claude Code, Codex, and Gemini CLI binaries into that user's `~/.local`, and adds the login helper so interactive shells that start in the user's home directory automatically enter `~/projects`, which points at `/srv/ccc/projects`.
 
@@ -220,7 +220,7 @@ ccc
 - Config at `~/.claude/settings.json`
 
 ### Shared Agent Config
-- **Claude** — `~/.claude/CLAUDE.md`, `~/.claude/rules/`, and MCP template from `oculus-configs`
+- **Claude** — CCC-managed `~/.claude/settings.json`, `~/.claude/bin/statusline-command.sh`, plus `~/.claude/CLAUDE.md`, `~/.claude/rules/`, and MCP template from `oculus-configs`
 - **Codex** — `~/.codex/AGENTS.md` and `~/.codex/skills/` from `oculus-configs/codex/`
 - **Gemini** — `~/.gemini/GEMINI.md` and `~/.gemini/skills/` from `oculus-configs/gemini/`
 - **Templates** — copied from `oculus-configs/templates/` into `~/Templates/`
@@ -369,7 +369,7 @@ curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/install/ccc-pr
 sudo bash -lc 'set -a; . /etc/ccc/config; set +a; CCC_UPDATEABLE_ONLY=1 bash /tmp/ccc-provision-workstation.sh'
 ```
 
-`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account and then validates the expected files/directories, including `~/.codex/skills` and `~/.gemini/skills`; Provider Configs shows the managed files plus the synced rules/skills/template directories.
+`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. It also installs the CCC-managed Claude `settings.json` and statusline script for that user. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account and then validates the expected files/directories, including `~/.claude/settings.json`, `~/.codex/skills`, and `~/.gemini/skills`; Provider Configs shows the managed files plus the synced rules/skills/template directories.
 
 ---
 
