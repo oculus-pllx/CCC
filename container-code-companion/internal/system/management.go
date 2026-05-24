@@ -261,12 +261,21 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 	case "restart-container-code-companion":
 		return RunShellCommand("sudo systemctl restart container-code-companion.service", workstationHome())
 	case "shared-workspace-status":
-		return RunShellCommand("ccc-migrate-shared-workspace --status", workstationHome())
+		return RunShellCommand(sharedWorkspaceMigrationCommand("--status", false), workstationHome())
 	case "shared-workspace-apply":
-		return RunShellCommand("sudo ccc-migrate-shared-workspace --apply", workstationHome())
+		return RunShellCommand(sharedWorkspaceMigrationCommand("--apply", true), workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
 	}
+}
+
+func sharedWorkspaceMigrationCommand(flag string, sudo bool) string {
+	missing := "printf '%s\\n' 'Migration command is not installed yet. Run sudo ccc-self-update, then try again.'; exit 127"
+	run := "ccc-migrate-shared-workspace " + shellQuote(flag)
+	if sudo {
+		run = "sudo " + run
+	}
+	return "if command -v ccc-migrate-shared-workspace >/dev/null 2>&1; then " + run + "; else " + missing + "; fi"
 }
 
 func StartSelfUpdate() (CommandResult, error) {

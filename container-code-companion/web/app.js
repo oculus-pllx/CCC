@@ -2155,17 +2155,23 @@ async function repairProjectPermissions() {
 }
 
 async function runProjectPageAction(action) {
-  const output = document.getElementById('project-output');
-  output.hidden = false;
-  output.textContent = 'Running...';
+  showProjectOutput('Running...');
   try {
     const result = await postJSON('/api/action', { action });
-    output.textContent = stripANSI(result.output || `Exit code ${result.exitCode}`);
+    const text = stripANSI(result.output || `Exit code ${result.exitCode}`);
     await loadSnapshot();
     renderSection('projects');
+    showProjectOutput(text);
   } catch (error) {
-    output.textContent = stripANSI(error.message);
+    showProjectOutput(stripANSI(error.message));
   }
+}
+
+function showProjectOutput(text) {
+  const output = document.getElementById('project-output');
+  if (!output) return;
+  output.hidden = false;
+  output.textContent = text;
 }
 
 async function createProject() {

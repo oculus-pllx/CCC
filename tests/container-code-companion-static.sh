@@ -348,6 +348,7 @@ require_file_contains container-code-companion/web/app.js "Migrate Existing Proj
 require_file_contains container-code-companion/web/app.js "Migrate existing projects into the shared workspace?"
 require_file_contains container-code-companion/web/app.js "shared-workspace-status"
 require_file_contains container-code-companion/web/app.js "shared-workspace-apply"
+require_file_contains container-code-companion/web/app.js "showProjectOutput"
 require_file_contains container-code-companion/web/app.js "Repair Permissions"
 require_file_contains container-code-companion/web/app.js "repair-permissions"
 require_file_contains container-code-companion/web/index.html "custom-title-edit"
@@ -406,6 +407,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "sync-agent-configs"'
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-status"'
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-apply"'
+require_file_contains container-code-companion/internal/system/management.go 'sharedWorkspaceMigrationCommand'
+require_file_contains container-code-companion/internal/system/management.go 'Migration command is not installed yet'
 require_file_contains container-code-companion/internal/system/management.go 'sudo ccc-sync-agent-configs --user'
 require_file_contains container-code-companion/internal/system/management.go 'IdentityFile " + keyPath'
 require_file_contains container-code-companion/internal/system/management.go 'ssh", "-T", "-o", "StrictHostKeyChecking=accept-new"'

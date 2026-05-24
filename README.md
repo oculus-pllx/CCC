@@ -140,6 +140,8 @@ The Projects page also exposes a Shared Workspace panel with Check Migration, Mi
 
 Compatibility note: if `/srv/ccc/projects` is missing or empty but legacy `~/projects` or `~/repos` contains entries, the Projects page lists the legacy root so existing work remains visible before migration is applied. New clone/create operations still target the canonical shared root.
 
+If Check Migration reports that `ccc-migrate-shared-workspace` is not installed, run `sudo ccc-self-update` first. Older installs can receive the newer GUI before the helper command has been written to `/usr/local/bin`.
+
 ## Work Identities
 
 CCC supports multiple local Linux work identities on one personal workstation. Each identity gets its own provider auth/session directories:
