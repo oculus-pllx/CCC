@@ -94,6 +94,13 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 	}
 }
 
+func TestAllAgentConfigSyncCommandSyncsAllUsers(t *testing.T) {
+	command := allAgentConfigSyncCommand()
+	if command != "sudo env NO_COLOR=1 ccc-sync-agent-configs --all-users" {
+		t.Fatalf("allAgentConfigSyncCommand() = %q", command)
+	}
+}
+
 func TestSharedProjectPermissionRepairCommandFollowsTopLevelSymlinkedProjects(t *testing.T) {
 	command := sharedProjectPermissionRepairCommand("/srv/ccc/projects", "ccc")
 	for _, want := range []string{

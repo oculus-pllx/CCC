@@ -432,6 +432,7 @@ require_file_not_contains container-code-companion/web/app.js "section !== 'term
 require_file_contains container-code-companion/web/app.js "username is required"
 require_file_contains container-code-companion/web/app.js "Setup CCC Profile"
 require_file_contains container-code-companion/web/app.js "Sync Agent Configs"
+require_file_contains container-code-companion/web/app.js "Sync All Agent Configs"
 require_file_contains container-code-companion/web/app.js "showAccountOutput"
 require_file_contains container-code-companion/web/app.js "account updated"
 require_file_contains container-code-companion/web/app.js "setup-ccc-profile"
@@ -448,6 +449,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "promote-current-user-key"'
 require_file_contains container-code-companion/internal/system/management.go 'case "setup-ccc-profile"'
 require_file_contains container-code-companion/internal/system/management.go 'case "sync-agent-configs"'
+require_file_contains container-code-companion/internal/system/management.go 'case "sync-all-agent-configs"'
+require_file_contains container-code-companion/internal/system/management.go 'ccc-sync-agent-configs --all-users'
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-status"'
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-apply"'
 require_file_contains container-code-companion/internal/system/management.go 'CCC shell projects login'
@@ -456,6 +459,7 @@ require_file_contains container-code-companion/internal/system/management.go '@a
 require_file_contains container-code-companion/internal/system/management.go 'Provider CLIs installed'
 require_file_contains container-code-companion/internal/system/management.go 'sudo env NO_COLOR=1 ccc-sync-agent-configs --user'
 require_file_contains container-code-companion/internal/system/management.go 'agentConfigSyncCommand'
+require_file_contains container-code-companion/internal/system/management.go 'allAgentConfigSyncCommand'
 require_file_contains container-code-companion/internal/system/management.go 'sudo test -d " + shellQuote(home+"/.codex/skills")'
 require_file_contains container-code-companion/internal/system/management.go 'sudo test -f " + shellQuote(home+"/.claude/settings.json")'
 require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.claude/bin/statusline-command.sh")'

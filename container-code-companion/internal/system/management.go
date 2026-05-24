@@ -265,6 +265,8 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 	switch action {
 	case "sync-oculus-configs":
 		return RunShellCommand("sudo ccc-sync-agent-configs", workstationHome())
+	case "sync-all-agent-configs":
+		return RunShellCommand(allAgentConfigSyncCommand(), workstationHome())
 	case "update-status":
 		return RunShellCommand("ccc-update-status", workstationHome())
 	case "self-update":
@@ -467,6 +469,10 @@ func agentConfigSyncCommand(username string) string {
 		"sudo test -f " + shellQuote(home+"/.gemini/GEMINI.md"),
 		"sudo test -d " + shellQuote(home+"/.gemini/skills"),
 	}, " && ")
+}
+
+func allAgentConfigSyncCommand() string {
+	return "sudo env NO_COLOR=1 ccc-sync-agent-configs --all-users"
 }
 
 func sharedProjectPermissionRepairCommand(projectsRoot, group string) string {

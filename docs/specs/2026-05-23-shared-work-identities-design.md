@@ -191,6 +191,9 @@ Fresh installs should:
 - Account profile setup and Sync Agent Configs should validate that the expected
   per-user config/skills files exist before reporting success. Profile setup
   should also validate provider CLI binaries under `~/.local/bin`.
+- Accounts should expose a `Sync All Agent Configs` action that runs
+  `ccc-sync-agent-configs --all-users`, allowing updates from the shared
+  `/opt/oculus-configs` source checkout to be pushed to every normal login user.
 
 ## Update/Migration Changes
 

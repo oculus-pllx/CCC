@@ -407,6 +407,7 @@ function renderAccounts() {
       <input id="account-password" type="password" placeholder="initial password">
       <input id="account-shell" type="text" value="/bin/bash" placeholder="/bin/bash">
       <button id="create-account-button" class="small-button">Create Account</button>
+      <button id="sync-all-agent-configs-button" class="small-button">Sync All Agent Configs</button>
     </div>
     <div class="account-list">
       ${accounts.map(account => `
@@ -1254,6 +1255,7 @@ function bindUpdates() {
 
 function bindAccounts() {
   document.getElementById('create-account-button').addEventListener('click', createAccount);
+  document.getElementById('sync-all-agent-configs-button')?.addEventListener('click', syncAllAgentConfigs);
   document.querySelectorAll('[data-account-setup-profile]').forEach(button => {
     button.addEventListener('click', () => setupCCCProfile(button.dataset.accountSetupProfile));
   });
@@ -1280,6 +1282,18 @@ async function setupCCCProfile(username) {
 
 async function syncAccountAgentConfigs(username) {
   await runAccountOperation({ operation: 'sync-agent-configs', username });
+}
+
+async function syncAllAgentConfigs() {
+  showAccountOutput('Running...');
+  try {
+    const result = await postJSON('/api/action', { action: 'sync-all-agent-configs' });
+    await loadSnapshot();
+    renderSection('accounts');
+    showAccountOutput(result.output || 'agent configs synced for all users');
+  } catch (error) {
+    showAccountOutput(error.message);
+  }
 }
 
 async function createAccount() {

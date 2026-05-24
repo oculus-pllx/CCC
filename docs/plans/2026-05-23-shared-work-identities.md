@@ -169,6 +169,8 @@ GUI:
 
 - [x] Add `Setup CCC Profile` button per account.
 - [x] Add `Sync Agent Configs` button per account.
+- [x] Add `Sync All Agent Configs` button to push the latest shared baseline to
+  every normal login user.
 - [x] Show checklist: login as user, run `claude`, `codex`, `gemini`, optional
   `gh auth login`.
 

@@ -227,6 +227,7 @@ ccc
 - Sync the current CCC user with `sudo ccc-sync-agent-configs`
 - Sync another work identity with `sudo ccc-sync-agent-configs --user <username>`
 - Sync all normal login users with `sudo ccc-sync-agent-configs --all-users`
+- The Accounts page has `Sync All Agent Configs` for pushing the latest shared config baseline to every normal login user.
 
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
@@ -369,7 +370,7 @@ curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/install/ccc-pr
 sudo bash -lc 'set -a; . /etc/ccc/config; set +a; CCC_UPDATEABLE_ONLY=1 bash /tmp/ccc-provision-workstation.sh'
 ```
 
-`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. It also installs the CCC-managed Claude `settings.json` and statusline script for that user. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account and then validates the expected files/directories, including `~/.claude/settings.json`, `~/.codex/skills`, and `~/.gemini/skills`; Provider Configs shows the managed files plus the synced rules/skills/template directories.
+`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. By default it fetches and resets `/opt/oculus-configs` from the configured repo/ref before copying, so upstream `oculus-configs` changes can be pushed to accounts by running the sync again. It also installs the CCC-managed Claude `settings.json` and statusline script for that user. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account, and Accounts > Sync All Agent Configs runs `sudo ccc-sync-agent-configs --all-users`; Provider Configs shows the managed files plus the synced rules/skills/template directories.
 
 ---
 
