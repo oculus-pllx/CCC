@@ -337,13 +337,6 @@ function renderOverview() {
           ${configs.map(config => `<div class="mini-row"><span>${escapeHTML(config.name)}</span><strong>${config.exists ? 'ready' : 'missing'}</strong></div>`).join('')}
         </div>
         <div class="dash-panel">
-          <h3>SSH Connections</h3>
-          <span id="ssh-session-summary" class="badge ${sshSessions.total ? 'ok' : ''}">${escapeHTML(formatSSHSessionSummary(sshSessions))}</span>
-          <div id="ssh-session-users">
-            ${renderSSHSessionRows(sshSessions)}
-          </div>
-        </div>
-        <div class="dash-panel">
           <h3>Services</h3>
           ${services.map(service => `<div class="mini-row"><span>${escapeHTML(service.name)}</span><strong class="${service.active === 'active' ? 'ok-text' : 'warn-text'}">${escapeHTML(service.active || 'unknown')}</strong></div>`).join('')}
         </div>
@@ -2520,28 +2513,6 @@ function updatePanelText(statusText, logText) {
   return [successLine, statusText].filter(Boolean).join('\n');
 }
 
-function formatSSHSessionSummary(summary = {}) {
-  const total = Number(summary.total || 0);
-  const uniqueUsers = Number(summary.uniqueUsers || 0);
-  if (total === 0) return '0 sessions';
-  const sessionLabel = total === 1 ? 'session' : 'sessions';
-  const userLabel = uniqueUsers === 1 ? 'user' : 'users';
-  return `${total} ${sessionLabel} · ${uniqueUsers} ${userLabel}`;
-}
-
-function renderSSHSessionRows(summary = {}) {
-  const users = Array.isArray(summary.users) ? summary.users : [];
-  if (!users.length) {
-    return '<p class="muted">No active SSH sessions.</p>';
-  }
-  return users.map(user => `
-    <div class="mini-row">
-      <span>${escapeHTML(user.username || 'unknown')}</span>
-      <strong>${Number(user.count || 0)} connected</strong>
-    </div>
-  `).join('');
-}
-
 function formatOSPackageStatus(text) {
   const lines = stripANSI(text)
     .split('\n')
@@ -2575,20 +2546,6 @@ function updateOverviewLive() {
   updateGauge('cpu', loadPercent(data.load?.one, data.cpu?.cores), `${formatLoad(data.load)} · ${data.cpu?.cores || 1} cores`);
   updateGauge('memory', data.memory?.usedPercent, `${formatBytes(usedBytes(data.memory))} / ${formatBytes(data.memory?.totalBytes || 0)}`);
   updateGauge('disk', data.disk?.usedPercent, `${formatBytes(data.disk?.usedBytes || 0)} / ${formatBytes(data.disk?.totalBytes || 0)} on ${data.disk?.mount || '/'}`);
-  updateSSHSessionPanel();
-}
-
-function updateSSHSessionPanel() {
-  const summary = snapshot?.sshSessions || { total: 0, uniqueUsers: 0, users: [] };
-  const summaryEl = document.getElementById('ssh-session-summary');
-  if (summaryEl) {
-    summaryEl.textContent = formatSSHSessionSummary(summary);
-    summaryEl.classList.toggle('ok', Number(summary.total || 0) > 0);
-  }
-  const usersEl = document.getElementById('ssh-session-users');
-  if (usersEl) {
-    usersEl.innerHTML = renderSSHSessionRows(summary);
-  }
 }
 
 function updateGauge(key, value, detail) {

@@ -22,6 +22,7 @@ Recent work completed:
 - Improved visible CCC update checks so completed checks summarize the actual `ccc-update-status` result instead of leaving users at a generic checking message.
 - Fixed SSH connection counting for hosts where `who` does not report sessions by falling back to `sshd` process titles, and kept Overview update-status refreshes in place instead of redrawing the dashboard.
 - Added a top-bar CCC update alert and extended SSH counting to OpenSSH `sshd-session` and `notty` process titles.
+- Moved SSH session count into the first-row Overview status strip so desktop dashboards keep summary tiles together.
 - Kept Projects migration and Accounts operation output visible after page refreshes so status/errors do not disappear.
 - Updated the generated `~/projects/WELCOME.md` with shared workspace, migration, work identity, and managed GitHub key instructions.
 - Fixed CCC self-update so it re-runs the provisioner's updateable section from the latest GitHub checkout, updating helper commands and service files along with the web UI.

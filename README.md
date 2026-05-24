@@ -235,7 +235,7 @@ Open `http://<container-ip>:9090` after provisioning and sign in with the workin
 
 The native UI is built into the Go service, not Cockpit and not a Node dashboard. It currently includes:
 
-- **Overview** — host, IP, uptime, services, projects, SSH connection counts by user, resource gauges, update status, and recent logs. SSH counts use login records when available and fall back to `sshd` or `sshd-session` process titles on hosts where `who` is empty.
+- **Overview** — host, IP, uptime, services, projects, SSH session count, resource gauges, update status, and recent logs. SSH counts use login records when available and fall back to `sshd` or `sshd-session` process titles on hosts where `who` is empty.
 - **Updates** — separate App and OS tabs; App updates stream `ccc-self-update` output and reconnect after service restart
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
