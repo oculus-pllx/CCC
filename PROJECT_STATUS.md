@@ -21,6 +21,7 @@ Recent work completed:
 - Kept Projects migration and Accounts operation output visible after page refreshes so status/errors do not disappear.
 - Updated the generated `~/projects/WELCOME.md` with shared workspace, migration, work identity, and managed GitHub key instructions.
 - Fixed CCC self-update so it re-runs the provisioner's updateable section from the latest GitHub checkout, updating helper commands and service files along with the web UI.
+- Documented the one-time helper refresh command for older installs whose previous updater cannot rewrite itself.
 - Rebranded the project as Container Code Companion with Parallax Group branding.
 - Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 - Added Proxmox LXC OS choices for Ubuntu 24.04 LTS, Ubuntu 26.04 LTS, and Debian 13, with Ubuntu 24.04 as the compatibility default.

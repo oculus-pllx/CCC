@@ -357,6 +357,14 @@ claude update               # Claude Code only
 
 `ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live update output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version`; a failed build or provisioner step exits non-zero and leaves the error in the log.
 
+Older installs whose `ccc-self-update` predates the updateable-section runner may need a one-time helper refresh:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/install/ccc-provision-workstation.sh \
+  -o /tmp/ccc-provision-workstation.sh
+sudo bash -lc 'set -a; . /etc/ccc/config; set +a; CCC_UPDATEABLE_ONLY=1 bash /tmp/ccc-provision-workstation.sh'
+```
+
 `ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
 
 ---
