@@ -47,6 +47,11 @@ require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER
 require_file_contains install/ccc-provision-workstation.sh 'CCC_HOME="${CCC_HOME:?'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:?'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-workstation}"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_UPDATEABLE_ONLY'
+require_file_contains install/ccc-provision-workstation.sh 'source "$_ccc_updateable_tmp"'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_LATEST_COMMIT="$COMMIT"'
+require_file_contains install/ccc-provision-workstation.sh 'REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"'
+require_file_contains install/ccc-provision-workstation.sh 'REPO_URL="https://github.com/${REPO_URL#git@github.com:}"'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALL_MODE="$CCC_INSTALL_MODE"'
@@ -214,7 +219,8 @@ require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALLED_COMMIT
 require_file_contains install/ccc-provision-workstation.sh 'Update available'
 require_file_contains install/ccc-provision-workstation.sh "Self-update successful"
 require_file_contains install/ccc-provision-workstation.sh "-buildvcs=false"
-require_file_contains install/ccc-provision-workstation.sh 'timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false'
+require_file_contains install/ccc-provision-workstation.sh "Applying provisioner-managed commands, service files, and web UI"
+require_file_contains install/ccc-provision-workstation.sh 'bash "$SRC/install/ccc-provision-workstation.sh"'
 require_file_contains install/ccc-provision-workstation.sh '-C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion"'
 require_file_contains install/ccc-provision-workstation.sh 'git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC"'
 require_file_contains install/ccc-provision-workstation.sh 'git config --system --add safe.directory "$SRC"'

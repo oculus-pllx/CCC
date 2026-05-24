@@ -353,9 +353,9 @@ ccc-update                  # convenience: tooling + app CLI updates, no apt upg
 claude update               # Claude Code only
 ```
 
-`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` uses the GitHub raw URL first, then falls back to cloning the configured repo. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` fetches the latest CCC repo, then re-runs the provisioner's marked updateable section so `/usr/local/bin` helper commands, cron, MOTD, the native UI binary/assets, service files, and `/etc/ccc/version` move together. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
-`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live build output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version`; a failed build exits non-zero and leaves the build error in the log.
+`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live update output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version`; a failed build or provisioner step exits non-zero and leaves the error in the log.
 
 `ccc-sync-agent-configs` pulls `/opt/oculus-configs` and re-copies managed Claude, Codex, Gemini, and template files. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service.
 

@@ -70,6 +70,22 @@ setup_shared_projects_root() {
   fi
 }
 
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" == "1" ]]; then
+  echo ">>> Applying Container Code Companion updateable provisioner sections"
+  setup_shared_projects_root
+  write_ccc_config
+  _ccc_updateable_tmp="$(mktemp /tmp/ccc-updateable.XXXXXX.sh)"
+  awk '
+    /^# CCC_UPDATEABLE_START/ { flag=1; next }
+    /^# CCC_UPDATEABLE_END/ { flag=0 }
+    flag
+  ' "${BASH_SOURCE[0]}" > "$_ccc_updateable_tmp"
+  # shellcheck source=/dev/null
+  source "$_ccc_updateable_tmp"
+  rm -f "$_ccc_updateable_tmp"
+  exit 0
+fi
+
 # Disable IPv6 — LXC containers commonly lack IPv6 routing, causes apt/curl failures
 if [[ "$CCC_INSTALL_MODE" == "proxmox-lxc" ]]; then
   cat > /etc/sysctl.d/99-disable-ipv6.conf << 'EOF'
@@ -1489,7 +1505,11 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; D='
 [[ ! -t 1 || -n "${NO_COLOR:-}" ]] && B='' G='' C='' Y='' R='' D='' N=''
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 REF="${CCC_SELF_UPDATE_REF:-main}"
-REPO_URL="https://github.com/oculus-pllx/CCC.git"
+REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"
+if [[ "$REPO_URL" == git@github.com:* ]]; then
+  REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
+fi
+REPO_URL="${REPO_URL%.git}.git"
 SRC="/opt/container-code-companion-src"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 SHOW_ACTIONS=1
@@ -1561,20 +1581,24 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='
 [[ "$(id -u)" -ne 0 ]] && exec sudo "$0" "$@"
 
 REF="${CCC_SELF_UPDATE_REF:-main}"
-REPO_URL="https://github.com/oculus-pllx/CCC.git"
+REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"
+if [[ "$REPO_URL" == git@github.com:* ]]; then
+  REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
+fi
+REPO_URL="${REPO_URL%.git}.git"
 SRC="/opt/container-code-companion-src"
-BIN="/usr/local/bin/container-code-companion"
-WEB="/opt/container-code-companion/web"
-VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
-GO="/usr/local/go/bin/go"
+CCC_USER="${CCC_USER:-claude-code}"
+CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
+CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-ccc-bootstrap.sh}"
+CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-container}"
 
 echo ""
 echo -e "${B}Container Code Companion Self-Update${N}"
 echo ""
 
-# [1/4] Sync source
-echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
+# [1/3] Sync source
+echo -e "${C}[1/3]${N} Syncing source ($REPO_URL @ $REF)..."
 _git() { git -c "safe.directory=$SRC" "$@"; }
 git config --system --add safe.directory "$SRC" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
@@ -1588,33 +1612,23 @@ fi
 COMMIT=$(_git -C "$SRC" rev-parse HEAD)
 echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%s')"
 
-# [2/4] Build binary
+# [2/3] Apply updateable provisioner sections
 echo ""
-echo -e "${C}[2/4]${N} Building Container Code Companion binary..."
-timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false -o "$BIN" ./cmd/server
-chmod +x "$BIN"
-echo -e "  OK: $BIN"
+echo -e "${C}[2/3]${N} Applying provisioner-managed commands, service files, and web UI..."
+CCC_LATEST_COMMIT="$COMMIT" \
+CCC_UPDATEABLE_ONLY=1 \
+CCC_INSTALL_MODE="${CCC_INSTALL_MODE:-proxmox-lxc}" \
+CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-container}" \
+CCC_USER="$CCC_USER" \
+CCC_HOME="$CCC_HOME" \
+CCC_SELF_UPDATE_SCRIPT="$CCC_SELF_UPDATE_SCRIPT" \
+CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}" \
+CCC_SELF_UPDATE_REF="$REF" \
+bash "$SRC/install/ccc-provision-workstation.sh"
 
-# [3/4] Sync web assets
+# [3/3] Finish
 echo ""
-echo -e "${C}[3/4]${N} Syncing web assets..."
-rsync -a --delete "$SRC/container-code-companion/web/" "$WEB/"
-echo -e "  OK: $WEB"
-
-# [4/4] Write version + restart
-echo ""
-echo -e "${C}[4/4]${N} Recording version and restarting service..."
-mkdir -p /etc/ccc
-printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
-  "$COMMIT" "$REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" > "$VERSION_FILE"
-echo -e "  Recorded: ${C}${COMMIT:0:7}${N}"
-
-# Detach restart from the current process group. When run from the web terminal,
-# the PTY is a child of container-code-companion — a synchronous restart would kill this
-# script before it exits. setsid creates a new session; the restart survives PTY teardown.
-setsid systemctl restart container-code-companion.service &
-disown $! 2>/dev/null || true
-
+echo -e "${C}[3/3]${N} Finalizing update..."
 echo ""
 echo -e "${G}${B}Self-update complete. Service restarting in background.${N}"
 echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')" | tee -a "$LOG_FILE" >/dev/null
