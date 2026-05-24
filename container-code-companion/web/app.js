@@ -1236,10 +1236,8 @@ async function syncAccountAgentConfigs(username) {
 
 async function createAccount() {
   const username = document.getElementById('account-username').value.trim();
-  const output = document.getElementById('account-output');
   if (!username) {
-    output.hidden = false;
-    output.textContent = 'Error: username is required';
+    showAccountOutput('Error: username is required');
     return;
   }
   const passwordEl = document.getElementById('account-password');
@@ -1276,13 +1274,10 @@ async function deleteAccount(username) {
 }
 
 async function runAccountOperation(payload) {
-  const output = document.getElementById('account-output');
-  if (!output) return;
-  output.hidden = false;
-  output.textContent = 'Running...';
+  showAccountOutput('Running...');
   try {
     const result = await postJSON('/api/account', payload);
-    output.textContent = result.output || 'account updated';
+    const text = result.output || 'account updated';
     if (payload.operation === 'create') {
       const usernameEl = document.getElementById('account-username');
       const passwordEl = document.getElementById('account-password');
@@ -1293,9 +1288,17 @@ async function runAccountOperation(payload) {
     }
     await loadSnapshot();
     renderSection('accounts');
+    showAccountOutput(text);
   } catch (error) {
-    output.textContent = error.message;
+    showAccountOutput(error.message);
   }
+}
+
+function showAccountOutput(text) {
+  const output = document.getElementById('account-output');
+  if (!output) return;
+  output.hidden = false;
+  output.textContent = text;
 }
 
 function bindGitHub() {

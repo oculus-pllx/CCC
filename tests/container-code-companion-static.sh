@@ -396,6 +396,8 @@ require_file_not_contains container-code-companion/web/app.js "section !== 'term
 require_file_contains container-code-companion/web/app.js "username is required"
 require_file_contains container-code-companion/web/app.js "Setup CCC Profile"
 require_file_contains container-code-companion/web/app.js "Sync Agent Configs"
+require_file_contains container-code-companion/web/app.js "showAccountOutput"
+require_file_contains container-code-companion/web/app.js "account updated"
 require_file_contains container-code-companion/web/app.js "setup-ccc-profile"
 require_file_contains container-code-companion/web/app.js "sync-agent-configs"
 require_file_contains container-code-companion/web/app.js "gh auth login"
