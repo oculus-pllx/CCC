@@ -19,6 +19,7 @@ Recent work completed:
 - Added per-user shell login setup so additional work identities enter `~/projects` after CCC profile setup.
 - Made CCC update checks visible on Overview and Updates so users can see when `ccc-update-status` is querying GitHub and when it last checked.
 - Kept Projects migration and Accounts operation output visible after page refreshes so status/errors do not disappear.
+- Updated the generated `~/projects/WELCOME.md` with shared workspace, migration, work identity, and managed GitHub key instructions.
 - Rebranded the project as Container Code Companion with Parallax Group branding.
 - Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 - Added Proxmox LXC OS choices for Ubuntu 24.04 LTS, Ubuntu 26.04 LTS, and Debian 13, with Ubuntu 24.04 as the compatibility default.

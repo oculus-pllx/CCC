@@ -125,6 +125,8 @@ The Linux-host installer installs CCC services, code-server, baseline dev tools,
 
 Fresh installs use `/srv/ccc/projects` as the canonical project root and link `~/projects` there for compatibility.
 
+The generated `~/projects/WELCOME.md` also points new users at the shared workspace, migration commands, per-user CCC profile setup, and the managed GitHub machine key path.
+
 Existing installs can inspect and apply the migration after updating CCC tooling:
 
 ```bash

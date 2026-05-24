@@ -513,6 +513,42 @@ sudo -u "$CCC_USER" tee "$CCC_HOME/projects/WELCOME.md" > /dev/null << 'WELCOMEM
 - **Switch tabs**: click tab names in the right-side tab panel
 - **Open folder**: File → Open Folder → `/srv/ccc/projects`
 
+## Shared Workspace
+
+- **Canonical project root**: `/srv/ccc/projects`
+- **Compatibility path**: `~/projects`
+- **Existing installs**: use Container Code Companion → Projects → Shared Workspace → Check Migration, then Migrate Existing Projects after saving work.
+
+CLI migration commands:
+
+```bash
+ccc-migrate-shared-workspace --status
+sudo ccc-migrate-shared-workspace --apply
+```
+
+## Work Identities
+
+Use Container Code Companion → Accounts → Setup CCC Profile for each additional Linux user. Each user keeps separate Claude, Codex, Gemini, Git, and SSH config state while sharing `/srv/ccc/projects`.
+
+First-login checklist for each work identity:
+
+```bash
+claude
+codex
+gemini
+gh auth login   # optional
+```
+
+## GitHub Machine Key
+
+The managed repository SSH key is stored at:
+
+```text
+/etc/ccc/ssh/github_ed25519
+```
+
+Use Container Code Companion → GitHub to generate/copy/test the key, configure it for work identities, or explicitly promote an existing user key.
+
 ## tmux (SSH sessions)
 
 ```bash
@@ -536,6 +572,7 @@ ccc-onboarding     # first-login wizard
 ccc-update         # update Container Code Companion tooling + app CLIs
 ccc-os-update      # update OS packages with apt
 ccc-sync-agent-configs # update Claude/Codex/Gemini config
+ccc-migrate-shared-workspace --status # inspect shared workspace migration state
 ccc-doctor         # health check
 ccc                # full help
 ```
