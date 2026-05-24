@@ -52,6 +52,8 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
 		"sudo ccc-sync-agent-configs --user 'work-id'",
+		"CCC shell projects login",
+		"cd ~/projects",
 		"IdentityFile /etc/ccc/ssh/github_ed25519",
 	} {
 		if !strings.Contains(command, want) {

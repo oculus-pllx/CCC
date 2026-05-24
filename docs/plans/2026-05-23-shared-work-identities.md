@@ -155,6 +155,7 @@ Setup should:
 - [x] sync baseline configs from `/opt/oculus-configs`
 - [x] install statusline script
 - [x] install shell/tmux/git defaults
+- [x] install shell login helper so the user starts in `~/projects`
 - [x] write `~/.ssh/config` pointing to managed GitHub key if it exists
 - [x] skip provider auth/session files
 

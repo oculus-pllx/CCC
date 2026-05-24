@@ -71,6 +71,7 @@ require_file_contains install/ccc-provision-workstation.sh '[[ -f "$CCC_HOME/.ss
 require_file_contains install/ccc-provision-workstation.sh 'ccc-sync-agent-configs --user "$user"'
 require_file_contains install/ccc-provision-workstation.sh '--all-users)'
 require_file_contains install/ccc-provision-workstation.sh '--user requires a username'
+require_file_contains install/ccc-provision-workstation.sh '# Start in projects dir on login'
 bash -n install/ccc-provision-workstation.sh
 
 legacy_product='agent-''workstation'
@@ -407,6 +408,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "sync-agent-configs"'
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-status"'
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-apply"'
+require_file_contains container-code-companion/internal/system/management.go 'CCC shell projects login'
+require_file_contains container-code-companion/internal/system/management.go 'cd ~/projects'
 require_file_contains container-code-companion/internal/system/management.go 'sharedWorkspaceMigrationCommand'
 require_file_contains container-code-companion/internal/system/management.go 'Migration command is not installed yet'
 require_file_contains container-code-companion/internal/system/management.go 'sudo ccc-sync-agent-configs --user'

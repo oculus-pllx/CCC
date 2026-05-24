@@ -392,6 +392,7 @@ func setupCCCProfileCommand(username string) string {
 	projectsRoot := sharedProjectsRoot()
 	githubKeyPath := githubMachineKeyPath()
 	githubConfig := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + githubKeyPath + "\n  IdentitiesOnly yes\n"
+	shellProjectsBlock := "\n# CCC shell projects login\n[[ \"$PWD\" == \"$HOME\" ]] && cd ~/projects 2>/dev/null || true\n"
 	commands := []string{
 		"test $(id -u " + shellQuote(username) + ") -ge 1000",
 		"sudo groupadd -f " + shellQuote(group),
@@ -404,6 +405,9 @@ func setupCCCProfileCommand(username string) string {
 		"sudo mkdir -p " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh"),
 		"sudo chmod 700 " + shellQuote(home+"/.ssh"),
 		"sudo ccc-sync-agent-configs --user " + shellQuote(username),
+		"sudo touch " + shellQuote(home+"/.bashrc"),
+		"sudo sed -i '/# CCC shell projects login/,+1d' " + shellQuote(home+"/.bashrc"),
+		"printf %s " + shellQuote(shellProjectsBlock) + " | sudo tee -a " + shellQuote(home+"/.bashrc") + " >/dev/null",
 	}
 	if fileExists(githubKeyPath) || fileExists(githubKeyPath+".pub") {
 		commands = append(commands,
@@ -415,6 +419,7 @@ func setupCCCProfileCommand(username string) string {
 	}
 	commands = append(commands,
 		"sudo chown -R "+shellQuote(username+":"+username)+" "+shellQuote(home+"/.claude")+" "+shellQuote(home+"/.codex")+" "+shellQuote(home+"/.gemini")+" "+shellQuote(home+"/.ssh"),
+		"sudo chown "+shellQuote(username+":"+username)+" "+shellQuote(home+"/.bashrc"),
 		"printf '%s\\n' 'Profile ready. First-login checklist: run claude, codex, gemini, and optionally gh auth login.'",
 	)
 	return strings.Join(commands, " && ")

@@ -154,6 +154,8 @@ CCC supports multiple local Linux work identities on one personal workstation. E
 
 Projects stay shared at `/srv/ccc/projects`. The managed GitHub machine key lives at `/etc/ccc/ssh/github_ed25519`; the GitHub page can generate it, copy the public key, test SSH access, configure work identities, or explicitly promote an existing current-user key. Provider auth tokens are not copied between users. After setup, sign in as the work identity and run `claude`, `codex`, `gemini`, and optionally `gh auth login`.
 
+`Setup CCC Profile` also installs the shell login helper for that user, so interactive shells that start in the user's home directory automatically enter `~/projects`, which points at `/srv/ccc/projects`.
+
 ---
 
 ## First Steps
