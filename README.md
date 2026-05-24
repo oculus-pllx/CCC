@@ -235,7 +235,7 @@ Open `http://<container-ip>:9090` after provisioning and sign in with the workin
 
 The native UI is built into the Go service, not Cockpit and not a Node dashboard. It currently includes:
 
-- **Overview** — host, IP, uptime, services, projects, SSH connection counts by user, resource gauges, update status, and recent logs
+- **Overview** — host, IP, uptime, services, projects, SSH connection counts by user, resource gauges, update status, and recent logs. SSH counts use login records when available and fall back to `sshd` process titles on hosts where `who` is empty.
 - **Updates** — separate App and OS tabs; App updates stream `ccc-self-update` output and reconnect after service restart
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
@@ -341,7 +341,7 @@ Update cadence:
 - OS package updates and `oculus-configs` agent config sync are manual; run `sudo ccc-os-update` and `sudo ccc-sync-agent-configs` when you want them applied.
 - App Catalog package/version checks run on demand from the native UI, not continuously in the background.
 
-The Overview and Updates pages show when CCC is checking GitHub with `ccc-update-status`, the most recent browser-session check time, and whether that check returned current, update-available, not-recorded, or failed status.
+The Overview and Updates pages show when CCC is checking GitHub with `ccc-update-status`, the most recent browser-session check time, and whether that check returned current, update-available, not-recorded, or failed status. Overview updates this status in place so the dashboard does not redraw after a check completes.
 
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean

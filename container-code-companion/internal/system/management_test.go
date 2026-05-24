@@ -89,6 +89,32 @@ func TestParseWhoSSHSessionsGroupsDuplicateUsers(t *testing.T) {
 	}
 }
 
+func TestParseSSHDSessionProcessesGroupsDuplicateUsers(t *testing.T) {
+	input := strings.Join([]string{
+		"root        100       1 Ss   sshd: oculus [priv]",
+		"oculus      101     100 S    sshd: oculus@pts/0",
+		"root        102       1 Ss   sshd: claude [priv]",
+		"claude      103     102 S    sshd: claude@pts/1",
+		"root        104       1 Ss   sshd: oculus [priv]",
+		"oculus      105     104 S    sshd: oculus@pts/2",
+	}, "\n")
+
+	summary := parseSSHDSessionProcesses(input)
+
+	if summary.Total != 3 {
+		t.Fatalf("Total = %d, want 3", summary.Total)
+	}
+	if summary.UniqueUsers != 2 {
+		t.Fatalf("UniqueUsers = %d, want 2", summary.UniqueUsers)
+	}
+	if summary.Users[0].Username != "oculus" || summary.Users[0].Count != 2 {
+		t.Fatalf("first user = %#v, want oculus x2", summary.Users[0])
+	}
+	if summary.Users[1].Username != "claude" || summary.Users[1].Count != 1 {
+		t.Fatalf("second user = %#v, want claude x1", summary.Users[1])
+	}
+}
+
 func TestRunProjectOperationCreatesProjectUnderSharedRoot(t *testing.T) {
 	home := t.TempDir()
 	sharedRoot := filepath.Join(t.TempDir(), "shared-projects")

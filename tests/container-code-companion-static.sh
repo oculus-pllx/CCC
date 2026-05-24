@@ -253,6 +253,7 @@ require_file_contains container-code-companion/web/app.js "update-check-state"
 require_file_contains container-code-companion/web/app.js "Checking GitHub with ccc-update-status"
 require_file_contains container-code-companion/web/app.js "Last checked"
 require_file_contains container-code-companion/web/app.js "summarizeCCCUpdateStatus"
+require_file_contains container-code-companion/web/app.js "updateOverviewUpdateStatusPanel"
 require_file_contains container-code-companion/web/app.js "SSH Connections"
 require_file_contains container-code-companion/web/app.js "renderSSHSessionRows"
 require_file_contains container-code-companion/web/app.js "currentSection === 'overview'"
@@ -394,6 +395,8 @@ require_file_contains container-code-companion/internal/system/management.go 'Up
 require_file_contains container-code-companion/internal/system/management.go 'SSHSessions   SSHSessionSummary'
 require_file_contains container-code-companion/internal/system/management.go 'type SSHSessionSummary struct'
 require_file_contains container-code-companion/internal/system/management.go 'parseWhoSSHSessions'
+require_file_contains container-code-companion/internal/system/management.go 'parseSSHDSessionProcesses'
+require_file_contains container-code-companion/internal/system/management.go 'ps", "-eo", "args"'
 require_file_contains container-code-companion/internal/system/management.go 'func aptUpdateCheck'
 require_file_contains container-code-companion/internal/system/management.go 'func toolUpdateAvailable'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "uv"'

@@ -19,6 +19,7 @@ import (
 )
 
 var scpGitRemotePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+(?:\.git)?$`)
+var sshdUserTTYPattern = regexp.MustCompile(`sshd:\s+([A-Za-z0-9._-]+)@(?:pts|tty)/[0-9]+`)
 
 type ManagementSnapshot struct {
 	Overview      Overview          `json:"overview"`
@@ -1135,7 +1136,11 @@ func CollectNetworkActivity() (NetworkActivity, error) {
 }
 
 func collectSSHSessions() SSHSessionSummary {
-	return parseWhoSSHSessions(runText("who"))
+	summary := parseWhoSSHSessions(runText("who"))
+	if summary.Total > 0 {
+		return summary
+	}
+	return parseSSHDSessionProcesses(runText("ps", "-eo", "args"))
 }
 
 func parseWhoSSHSessions(output string) SSHSessionSummary {
@@ -1154,6 +1159,25 @@ func parseWhoSSHSessions(output string) SSHSessionSummary {
 		counts[username]++
 		total++
 	}
+	return sshSessionSummaryFromCounts(counts, total)
+}
+
+func parseSSHDSessionProcesses(output string) SSHSessionSummary {
+	counts := map[string]int{}
+	total := 0
+	for _, line := range strings.Split(output, "\n") {
+		match := sshdUserTTYPattern.FindStringSubmatch(line)
+		if len(match) != 2 {
+			continue
+		}
+		username := match[1]
+		counts[username]++
+		total++
+	}
+	return sshSessionSummaryFromCounts(counts, total)
+}
+
+func sshSessionSummaryFromCounts(counts map[string]int, total int) SSHSessionSummary {
 	users := make([]SSHUserSession, 0, len(counts))
 	for username, count := range counts {
 		users = append(users, SSHUserSession{Username: username, Count: count})

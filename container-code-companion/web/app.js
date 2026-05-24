@@ -325,9 +325,9 @@ function renderOverview() {
       <section class="dashboard-grid">
         <div class="dash-panel">
           <h3>Update Status</h3>
-          <button class="badge badge-link ${updateBadge === 'Current' ? 'ok' : updateBadge === 'Updates available' ? 'warn' : ''}" data-nav-updates>${escapeHTML(updateBadge)}</button>
+          <button id="overview-update-badge" class="badge badge-link ${updateBadgeClass(updateBadge)}" data-nav-updates>${escapeHTML(updateBadge)}</button>
           <p id="overview-update-check-state" class="muted update-check-state">${escapeHTML(cccUpdateStatusMessage)}</p>
-          <pre class="mini-output">${escapeHTML(firstUsefulLines(updatePanelText(updateText, updateLog), 8))}</pre>
+          <pre id="overview-update-output" class="mini-output">${escapeHTML(firstUsefulLines(updatePanelText(updateText, updateLog), 8))}</pre>
         </div>
         <div class="dash-panel">
           <h3>Provider Configs</h3>
@@ -1081,8 +1081,10 @@ async function refreshCCCUpdateStatus() {
       snapshot.updates.containerCodeCompanion = cleanOutput;
     }
     cccUpdateStatusMessage = `Last checked ${checkedAt.toLocaleTimeString()}. ${summarizeCCCUpdateStatus(cleanOutput)}`;
-    if (currentSection === 'updates' || currentSection === 'overview') {
-      renderSection(currentSection);
+    if (currentSection === 'updates') {
+      renderSection('updates');
+    } else if (currentSection === 'overview') {
+      updateOverviewUpdateStatusPanel(cleanOutput);
     }
     updateCCCUpdateStatusMessage();
   } catch (error) {
@@ -1105,6 +1107,21 @@ function summarizeCCCUpdateStatus(output) {
   if (text.includes('Could not reach GitHub')) return 'Could not reach GitHub.';
   if (text.trim()) return 'Check completed.';
   return 'No output returned.';
+}
+
+function updateOverviewUpdateStatusPanel(statusText) {
+  const updateLog = stripANSI(snapshot.updates?.selfUpdateLog || '');
+  const badgeLabel = updateStatusBadge(statusText, updateLog);
+  const badge = document.getElementById('overview-update-badge');
+  if (badge) {
+    badge.textContent = badgeLabel;
+    badge.className = `badge badge-link ${updateBadgeClass(badgeLabel)}`.trim();
+    badge.setAttribute('data-nav-updates', '');
+  }
+  const output = document.getElementById('overview-update-output');
+  if (output) {
+    output.textContent = firstUsefulLines(updatePanelText(statusText, updateLog), 8);
+  }
 }
 
 function updateCCCUpdateStatusMessage() {
