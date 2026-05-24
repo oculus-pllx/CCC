@@ -88,6 +88,7 @@ async function loadSnapshot() {
   }
   snapshot = await response.json();
   setSignedIn(true);
+  updateTopbarUpdateAlert();
   return snapshot;
 }
 
@@ -121,6 +122,7 @@ async function pollSnapshot() {
   }
   snapshot = data;
   setSignedIn(true);
+  updateTopbarUpdateAlert();
   if (currentSection === 'updates' || currentSection === 'overview') {
     if (currentSection === 'overview') {
       updateOverviewLive();
@@ -1081,6 +1083,7 @@ async function refreshCCCUpdateStatus() {
       snapshot.updates.containerCodeCompanion = cleanOutput;
     }
     cccUpdateStatusMessage = `Last checked ${checkedAt.toLocaleTimeString()}. ${summarizeCCCUpdateStatus(cleanOutput)}`;
+    updateTopbarUpdateAlert(cleanOutput);
     if (currentSection === 'updates') {
       renderSection('updates');
     } else if (currentSection === 'overview') {
@@ -1122,6 +1125,19 @@ function updateOverviewUpdateStatusPanel(statusText) {
   if (output) {
     output.textContent = firstUsefulLines(updatePanelText(statusText, updateLog), 8);
   }
+}
+
+function updateTopbarUpdateAlert(statusText = '') {
+  const alert = document.getElementById('top-update-alert');
+  if (!alert) return;
+  const updates = snapshot?.updates || {};
+  const text = stripANSI(statusText || updates.containerCodeCompanion || '');
+  const logText = stripANSI(updates.selfUpdateLog || '');
+  const badgeLabel = updateStatusBadge(text, logText);
+  const summary = summarizeCCCUpdateStatus(text);
+  alert.hidden = false;
+  alert.textContent = `CCC Updates: ${summary}`;
+  alert.className = `top-update-alert ${updateBadgeClass(badgeLabel)}`.trim();
 }
 
 function updateCCCUpdateStatusMessage() {

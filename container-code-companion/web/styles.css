@@ -146,6 +146,36 @@ input, select, textarea, button { font: inherit; }
   align-items: center;
 }
 
+.top-update-alert {
+  flex: 0 1 460px;
+  min-width: 180px;
+  max-width: 48vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 10px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.top-update-alert.ok {
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.top-update-alert.warn {
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.top-update-alert.fail {
+  border-color: #f87171;
+  color: #f87171;
+}
+
 .mobile-menu-button {
   display: none;
   position: relative;

@@ -104,6 +104,7 @@ require_file_contains container-code-companion/web/index.html "custom-title-disp
 require_file_contains container-code-companion/web/index.html "top-preferences-button"
 require_file_contains container-code-companion/web/index.html "login-shell"
 require_file_contains container-code-companion/web/index.html "login-brand-lockup"
+require_file_contains container-code-companion/web/index.html "top-update-alert"
 require_file_contains container-code-companion/web/index.html "app-shell"
 require_file_contains container-code-companion/web/app.js "CCC_CUSTOM_TITLE_STORAGE_KEY"
 require_file_contains container-code-companion/web/app.js "bindCustomTitle"
@@ -117,6 +118,7 @@ require_file_contains container-code-companion/web/app.js "document.getElementBy
 require_file_contains container-code-companion/web/styles.css ".brand-lockup"
 require_file_contains container-code-companion/web/styles.css ".login-shell"
 require_file_contains container-code-companion/web/styles.css ".login-brand-lockup"
+require_file_contains container-code-companion/web/styles.css ".top-update-alert"
 require_file_contains container-code-companion/web/styles.css "[hidden]"
 require_file_contains container-code-companion/web/styles.css "display: none !important"
 require_file_contains container-code-companion/web/styles.css "body.signed-out .topbar"
@@ -254,6 +256,7 @@ require_file_contains container-code-companion/web/app.js "Checking GitHub with 
 require_file_contains container-code-companion/web/app.js "Last checked"
 require_file_contains container-code-companion/web/app.js "summarizeCCCUpdateStatus"
 require_file_contains container-code-companion/web/app.js "updateOverviewUpdateStatusPanel"
+require_file_contains container-code-companion/web/app.js "updateTopbarUpdateAlert"
 require_file_contains container-code-companion/web/app.js "SSH Connections"
 require_file_contains container-code-companion/web/app.js "renderSSHSessionRows"
 require_file_contains container-code-companion/web/app.js "currentSection === 'overview'"
@@ -397,6 +400,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ty
 require_file_contains container-code-companion/internal/system/management.go 'parseWhoSSHSessions'
 require_file_contains container-code-companion/internal/system/management.go 'parseSSHDSessionProcesses'
 require_file_contains container-code-companion/internal/system/management.go 'ps", "-eo", "args"'
+require_file_contains container-code-companion/internal/system/management.go 'sshd(?:-session)?'
+require_file_contains container-code-companion/internal/system/management.go 'notty'
 require_file_contains container-code-companion/internal/system/management.go 'func aptUpdateCheck'
 require_file_contains container-code-companion/internal/system/management.go 'func toolUpdateAvailable'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "uv"'

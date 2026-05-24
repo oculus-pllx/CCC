@@ -19,7 +19,7 @@ import (
 )
 
 var scpGitRemotePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+(?:\.git)?$`)
-var sshdUserTTYPattern = regexp.MustCompile(`sshd:\s+([A-Za-z0-9._-]+)@(?:pts|tty)/[0-9]+`)
+var sshdUserTTYPattern = regexp.MustCompile(`sshd(?:-session)?:\s+([A-Za-z0-9._-]+)@(?:(?:pts|tty)/[0-9]+|notty)`)
 
 type ManagementSnapshot struct {
 	Overview      Overview          `json:"overview"`
