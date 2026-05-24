@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 Branch: `main`
 
 ## Current State
@@ -17,6 +17,8 @@ Recent work completed:
 - Added Projects GUI actions for shared workspace migration status and apply.
 - Added legacy project-root compatibility so existing `~/projects` or `~/repos` work remains visible before migration, and clarified the Projects Shared Workspace controls.
 - Added per-user shell login setup so additional work identities enter `~/projects` after CCC profile setup.
+- Made CCC update checks visible on Overview and Updates so users can see when `ccc-update-status` is querying GitHub and when it last checked.
+- Kept Projects migration and Accounts operation output visible after page refreshes so status/errors do not disappear.
 - Rebranded the project as Container Code Companion with Parallax Group branding.
 - Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 - Added Proxmox LXC OS choices for Ubuntu 24.04 LTS, Ubuntu 26.04 LTS, and Debian 13, with Ubuntu 24.04 as the compatibility default.
@@ -62,6 +64,7 @@ Shared work identities is complete:
 - Complete: Projects GUI migration/status actions
 - Complete: legacy `~/projects` and `~/repos` visibility before migration
 - Complete: additional work identity shell login defaults to `~/projects`
+- Complete: visible CCC update check state and persistent operation output for migration/account actions
 
 Blueprints:
 - `docs/specs/2026-05-23-shared-work-identities-design.md`

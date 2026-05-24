@@ -142,6 +142,8 @@ Compatibility note: if `/srv/ccc/projects` is missing or empty but legacy `~/pro
 
 If Check Migration reports that `ccc-migrate-shared-workspace` is not installed, run `sudo ccc-self-update` first. Older installs can receive the newer GUI before the helper command has been written to `/usr/local/bin`.
 
+Migration and account setup output stays visible after the page refreshes. If an action fails, leave the output open and use it as the first troubleshooting source.
+
 ## Work Identities
 
 CCC supports multiple local Linux work identities on one personal workstation. Each identity gets its own provider auth/session directories:
@@ -333,9 +335,11 @@ Container Code Companion separates updates so OS packages, workstation tooling, 
 
 Update cadence:
 - CCC tooling auto-update runs weekly from cron on Sundays at 3:00 AM ET via `/etc/cron.d/ccc-app-update`.
-- `ccc-update-status` checks GitHub only when you run it, when the MOTD/status flow invokes it, or when the Updates page requests status.
+- `ccc-update-status` checks GitHub when you run it, when the MOTD/status flow invokes it, when Overview refreshes its update panel, or when the Updates page requests status.
 - OS package updates and `oculus-configs` agent config sync are manual; run `sudo ccc-os-update` and `sudo ccc-sync-agent-configs` when you want them applied.
 - App Catalog package/version checks run on demand from the native UI, not continuously in the background.
+
+The Overview and Updates pages show when CCC is checking GitHub with `ccc-update-status` and the most recent browser-session check time.
 
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean
