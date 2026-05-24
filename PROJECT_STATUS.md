@@ -17,6 +17,7 @@ Recent work completed:
 - Updated agent config sync/status so `oculus-configs` stays a shared root-owned checkout, per-user sync copies Claude rules plus Codex/Gemini skills, and Provider Configs shows the synced directories.
 - Added the CCC-managed Claude `settings.json` and statusline baseline to per-user agent config sync so additional accounts get the same permission/statusline behavior as the original user.
 - Added an Accounts page `Sync All Agent Configs` action that runs `ccc-sync-agent-configs --all-users` to pull the shared `oculus-configs` checkout and push the current baseline to every normal login user.
+- Improved the GUI account sync path so it validates the target user's real home from `getent` and prints a created config inventory for Claude, Codex, and Gemini files.
 - Forced account profile/config sync actions to run with `NO_COLOR=1` and added UI cleanup for malformed color remnants in account output.
 - Moved malformed ANSI color cleanup into the shared browser output sanitizer so bracket-only color remnants are removed across output panels.
 - Added Projects shared-root permission health and a repair action for group-write/setgid permissions.
@@ -86,6 +87,7 @@ Shared work identities is complete:
 - Complete: per-user agent config/skills sync visibility for Claude, Codex, Gemini, and templates
 - Complete: per-user Claude settings/statusline baseline sync
 - Complete: GUI action to sync the latest agent config baseline to all users
+- Complete: account sync output includes target home and created config inventory
 
 Blueprints:
 - `docs/specs/2026-05-23-shared-work-identities-design.md`

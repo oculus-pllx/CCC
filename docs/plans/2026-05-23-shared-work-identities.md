@@ -159,6 +159,8 @@ Setup should:
   each synced work identity
 - [x] validate expected synced files/directories before reporting account config
   sync success
+- [x] print target account, real home, validation results, and created config
+  inventory in GUI account sync output
 - [x] install statusline script
 - [x] install shell/tmux/git defaults
 - [x] install shell login helper so the user starts in `~/projects`

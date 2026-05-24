@@ -457,18 +457,29 @@ func setupCCCProfileCommand(username string) string {
 }
 
 func agentConfigSyncCommand(username string) string {
-	home := "/home/" + username
-	return strings.Join([]string{
+	quotedUser := shellQuote(username)
+	script := strings.Join([]string{
+		"set -euo pipefail",
+		"home=$(getent passwd " + quotedUser + " | cut -d: -f6)",
+		"test -n \"$home\"",
 		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user " + shellQuote(username),
-		"sudo test -f " + shellQuote(home+"/.claude/CLAUDE.md"),
-		"sudo test -f " + shellQuote(home+"/.claude/settings.json"),
-		"sudo test -x " + shellQuote(home+"/.claude/bin/statusline-command.sh"),
-		"sudo test -d " + shellQuote(home+"/.claude/rules"),
-		"sudo test -f " + shellQuote(home+"/.codex/AGENTS.md"),
-		"sudo test -d " + shellQuote(home+"/.codex/skills"),
-		"sudo test -f " + shellQuote(home+"/.gemini/GEMINI.md"),
-		"sudo test -d " + shellQuote(home+"/.gemini/skills"),
-	}, " && ")
+		"check_file() { sudo test -f \"$1\" && printf '  ok file %s\\n' \"$1\" || { printf '  missing file %s\\n' \"$1\"; return 1; }; }",
+		"check_dir() { sudo test -d \"$1\" && printf '  ok dir  %s\\n' \"$1\" || { printf '  missing dir  %s\\n' \"$1\"; return 1; }; }",
+		"check_exec() { sudo test -x \"$1\" && printf '  ok exec %s\\n' \"$1\" || { printf '  missing exec %s\\n' \"$1\"; return 1; }; }",
+		"printf '\\nSynced account: %s\\n' " + quotedUser,
+		"printf 'Synced home: %s\\n\\n' \"$home\"",
+		"check_file \"$home/.claude/CLAUDE.md\"",
+		"check_file \"$home/.claude/settings.json\"",
+		"check_exec \"$home/.claude/bin/statusline-command.sh\"",
+		"check_dir \"$home/.claude/rules\"",
+		"check_file \"$home/.codex/AGENTS.md\"",
+		"check_dir \"$home/.codex/skills\"",
+		"check_file \"$home/.gemini/GEMINI.md\"",
+		"check_dir \"$home/.gemini/skills\"",
+		"printf '\\nCreated config inventory:\\n'",
+		"sudo find \"$home/.claude\" \"$home/.codex\" \"$home/.gemini\" -maxdepth 3 \\( -type f -o -type d \\) 2>/dev/null | sort | sed 's/^/  /'",
+	}, "\n")
+	return "sudo bash -lc " + shellQuote(script)
 }
 
 func allAgentConfigSyncCommand() string {
