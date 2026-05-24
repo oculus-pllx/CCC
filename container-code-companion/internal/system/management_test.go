@@ -51,7 +51,7 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"sudo usermod -aG 'ccc' 'work-id'",
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
-		"sudo ccc-sync-agent-configs --user 'work-id'",
+		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user 'work-id'",
 		"CCC shell projects login",
 		"cd ~/projects",
 		"CCC shell environment",

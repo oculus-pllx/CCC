@@ -389,7 +389,7 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 	case "setup-ccc-profile":
 		return RunShellCommand(setupCCCProfileCommand(operation.Username), workstationHome())
 	case "sync-agent-configs":
-		return RunShellCommand("sudo ccc-sync-agent-configs --user "+shellQuote(operation.Username), workstationHome())
+		return RunShellCommand("sudo env NO_COLOR=1 ccc-sync-agent-configs --user "+shellQuote(operation.Username), workstationHome())
 	case "delete":
 		return RunShellCommand("sudo userdel -r "+shellQuote(operation.Username), workstationHome())
 	default:
@@ -420,7 +420,7 @@ func setupCCCProfileCommand(username string) string {
 		"sudo ln -sfn " + shellQuote(projectsRoot) + " " + shellQuote(home+"/projects"),
 		"sudo mkdir -p " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh") + " " + shellQuote(home+"/.local"),
 		"sudo chmod 700 " + shellQuote(home+"/.ssh"),
-		"sudo ccc-sync-agent-configs --user " + shellQuote(username),
+		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user " + shellQuote(username),
 		"sudo touch " + shellQuote(home+"/.bashrc"),
 		"sudo sed -i '/# CCC shell environment/,+4d' " + shellQuote(home+"/.bashrc"),
 		"sudo sed -i '/# CCC shell projects login/,+1d' " + shellQuote(home+"/.bashrc"),

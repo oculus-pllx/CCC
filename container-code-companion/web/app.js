@@ -1346,7 +1346,7 @@ function showAccountOutput(text) {
   const output = document.getElementById('account-output');
   if (!output) return;
   output.hidden = false;
-  output.textContent = text;
+  output.textContent = stripANSI(text).replace(/\[(?:\d{1,2};)*\d{1,2}m/g, '');
 }
 
 function bindGitHub() {

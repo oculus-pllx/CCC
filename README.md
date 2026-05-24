@@ -160,6 +160,8 @@ Projects stay shared at `/srv/ccc/projects`. The managed GitHub machine key live
 
 `Setup CCC Profile` also installs the shell environment/PATH helper, installs the Claude Code, Codex, and Gemini CLI binaries into that user's `~/.local`, and adds the login helper so interactive shells that start in the user's home directory automatically enter `~/projects`, which points at `/srv/ccc/projects`.
 
+GitHub CLI authentication is per Linux user. Run `gh auth login` while signed in as that work identity when that user needs `gh pr`, `gh repo`, or other GitHub API commands; Git SSH access can still use the shared machine key configured by CCC.
+
 ---
 
 ## First Steps
