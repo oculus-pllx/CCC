@@ -445,6 +445,7 @@ require_file_contains container-code-companion/internal/system/management.go 'CC
 require_file_contains container-code-companion/internal/system/management.go '@anthropic-ai/claude-code @openai/codex @google/gemini-cli'
 require_file_contains container-code-companion/internal/system/management.go 'Provider CLIs installed'
 require_file_contains container-code-companion/internal/system/management.go 'sudo env NO_COLOR=1 ccc-sync-agent-configs --user'
+require_file_contains container-code-companion/web/app.js 'function stripANSI'
 require_file_contains container-code-companion/web/app.js 'replace(/\[(?:\d{1,2};)*\d{1,2}m/g,'
 require_file_contains container-code-companion/internal/system/management.go 'cd ~/projects'
 require_file_contains container-code-companion/internal/system/management.go 'sharedWorkspaceMigrationCommand'

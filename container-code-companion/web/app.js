@@ -1346,7 +1346,7 @@ function showAccountOutput(text) {
   const output = document.getElementById('account-output');
   if (!output) return;
   output.hidden = false;
-  output.textContent = stripANSI(text).replace(/\[(?:\d{1,2};)*\d{1,2}m/g, '');
+  output.textContent = stripANSI(text);
 }
 
 function bindGitHub() {
@@ -2685,7 +2685,9 @@ function focusHeaderMessageEditor() {
 }
 
 function stripANSI(value) {
-  return String(value || '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+  return String(value || '')
+    .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+    .replace(/\[(?:\d{1,2};)*\d{1,2}m/g, '');
 }
 
 function formatBytes(value) {
