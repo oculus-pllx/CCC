@@ -72,6 +72,8 @@ require_file_contains install/ccc-provision-workstation.sh 'rsync -a "$CCC_HOME/
 require_file_contains install/ccc-provision-workstation.sh 'mv "$CCC_HOME/projects" "$backup"'
 require_file_contains install/ccc-provision-workstation.sh 'link_legacy_repos_root "$CCC_HOME/repos"'
 require_file_contains install/ccc-provision-workstation.sh 'find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} +'
+require_file_contains install/ccc-provision-workstation.sh 'if [[ -L "$entry" && -d "$entry" ]]; then'
+require_file_contains install/ccc-provision-workstation.sh 'chgrp -R "$CCC_SHARED_GROUP" "$entry"/'
 require_file_contains install/ccc-provision-workstation.sh '[[ -f "$CCC_HOME/.ssh/id_ed25519.pub" ]]'
 require_file_contains install/ccc-provision-workstation.sh 'ccc-sync-agent-configs --user "$user"'
 require_file_contains install/ccc-provision-workstation.sh '--all-users)'
@@ -393,6 +395,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'sudo chgrp -R'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chmod -R g+rwX'
 require_file_contains container-code-companion/internal/system/management.go 'sudo find'
+require_file_contains container-code-companion/internal/system/management.go 'sharedProjectPermissionRepairCommand'
+require_file_contains container-code-companion/internal/system/management.go 'if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R'
 require_file_contains container-code-companion/internal/system/management.go "os.Symlink"
 require_file_contains container-code-companion/internal/server/server.go "/api/tools"
 require_file_contains container-code-companion/internal/server/server.go "/api/drive"
@@ -448,6 +452,9 @@ require_file_contains container-code-companion/internal/system/management.go 'CC
 require_file_contains container-code-companion/internal/system/management.go '@anthropic-ai/claude-code @openai/codex @google/gemini-cli'
 require_file_contains container-code-companion/internal/system/management.go 'Provider CLIs installed'
 require_file_contains container-code-companion/internal/system/management.go 'sudo env NO_COLOR=1 ccc-sync-agent-configs --user'
+require_file_contains container-code-companion/internal/system/management.go 'agentConfigSyncCommand'
+require_file_contains container-code-companion/internal/system/management.go 'sudo test -d " + shellQuote(home+"/.codex/skills")'
+require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.local/bin/codex")'
 require_file_contains container-code-companion/internal/system/management.go 'Codex skills'
 require_file_contains container-code-companion/internal/system/management.go 'Gemini skills'
 require_file_contains container-code-companion/web/app.js 'config.isDir'

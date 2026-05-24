@@ -18,6 +18,8 @@ Recent work completed:
 - Forced account profile/config sync actions to run with `NO_COLOR=1` and added UI cleanup for malformed color remnants in account output.
 - Moved malformed ANSI color cleanup into the shared browser output sanitizer so bracket-only color remnants are removed across output panels.
 - Added Projects shared-root permission health and a repair action for group-write/setgid permissions.
+- Extended project permission repair to follow top-level symlinked legacy project directories so linked repos outside `/srv/ccc/projects` are also changed to the shared `ccc` group and group-writable mode.
+- Tightened per-account setup/sync so it validates expected Claude/Codex/Gemini config and skills files plus provider CLI binaries before reporting the profile ready.
 - Added Projects GUI actions for shared workspace migration status and apply.
 - Added legacy project-root compatibility so existing `~/projects` or `~/repos` work remains visible before migration, and clarified the Projects Shared Workspace controls.
 - Added per-user shell login setup so additional work identities enter `~/projects` after CCC profile setup.
@@ -73,6 +75,8 @@ Shared work identities is complete:
 - Complete: managed machine GitHub SSH key under `/etc/ccc/ssh`
 - Complete: Accounts actions to setup/sync per-user CCC agent profiles without copying provider auth
 - Complete: project permission health and repair action
+- Complete: linked legacy project directories are included in permission repair
+- Complete: per-account config/skills and provider binary validation
 - Complete: Projects GUI migration/status actions
 - Complete: legacy `~/projects` and `~/repos` visibility before migration
 - Complete: additional work identity shell login defaults to `~/projects`

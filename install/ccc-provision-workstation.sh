@@ -523,7 +523,7 @@ sudo -u "$CCC_USER" tee "$CCC_HOME/projects/WELCOME.md" > /dev/null << 'WELCOMEM
 |------|---------|-------|
 | 1 | `ccc-onboarding` | SSH terminal — git identity, SSH key, GitHub |
 | 2 | `claude` | SSH terminal — authenticate Claude Code |
-| 3 | `ccc-sync-agent-configs` | SSH terminal — update Claude/Codex/Gemini config from oculus-configs |
+| 3 | `sudo ccc-sync-agent-configs` | SSH terminal — update Claude/Codex/Gemini config and skills from oculus-configs |
 | 4 | `ccc-install-playwright` | SSH terminal — headless browser testing (optional) |
 | 5 | `ccc-install-codex` | SSH terminal — OpenAI Codex CLI (optional) |
 | 6 | `ccc-install-jcodemunch` | SSH terminal — jCodeMunch MCP, 95% token reduction (optional) |
@@ -552,6 +552,8 @@ sudo ccc-migrate-shared-workspace --apply
 ## Work Identities
 
 Use Container Code Companion → Accounts → Setup CCC Profile for each additional Linux user. Each user keeps separate Claude, Codex, Gemini, Git, and SSH config state while sharing `/srv/ccc/projects`.
+
+Setup CCC Profile syncs config and skills into that user's home, installs provider CLIs into `~/.local/bin`, and repairs shared project permissions. Sign out and back in after setup so the new `ccc` group membership is active.
 
 First-login checklist for each work identity:
 
@@ -594,7 +596,7 @@ Native headless management UI for system overview, services, logs, files, projec
 ccc-onboarding     # first-login wizard
 ccc-update         # update Container Code Companion tooling + app CLIs
 ccc-os-update      # update OS packages with apt
-ccc-sync-agent-configs # update Claude/Codex/Gemini config
+sudo ccc-sync-agent-configs # update Claude/Codex/Gemini config and skills
 ccc-migrate-shared-workspace --status # inspect shared workspace migration state
 ccc-doctor         # health check
 ccc                # full help
@@ -1108,6 +1110,13 @@ repair_shared_permissions() {
   chgrp -R "$CCC_SHARED_GROUP" "$CCC_SHARED_PROJECTS"
   chmod -R g+rwX "$CCC_SHARED_PROJECTS"
   find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} +
+  for entry in "$CCC_SHARED_PROJECTS"/*; do
+    if [[ -L "$entry" && -d "$entry" ]]; then
+      chgrp -R "$CCC_SHARED_GROUP" "$entry"/
+      chmod -R g+rwX "$entry"/
+      find "$entry"/ -type d -exec chmod g+s {} +
+    fi
+  done
 }
 
 link_legacy_repos_root() {

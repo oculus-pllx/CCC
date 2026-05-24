@@ -390,7 +390,7 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 	case "setup-ccc-profile":
 		return RunShellCommand(setupCCCProfileCommand(operation.Username), workstationHome())
 	case "sync-agent-configs":
-		return RunShellCommand("sudo env NO_COLOR=1 ccc-sync-agent-configs --user "+shellQuote(operation.Username), workstationHome())
+		return RunShellCommand(agentConfigSyncCommand(operation.Username), workstationHome())
 	case "delete":
 		return RunShellCommand("sudo userdel -r "+shellQuote(operation.Username), workstationHome())
 	default:
@@ -410,6 +410,11 @@ func setupCCCProfileCommand(username string) string {
 	shellEnvBlock := "\n# CCC shell environment\nexport EDITOR=nano\nexport LANG=en_US.UTF-8\nexport TZ=America/New_York\nexport PATH=\"$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH\"\n"
 	shellProjectsBlock := "\n# CCC shell projects login\n[[ \"$PWD\" == \"$HOME\" ]] && cd ~/projects 2>/dev/null || true\n"
 	providerInstallCommand := "sudo -u " + shellQuote(username) + " env HOME=" + shellQuote(home) + " PATH=" + shellQuote(home+"/.local/bin:/usr/local/bin:/usr/bin:/bin") + ` npm install -g --prefix ` + shellQuote(home+"/.local") + " @anthropic-ai/claude-code @openai/codex @google/gemini-cli"
+	providerValidation := []string{
+		"sudo test -x " + shellQuote(home+"/.local/bin/claude"),
+		"sudo test -x " + shellQuote(home+"/.local/bin/codex"),
+		"sudo test -x " + shellQuote(home+"/.local/bin/gemini"),
+	}
 	commands := []string{
 		"test $(id -u " + shellQuote(username) + ") -ge 1000",
 		"sudo groupadd -f " + shellQuote(group),
@@ -421,7 +426,7 @@ func setupCCCProfileCommand(username string) string {
 		"sudo ln -sfn " + shellQuote(projectsRoot) + " " + shellQuote(home+"/projects"),
 		"sudo mkdir -p " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh") + " " + shellQuote(home+"/.local"),
 		"sudo chmod 700 " + shellQuote(home+"/.ssh"),
-		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user " + shellQuote(username),
+		agentConfigSyncCommand(username),
 		"sudo touch " + shellQuote(home+"/.bashrc"),
 		"sudo sed -i '/# CCC shell environment/,+4d' " + shellQuote(home+"/.bashrc"),
 		"sudo sed -i '/# CCC shell projects login/,+1d' " + shellQuote(home+"/.bashrc"),
@@ -430,6 +435,8 @@ func setupCCCProfileCommand(username string) string {
 		"sudo chown -R " + shellQuote(username+":"+username) + " " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh") + " " + shellQuote(home+"/.local"),
 		"sudo chown " + shellQuote(username+":"+username) + " " + shellQuote(home+"/.bashrc"),
 		providerInstallCommand,
+		strings.Join(providerValidation, " && "),
+		sharedProjectPermissionRepairCommand(projectsRoot, group),
 	}
 	if fileExists(githubKeyPath) || fileExists(githubKeyPath+".pub") {
 		commands = append(commands,
@@ -445,6 +452,32 @@ func setupCCCProfileCommand(username string) string {
 		"printf '%s\\n' 'Profile ready. Provider CLIs installed. First-login checklist: run claude, codex, gemini, and optionally gh auth login.'",
 	)
 	return strings.Join(commands, " && ")
+}
+
+func agentConfigSyncCommand(username string) string {
+	home := "/home/" + username
+	return strings.Join([]string{
+		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user " + shellQuote(username),
+		"sudo test -f " + shellQuote(home+"/.claude/CLAUDE.md"),
+		"sudo test -d " + shellQuote(home+"/.claude/rules"),
+		"sudo test -f " + shellQuote(home+"/.codex/AGENTS.md"),
+		"sudo test -d " + shellQuote(home+"/.codex/skills"),
+		"sudo test -f " + shellQuote(home+"/.gemini/GEMINI.md"),
+		"sudo test -d " + shellQuote(home+"/.gemini/skills"),
+	}, " && ")
+}
+
+func sharedProjectPermissionRepairCommand(projectsRoot, group string) string {
+	quotedRoot := shellQuote(projectsRoot)
+	quotedGroup := shellQuote(group)
+	return strings.Join([]string{
+		"sudo chown root:" + quotedGroup + " " + quotedRoot,
+		"sudo chmod 2775 " + quotedRoot,
+		"sudo chgrp -R " + quotedGroup + " " + quotedRoot,
+		"sudo chmod -R g+rwX " + quotedRoot,
+		"sudo find " + quotedRoot + " -type d -exec chmod g+s {} +",
+		"for entry in " + quotedRoot + "/*; do if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R " + quotedGroup + " \"$entry\"/ && sudo chmod -R g+rwX \"$entry\"/ && sudo find \"$entry\"/ -type d -exec chmod g+s {} +; fi; done",
+	}, " && ")
 }
 
 func BrowseFiles(path string) (FileListing, error) {
@@ -848,12 +881,7 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 		if strings.TrimSpace(group) == "" {
 			group = "ccc"
 		}
-		command := strings.Join([]string{
-			"sudo chgrp -R " + shellQuote(group) + " " + shellQuote(projectsRoot),
-			"sudo chmod -R g+rwX " + shellQuote(projectsRoot),
-			"sudo find " + shellQuote(projectsRoot) + " -type d -exec chmod g+s {} +",
-		}, " && ")
-		return RunShellCommand(command, workstationHome())
+		return RunShellCommand(sharedProjectPermissionRepairCommand(projectsRoot, group), workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("project operation %q is not allowed", operation.Operation)
 	}

@@ -52,6 +52,14 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
 		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user 'work-id'",
+		"sudo test -f '/home/work-id/.codex/AGENTS.md'",
+		"sudo test -d '/home/work-id/.codex/skills'",
+		"sudo test -f '/home/work-id/.gemini/GEMINI.md'",
+		"sudo test -d '/home/work-id/.gemini/skills'",
+		"sudo test -x '/home/work-id/.local/bin/codex'",
+		"sudo test -x '/home/work-id/.local/bin/gemini'",
+		"sudo chgrp -R 'ccc' '/srv/ccc/projects'",
+		"if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R 'ccc' \"$entry\"/",
 		"CCC shell projects login",
 		"cd ~/projects",
 		"CCC shell environment",
@@ -61,6 +69,40 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("setup command missing %q:\n%s", want, command)
+		}
+	}
+}
+
+func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	for _, want := range []string{
+		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user 'work-id'",
+		"sudo test -f '/home/work-id/.claude/CLAUDE.md'",
+		"sudo test -d '/home/work-id/.claude/rules'",
+		"sudo test -f '/home/work-id/.codex/AGENTS.md'",
+		"sudo test -d '/home/work-id/.codex/skills'",
+		"sudo test -f '/home/work-id/.gemini/GEMINI.md'",
+		"sudo test -d '/home/work-id/.gemini/skills'",
+	} {
+		if !strings.Contains(command, want) {
+			t.Fatalf("agent sync command missing %q:\n%s", want, command)
+		}
+	}
+}
+
+func TestSharedProjectPermissionRepairCommandFollowsTopLevelSymlinkedProjects(t *testing.T) {
+	command := sharedProjectPermissionRepairCommand("/srv/ccc/projects", "ccc")
+	for _, want := range []string{
+		"sudo chown root:'ccc' '/srv/ccc/projects'",
+		"sudo chgrp -R 'ccc' '/srv/ccc/projects'",
+		"sudo chmod -R g+rwX '/srv/ccc/projects'",
+		"for entry in '/srv/ccc/projects'/*;",
+		"if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R 'ccc' \"$entry\"/",
+		"sudo chmod -R g+rwX \"$entry\"/",
+		"sudo find \"$entry\"/ -type d -exec chmod g+s {} +",
+	} {
+		if !strings.Contains(command, want) {
+			t.Fatalf("repair command missing %q:\n%s", want, command)
 		}
 	}
 }

@@ -146,6 +146,9 @@ Projects page should use the shared project root. Add health/repair affordances:
 - Clone into shared root.
 - Pull latest from shared root.
 - Repair project permissions for `root:ccc` or `<owner>:ccc` plus group write.
+- Permission repair must also traverse top-level symlinked project directories
+  created for legacy `~/repos` compatibility, because those targets can
+  otherwise remain `oculus:oculus` and block another work identity.
 - Make old per-user project roots visible only as compatibility links.
 
 ### Migration
@@ -182,6 +185,9 @@ Fresh installs should:
 - Keep `/opt/oculus-configs` as a shared root-owned checkout; per-user sync
   copies managed Claude rules, Codex skills, Gemini skills, and templates into
   the selected user's home.
+- Account profile setup and Sync Agent Configs should validate that the expected
+  per-user config/skills files exist before reporting success. Profile setup
+  should also validate provider CLI binaries under `~/.local/bin`.
 
 ## Update/Migration Changes
 

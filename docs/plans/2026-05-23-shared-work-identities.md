@@ -155,6 +155,8 @@ Setup should:
 - [x] sync baseline configs from `/opt/oculus-configs`
 - [x] sync Claude rules, Codex skills, Gemini skills, and project templates for
   the selected work identity
+- [x] validate expected synced files/directories before reporting account config
+  sync success
 - [x] install statusline script
 - [x] install shell/tmux/git defaults
 - [x] install shell login helper so the user starts in `~/projects`
@@ -185,6 +187,8 @@ Projects page should show:
 - [x] shared root path
 - [x] permission health summary
 - [x] `Repair Permissions` action
+- [x] repair follows top-level symlinked legacy project directories so linked
+  repos also become group-writable by the `ccc` group
 
 Repair command:
 
@@ -192,6 +196,13 @@ Repair command:
 sudo chgrp -R ccc /srv/ccc/projects
 sudo chmod -R g+rwX /srv/ccc/projects
 sudo find /srv/ccc/projects -type d -exec chmod g+s {} +
+for entry in /srv/ccc/projects/*; do
+  if [ -L "$entry" ] && [ -d "$entry" ]; then
+    sudo chgrp -R ccc "$entry"/
+    sudo chmod -R g+rwX "$entry"/
+    sudo find "$entry"/ -type d -exec chmod g+s {} +
+  fi
+done
 ```
 
 ## Phase 6: Documentation And Status

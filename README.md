@@ -136,7 +136,7 @@ sudo ccc-migrate-shared-workspace --apply
 
 Before applying migration on an active workstation, save/commit/stash any work and close editors or terminals whose current directory is inside the old project root, such as `/home/oculus/projects`. This prevents new writes from landing in the timestamped backup after the rsync step.
 
-The status command reports whether the `ccc` group and shared root exist, what `~/projects` currently points to, any legacy `~/projects` or `~/repos` entries, and whether the current user has an existing GitHub SSH public key. Apply creates the shared root, adds `CCC_USER` to the `ccc` group, rsyncs old `~/projects/` content into `/srv/ccc/projects/`, renames the old path to a timestamped backup, links `~/projects`, links existing `~/repos` project directories into the shared root without moving them, and repairs group-write/setgid permissions. Backups are retained.
+The status command reports whether the `ccc` group and shared root exist, what `~/projects` currently points to, any legacy `~/projects` or `~/repos` entries, and whether the current user has an existing GitHub SSH public key. Apply creates the shared root, adds `CCC_USER` to the `ccc` group, rsyncs old `~/projects/` content into `/srv/ccc/projects/`, renames the old path to a timestamped backup, links `~/projects`, links existing `~/repos` project directories into the shared root without moving them, and repairs group-write/setgid permissions. Permission repair also follows top-level symlinked project directories so legacy repos linked into the shared root become writable by users in the `ccc` group. Backups are retained.
 
 The Projects page also exposes a Shared Workspace panel with Check Migration, Migrate Existing Projects, and Repair Permissions actions for the shared root.
 
@@ -156,7 +156,7 @@ CCC supports multiple local Linux work identities on one personal workstation. E
 - `~/.gitconfig`
 - `~/.ssh/config`
 
-Projects stay shared at `/srv/ccc/projects`. The managed GitHub machine key lives at `/etc/ccc/ssh/github_ed25519`; the GitHub page can generate it, copy the public key, test SSH access, configure work identities, or explicitly promote an existing current-user key. Provider auth tokens are not copied between users. After setup, sign in as the work identity and run `claude`, `codex`, `gemini`, and optionally `gh auth login`.
+Projects stay shared at `/srv/ccc/projects`. Setup CCC Profile adds the user to `ccc`, links `~/projects`, syncs Claude/Codex/Gemini config and skills into that user's home, installs the provider CLIs into `~/.local/bin`, validates those files exist, and repairs shared project permissions. The managed GitHub machine key lives at `/etc/ccc/ssh/github_ed25519`; the GitHub page can generate it, copy the public key, test SSH access, configure work identities, or explicitly promote an existing current-user key. Provider auth tokens are not copied between users. After setup, sign out and back in as the work identity so the new `ccc` group membership is active, then run `claude`, `codex`, `gemini`, and optionally `gh auth login`.
 
 `Setup CCC Profile` also installs the shell environment/PATH helper, installs the Claude Code, Codex, and Gemini CLI binaries into that user's `~/.local`, and adds the login helper so interactive shells that start in the user's home directory automatically enter `~/projects`, which points at `/srv/ccc/projects`.
 
@@ -244,7 +244,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
-- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions
+- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
 - **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, and delete users
@@ -369,7 +369,7 @@ curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/install/ccc-pr
 sudo bash -lc 'set -a; . /etc/ccc/config; set +a; CCC_UPDATEABLE_ONLY=1 bash /tmp/ccc-provision-workstation.sh'
 ```
 
-`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account; Provider Configs shows the managed files plus the synced rules/skills/template directories.
+`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout and re-copies managed Claude, Codex, Gemini, skills, and template files into the selected user's home. It does not run the `oculus-configs` installer, does not install `configure.py`, and does not add another web UI/service. In the GUI, Accounts > Sync Agent Configs runs the same command for that account and then validates the expected files/directories, including `~/.codex/skills` and `~/.gemini/skills`; Provider Configs shows the managed files plus the synced rules/skills/template directories.
 
 ---
 
