@@ -770,3 +770,31 @@ func TestAgentConfigSyncOptionalDirMergesNotReplaces(t *testing.T) {
 		t.Fatal("copy_optional_dir must not rm -rf destination (use merge, not replace)")
 	}
 }
+
+func TestAgentConfigSyncPluginsWritesKnownMarketplaces(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if !strings.Contains(command, "known_marketplaces.json") {
+		t.Fatal("install_claude_plugins must write known_marketplaces.json")
+	}
+	if !strings.Contains(command, "claude-plugins-official") {
+		t.Fatal("install_claude_plugins must register claude-plugins-official marketplace")
+	}
+}
+
+func TestAgentConfigSyncPluginsFixesWrongHomePaths(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if !strings.Contains(command, `not loc.startswith(home + "/")`) {
+		t.Fatal("install_claude_plugins must detect and fix marketplace paths from a different user's home")
+	}
+}
+
+func TestAgentConfigSyncPluginsReclonesEmptySuperpowers(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	// Guard must also re-clone when the 5.1.0 dir exists but is empty
+	if !strings.Contains(command, `ls -A "$cache/superpowers/5.1.0"`) {
+		t.Fatal("install_claude_plugins must re-clone superpowers when the 5.1.0 directory is empty")
+	}
+	if !strings.Contains(command, `rm -rf "$cache/superpowers"`) {
+		t.Fatal("install_claude_plugins must remove stale superpowers dir before re-cloning")
+	}
+}
