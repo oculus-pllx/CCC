@@ -517,10 +517,12 @@ install_claude_plugins() {
     if git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/anthropics/claude-plugins-official "$tmp" 2>/dev/null; then
       git -C "$tmp" sparse-checkout set plugins/frontend-design plugins/skill-creator 2>/dev/null
       if [[ ! -d "$cache/frontend-design" && -d "$tmp/plugins/frontend-design" ]]; then
+        mkdir -p "$cache/frontend-design"
         cp -r "$tmp/plugins/frontend-design" "$cache/frontend-design/unknown"
         ok "frontend-design plugin installed"
       fi
       if [[ ! -d "$cache/skill-creator" && -d "$tmp/plugins/skill-creator" ]]; then
+        mkdir -p "$cache/skill-creator"
         cp -r "$tmp/plugins/skill-creator" "$cache/skill-creator/unknown"
         ok "skill-creator plugin installed"
       fi
@@ -1286,10 +1288,12 @@ install_claude_plugins() {
     if git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/anthropics/claude-plugins-official "$tmp" 2>/dev/null; then
       git -C "$tmp" sparse-checkout set plugins/frontend-design plugins/skill-creator 2>/dev/null
       if [[ ! -d "$cache/frontend-design" && -d "$tmp/plugins/frontend-design" ]]; then
+        mkdir -p "$cache/frontend-design"
         cp -r "$tmp/plugins/frontend-design" "$cache/frontend-design/unknown"
         ok "frontend-design plugin installed"
       fi
       if [[ ! -d "$cache/skill-creator" && -d "$tmp/plugins/skill-creator" ]]; then
+        mkdir -p "$cache/skill-creator"
         cp -r "$tmp/plugins/skill-creator" "$cache/skill-creator/unknown"
         ok "skill-creator plugin installed"
       fi
