@@ -417,25 +417,15 @@ mirror_provider_profile() {
 
 write_claude_baseline() {
   mkdir -p "$CCC_HOME/.claude/bin"
-  cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
+  if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]; then
+    cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(*)",
-      "Read(*)",
-      "Write(*)",
-      "Edit(*)",
-      "MultiEdit(*)",
-      "WebFetch(*)",
-      "WebSearch(*)",
-      "TodoRead(*)",
-      "TodoWrite(*)",
-      "Grep(*)",
-      "Glob(*)",
-      "LS(*)",
-      "Task(*)",
-      "mcp__*"
+      "Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)",
+      "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)",
+      "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"
     ]
   },
   "env": {
@@ -445,43 +435,69 @@ write_claude_baseline() {
   },
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
-  "statusLine": {
-    "command": "~/.claude/bin/statusline-command.sh"
-  }
+  "statusLine": {"command": "~/.claude/bin/statusline-command.sh"}
 }
 CLAUDESETTINGS
-  cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
+    ok "Claude settings written"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$CCC_HOME/.claude/settings.json" <<'MERGESETTINGS'
+import json, sys
+path = sys.argv[1]
+try:
+    data = json.loads(open(path).read())
+except Exception:
+    data = {}
+required = ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)", "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)", "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"]
+perms = data.setdefault("permissions", {})
+allows = list(perms.get("allow", []))
+for a in required:
+    if a not in allows:
+        allows.append(a)
+perms["allow"] = allows
+env = data.setdefault("env", {})
+for k, v in {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000", "MAX_THINKING_TOKENS": "31999"}.items():
+    env.setdefault(k, v)
+data.setdefault("alwaysThinkingEnabled", True)
+data.setdefault("enableRemoteControl", True)
+data.setdefault("statusLine", {"command": "~/.claude/bin/statusline-command.sh"})
+data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")
+open(path, "w").write(json.dumps(data, indent=2) + "\n")
+MERGESETTINGS
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
+    ok "Claude settings merged"
+  fi
+  if [[ ! -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]]; then
+    cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
 #!/bin/bash
 set -euo pipefail
-INPUT=$(cat || true)
-MODEL="claude"
-THINK=""
-CTX=""
-if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT" ]]; then
-  MODEL=$(printf '%s' "$INPUT" | jq -r '.model.id // "claude"' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
-  [[ "$(printf '%s' "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)" == "true" ]] && THINK=" | think"
-  USED=$(printf '%s' "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
-  MAX=$(printf '%s' "$INPUT" | jq -r '.context.max // 0' 2>/dev/null)
-  if [[ "$MAX" =~ ^[0-9]+$ && "$USED" =~ ^[0-9]+$ && "$MAX" -gt 0 ]]; then
-    PCT=$(( USED * 100 / MAX ))
-    WARN=""
-    [[ "$PCT" -ge 60 ]] && WARN="!"
-    CTX=" [ctx:${PCT}%${WARN}]"
-  fi
+INPUT=$(cat 2>/dev/null || echo '{}')
+if command -v jq &>/dev/null; then
+  MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
+  THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
+  CTX_USED=$(echo "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
+  CTX_MAX=$(echo "$INPUT" | jq -r '.context.max // 200000' 2>/dev/null)
+else
+  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=200000
 fi
 [[ -z "$MODEL" ]] && MODEL="claude"
-BRANCH=""
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
-fi
+CTX_PCT=0
+[[ "$CTX_MAX" -gt 0 ]] && CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
+CTX_WARN=""
+[[ $CTX_PCT -ge 85 ]] && CTX_WARN="!!"
+[[ $CTX_PCT -ge 60 && $CTX_PCT -lt 85 ]] && CTX_WARN="!"
+THINK=""
+[[ "$THINKING" == "true" ]] && THINK=" | think"
+GIT_BRANCH=""
+git rev-parse --is-inside-work-tree &>/dev/null 2>&1 && GIT_BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
 DIR=$(pwd | sed "s|^$HOME|~|")
-TIME=$(date +"%I:%M%P" | sed 's/^0//')
-echo "${USER}@$(hostname -s):${DIR}${BRANCH} [${MODEL}${THINK}]${CTX} ${TIME}"
+TIME=$(date +"%I:%M%p" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
+echo "${USER}@$(hostname -s):${DIR}${GIT_BRANCH} [${MODEL}${THINK}] [ctx:${CTX_PCT}%${CTX_WARN}] ${TIME}"
 CLAUDESTATUSLINE
-  chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
-  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json" "$CCC_HOME/.claude/bin/statusline-command.sh"
-  ok "Claude settings synced"
-  ok "Claude statusline synced"
+    chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
+    ok "Claude statusline written"
+  fi
 }
 
 echo ""
@@ -1118,25 +1134,15 @@ mirror_provider_profile() {
 
 write_claude_baseline() {
   mkdir -p "$CCC_HOME/.claude/bin"
-  cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
+  if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]; then
+    cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(*)",
-      "Read(*)",
-      "Write(*)",
-      "Edit(*)",
-      "MultiEdit(*)",
-      "WebFetch(*)",
-      "WebSearch(*)",
-      "TodoRead(*)",
-      "TodoWrite(*)",
-      "Grep(*)",
-      "Glob(*)",
-      "LS(*)",
-      "Task(*)",
-      "mcp__*"
+      "Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)",
+      "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)",
+      "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"
     ]
   },
   "env": {
@@ -1146,43 +1152,69 @@ write_claude_baseline() {
   },
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
-  "statusLine": {
-    "command": "~/.claude/bin/statusline-command.sh"
-  }
+  "statusLine": {"command": "~/.claude/bin/statusline-command.sh"}
 }
 CLAUDESETTINGS
-  cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
+    ok "Claude settings written"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$CCC_HOME/.claude/settings.json" <<'MERGESETTINGS'
+import json, sys
+path = sys.argv[1]
+try:
+    data = json.loads(open(path).read())
+except Exception:
+    data = {}
+required = ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)", "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)", "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"]
+perms = data.setdefault("permissions", {})
+allows = list(perms.get("allow", []))
+for a in required:
+    if a not in allows:
+        allows.append(a)
+perms["allow"] = allows
+env = data.setdefault("env", {})
+for k, v in {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000", "MAX_THINKING_TOKENS": "31999"}.items():
+    env.setdefault(k, v)
+data.setdefault("alwaysThinkingEnabled", True)
+data.setdefault("enableRemoteControl", True)
+data.setdefault("statusLine", {"command": "~/.claude/bin/statusline-command.sh"})
+data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")
+open(path, "w").write(json.dumps(data, indent=2) + "\n")
+MERGESETTINGS
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
+    ok "Claude settings merged"
+  fi
+  if [[ ! -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]]; then
+    cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
 #!/bin/bash
 set -euo pipefail
-INPUT=$(cat || true)
-MODEL="claude"
-THINK=""
-CTX=""
-if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT" ]]; then
-  MODEL=$(printf '%s' "$INPUT" | jq -r '.model.id // "claude"' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
-  [[ "$(printf '%s' "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)" == "true" ]] && THINK=" | think"
-  USED=$(printf '%s' "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
-  MAX=$(printf '%s' "$INPUT" | jq -r '.context.max // 0' 2>/dev/null)
-  if [[ "$MAX" =~ ^[0-9]+$ && "$USED" =~ ^[0-9]+$ && "$MAX" -gt 0 ]]; then
-    PCT=$(( USED * 100 / MAX ))
-    WARN=""
-    [[ "$PCT" -ge 60 ]] && WARN="!"
-    CTX=" [ctx:${PCT}%${WARN}]"
-  fi
+INPUT=$(cat 2>/dev/null || echo '{}')
+if command -v jq &>/dev/null; then
+  MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
+  THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
+  CTX_USED=$(echo "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
+  CTX_MAX=$(echo "$INPUT" | jq -r '.context.max // 200000' 2>/dev/null)
+else
+  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=200000
 fi
 [[ -z "$MODEL" ]] && MODEL="claude"
-BRANCH=""
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
-fi
+CTX_PCT=0
+[[ "$CTX_MAX" -gt 0 ]] && CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
+CTX_WARN=""
+[[ $CTX_PCT -ge 85 ]] && CTX_WARN="!!"
+[[ $CTX_PCT -ge 60 && $CTX_PCT -lt 85 ]] && CTX_WARN="!"
+THINK=""
+[[ "$THINKING" == "true" ]] && THINK=" | think"
+GIT_BRANCH=""
+git rev-parse --is-inside-work-tree &>/dev/null 2>&1 && GIT_BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
 DIR=$(pwd | sed "s|^$HOME|~|")
-TIME=$(date +"%I:%M%P" | sed 's/^0//')
-echo "${USER}@$(hostname -s):${DIR}${BRANCH} [${MODEL}${THINK}]${CTX} ${TIME}"
+TIME=$(date +"%I:%M%p" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
+echo "${USER}@$(hostname -s):${DIR}${GIT_BRANCH} [${MODEL}${THINK}] [ctx:${CTX_PCT}%${CTX_WARN}] ${TIME}"
 CLAUDESTATUSLINE
-  chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
-  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json" "$CCC_HOME/.claude/bin/statusline-command.sh"
-  ok "Claude settings synced"
-  ok "Claude statusline synced"
+    chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
+    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
+    ok "Claude statusline written"
+  fi
 }
 
 echo ""
