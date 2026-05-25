@@ -1694,10 +1694,21 @@ installed_date=""
 
 # Use the persistent source clone if available; otherwise clone fresh via HTTPS.
 _git() { git -c "safe.directory=$SRC" "$@"; }
+_grepo() { git -c "safe.directory=$REPO" "$@"; }
 if [[ -d "$SRC/.git" ]]; then
-  _git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null || true
-  REPO="$SRC"
-  latest_commit=$(_git -C "$REPO" rev-parse "origin/$REF" 2>/dev/null || _git -C "$REPO" rev-parse HEAD)
+  git -C "$SRC" remote set-url origin "$REPO_URL" 2>/dev/null || true
+  if _git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null; then
+    REPO="$SRC"
+    latest_commit=$(_grepo -C "$REPO" rev-parse "origin/$REF" 2>/dev/null || _grepo -C "$REPO" rev-parse HEAD)
+  else
+    TMP_REPO=$(mktemp -d /tmp/ccc-update-check.XXXXXX)
+    if ! git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO" 2>/dev/null; then
+      echo -e "${R}Could not reach GitHub. Check internet connection.${N}"
+      exit 1
+    fi
+    REPO="$TMP_REPO"
+    latest_commit=$(_grepo -C "$REPO" rev-parse HEAD)
+  fi
 else
   TMP_REPO=$(mktemp -d /tmp/ccc-update-check.XXXXXX)
   if ! git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO" 2>/dev/null; then
@@ -1705,10 +1716,9 @@ else
     exit 1
   fi
   REPO="$TMP_REPO"
-  latest_commit=$(git -c "safe.directory=$REPO" -C "$REPO" rev-parse HEAD)
+  latest_commit=$(_grepo -C "$REPO" rev-parse HEAD)
 fi
 
-_grepo() { git -c "safe.directory=$REPO" "$@"; }
 latest_short="${latest_commit:0:7}"
 latest_date=$(_grepo -C "$REPO" log -1 --format='%ci' "$latest_commit" 2>/dev/null || echo "")
 latest_subject=$(_grepo -C "$REPO" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")

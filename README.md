@@ -346,7 +346,7 @@ Update cadence:
 - OS package updates and `oculus-configs` agent config sync are manual; run `sudo ccc-os-update` and `sudo ccc-sync-agent-configs` when you want them applied.
 - App Catalog package/version checks run on demand from the native UI, not continuously in the background.
 
-The top bar, Overview, and Updates pages show when CCC is checking GitHub with `ccc-update-status`, the most recent browser-session check time, and whether that check returned current, update-available, not-recorded, or failed status. Overview updates this status in place so the dashboard does not redraw after a check completes.
+The top bar, Overview, and Updates pages show when CCC is checking GitHub with `ccc-update-status`, the most recent browser-session check time, and whether that check returned current, update-available, not-recorded, or failed status. Overview updates this status in place so the dashboard does not redraw after a check completes. Fresh `ccc-update-status` output takes precedence over older self-update logs, and the checker refreshes the persistent source clone from the normalized HTTPS GitHub remote before comparing installed and latest commits.
 
 ```bash
 sudo ccc-os-update          # OS packages only: apt update/upgrade/autoremove/clean

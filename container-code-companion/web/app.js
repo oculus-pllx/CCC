@@ -2508,10 +2508,11 @@ function statusTile(label, value) {
 }
 
 function updateStatusBadge(statusText, logText) {
-  if (logText.includes('Self-update successful') || statusText.includes('Up to date')) return 'Current';
-  if (logText.includes('Update script exited with errors') || logText.includes('Download failed')) return 'Update failed';
   if (statusText.includes('commit(s) behind') || statusText.includes('Update available')) return 'Updates available';
+  if (statusText.includes('Up to date')) return 'Current';
   if (statusText.includes('installed commit is not recorded') || statusText.includes('Installed: not recorded')) return 'Not recorded';
+  if (logText.includes('Update script exited with errors') || logText.includes('Download failed')) return 'Update failed';
+  if (logText.includes('Self-update successful')) return 'Current';
   return 'Unknown';
 }
 

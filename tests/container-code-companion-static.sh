@@ -52,6 +52,9 @@ require_file_contains install/ccc-provision-workstation.sh 'source "$_ccc_update
 require_file_contains install/ccc-provision-workstation.sh 'CCC_LATEST_COMMIT="$COMMIT"'
 require_file_contains install/ccc-provision-workstation.sh 'REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"'
 require_file_contains install/ccc-provision-workstation.sh 'REPO_URL="https://github.com/${REPO_URL#git@github.com:}"'
+require_file_contains install/ccc-provision-workstation.sh 'git -C "$SRC" remote set-url origin "$REPO_URL"'
+require_file_contains install/ccc-provision-workstation.sh 'git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO"'
+require_file_contains install/ccc-provision-workstation.sh 'latest_commit=$(_grepo -C "$REPO" rev-parse HEAD)'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_GROUP="${CCC_SHARED_GROUP:-ccc}"'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_SHARED_PROJECTS="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALL_MODE="$CCC_INSTALL_MODE"'
@@ -555,6 +558,9 @@ require_ordered_patterns container-code-companion/web/app.js \
 
 awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-self-update.syntax
 bash -n /tmp/ccc-self-update.syntax
+awk '/UPDATESTATUSSCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-update-status.syntax
+bash -n /tmp/ccc-update-status.syntax
+node tests/update-status-ui.test.mjs
 
 awk '/^cat > .*statusline-command.sh.*STATUSLINE/{flag=1; next} /^STATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-statusline.syntax
 bash -n /tmp/ccc-statusline.syntax
