@@ -85,6 +85,11 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 		"copy_dir \"$src/codex/skills\" \"$home/.codex/skills\"",
 		"copy_dir \"$src/gemini/skills\" \"$home/.gemini/skills\"",
 		"copy_dir \"$src/templates\" \"$home/Templates\"",
+		"copy_runtime_dir \"$source_home/.claude/plugins\" \"$home/.claude/plugins\" \"Claude plugins\"",
+		"copy_runtime_dir \"$source_home/.claude/skills\" \"$home/.claude/skills\" \"Claude skills\"",
+		"copy_runtime_dir \"$source_home/.claude/commands\" \"$home/.claude/commands\" \"Claude commands\"",
+		"copy_runtime_dir \"$source_home/.codex/plugins\" \"$home/.codex/plugins\" \"Codex plugins\"",
+		"copy_runtime_dir \"$source_home/.codex/skills\" \"$home/.codex/skills\" \"Codex runtime skills\"",
 		"write_claude_baseline \"$home\"",
 		"chgrp \"$shared_group\" \"$home\"",
 		"chmod g+rx \"$home\"",
@@ -97,6 +102,20 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("agent sync command missing %q:\n%s", want, command)
+		}
+	}
+}
+
+func TestGitCommandArgsMarksRepositorySafe(t *testing.T) {
+	args := gitCommandArgs("/opt/oculus-configs", "status", "--short")
+	got := strings.Join(args, " ")
+	for _, want := range []string{
+		"-c safe.directory=/opt/oculus-configs",
+		"-C /opt/oculus-configs",
+		"status --short",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("git args missing %q: %q", want, got)
 		}
 	}
 }

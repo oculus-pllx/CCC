@@ -313,6 +313,8 @@ CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"
 OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
 OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
+PRIMARY_CCC_USER="${CCC_USER:-claude-code}"
+PRIMARY_CCC_HOME="${CCC_HOME:-/home/$PRIMARY_CCC_USER}"
 PULL=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -373,6 +375,24 @@ copy_optional_dir() {
     chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
     return 0
   fi
+  cp -a "$src"/. "$dest"/
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
+copy_runtime_dir() {
+  local src=$1 dest=$2 label=$3
+  if [[ "$PRIMARY_CCC_HOME" == "$CCC_HOME" ]]; then
+    return 0
+  fi
+  mkdir -p "$dest"
+  if [[ ! -d "$src" ]]; then
+    warn2 "runtime: $label not found, skipping"
+    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    return 0
+  fi
+  rm -rf "$dest"
+  mkdir -p "$dest"
   cp -a "$src"/. "$dest"/
   chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
   ok "$label synced"
@@ -459,15 +479,14 @@ if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
   git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
+  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
   ok "oculus-configs cloned"
 elif [[ "$PULL" -eq 1 ]]; then
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  if [[ "$(id -u)" -eq 0 ]] && ! git config --global --get-all safe.directory | grep -Fxq "$OCULUS_CONFIGS_DIR"; then
-    git config --global --add safe.directory "$OCULUS_CONFIGS_DIR"
-  fi
-  git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
-  git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
-  git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
+  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
+  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
+  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
+  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
   ok "oculus-configs updated"
 else
   ok "oculus-configs checkout present"
@@ -497,6 +516,12 @@ copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/plugins" "$CCC_HOME/.claude/plugins" "Claude plugins"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/skills" "$CCC_HOME/.claude/skills" "Claude skills"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/commands" "$CCC_HOME/.claude/commands" "Claude commands"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/plugins" "$CCC_HOME/.codex/plugins" "Codex plugins"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/skills" "$CCC_HOME/.codex/skills" "Codex runtime skills"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini runtime skills"
 
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"
@@ -971,6 +996,8 @@ CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"
 OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
 OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
+PRIMARY_CCC_USER="${CCC_USER:-claude-code}"
+PRIMARY_CCC_HOME="${CCC_HOME:-/home/$PRIMARY_CCC_USER}"
 PULL=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -1031,6 +1058,24 @@ copy_optional_dir() {
     chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
     return 0
   fi
+  cp -a "$src"/. "$dest"/
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
+copy_runtime_dir() {
+  local src=$1 dest=$2 label=$3
+  if [[ "$PRIMARY_CCC_HOME" == "$CCC_HOME" ]]; then
+    return 0
+  fi
+  mkdir -p "$dest"
+  if [[ ! -d "$src" ]]; then
+    warn2 "runtime: $label not found, skipping"
+    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    return 0
+  fi
+  rm -rf "$dest"
+  mkdir -p "$dest"
   cp -a "$src"/. "$dest"/
   chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
   ok "$label synced"
@@ -1117,15 +1162,14 @@ if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
   git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
+  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
   ok "oculus-configs cloned"
 elif [[ "$PULL" -eq 1 ]]; then
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  if [[ "$(id -u)" -eq 0 ]] && ! git config --global --get-all safe.directory | grep -Fxq "$OCULUS_CONFIGS_DIR"; then
-    git config --global --add safe.directory "$OCULUS_CONFIGS_DIR"
-  fi
-  git -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
-  git -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
-  git -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
+  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
+  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
+  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
+  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
   ok "oculus-configs updated"
 else
   ok "oculus-configs checkout present"
@@ -1155,6 +1199,12 @@ copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/plugins" "$CCC_HOME/.claude/plugins" "Claude plugins"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/skills" "$CCC_HOME/.claude/skills" "Claude skills"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/commands" "$CCC_HOME/.claude/commands" "Claude commands"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/plugins" "$CCC_HOME/.codex/plugins" "Codex plugins"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/skills" "$CCC_HOME/.codex/skills" "Codex runtime skills"
+copy_runtime_dir "$PRIMARY_CCC_HOME/.gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini runtime skills"
 
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"

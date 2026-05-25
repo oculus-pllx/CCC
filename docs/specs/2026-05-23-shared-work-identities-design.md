@@ -197,6 +197,12 @@ Fresh installs should:
   group read/traverse access on managed work identity homes so the dashboard file
   browser can list `/home/<user>` without making private credential files
   group-readable.
+- Account profile setup and Sync Agent Configs should overlay allowlisted
+  provider runtime asset directories from the primary CCC user into additional
+  work identities, including Claude/Codex/Gemini plugin and skill directories,
+  while excluding top-level credential, session, history, and token files.
+- The root-owned `/opt/oculus-configs` checkout should be accessed with Git
+  `safe.directory` handling so the GUI does not show dubious-ownership errors.
 - Accounts should expose a `Sync All Agent Configs` action that runs the same
   direct delivery workflow for every normal login user, allowing updates from
   the shared `/opt/oculus-configs` source checkout to be pushed through the GUI.

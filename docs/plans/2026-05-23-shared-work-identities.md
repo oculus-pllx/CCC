@@ -186,6 +186,11 @@ Setup should:
   into the target user's resolved home
 - [x] sync Claude rules, Codex skills, Gemini skills, and project templates for
   the selected work identity
+- [x] overlay allowlisted Claude/Codex/Gemini runtime plugin and skill
+  directories from the primary CCC user without copying provider
+  credential/session/history files
+- [x] access the root-owned `/opt/oculus-configs` checkout with Git
+  `safe.directory` handling from GUI repo status and sync paths
 - [x] install CCC-managed Claude `settings.json` and statusline baseline for
   each synced work identity
 - [x] validate expected synced files/directories before reporting account config

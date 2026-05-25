@@ -20,6 +20,8 @@ Recent work completed:
 - Improved the GUI account sync path so it validates the target user's real home from `getent` and prints a created config inventory for Claude, Codex, and Gemini files.
 - Replaced GUI account setup/sync delivery with a direct `oculus-configs` clone/copy workflow that writes known files and directories into the resolved target home instead of relying on `ccc-sync-agent-configs --user USER`.
 - Updated account setup/sync to grant the shared `ccc` group read/traverse access on managed work identity homes so the dashboard file browser can list `/home/<user>` instead of showing an unreadable directory as empty.
+- Added an allowlisted provider runtime asset overlay for additional work identities so Claude/Codex/Gemini plugins and skills from the primary CCC user are copied without copying top-level credential/session/history files.
+- Fixed `oculus-configs` GUI repo status and sync paths to use Git `safe.directory` handling for the root-owned `/opt/oculus-configs` checkout.
 - Forced account profile/config sync actions to run with `NO_COLOR=1` and added UI cleanup for malformed color remnants in account output.
 - Moved malformed ANSI color cleanup into the shared browser output sanitizer so bracket-only color remnants are removed across output panels.
 - Added Projects shared-root permission health and a repair action for group-write/setgid permissions.

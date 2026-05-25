@@ -132,6 +132,12 @@ require_file_contains container-code-companion/web/styles.css ".app-footer"
 require_file_contains install/ccc-provision-workstation.sh "ccc-sync-agent-configs"
 require_file_contains install/ccc-provision-workstation.sh "Shared Workspace"
 require_file_contains install/ccc-provision-workstation.sh "ccc-migrate-shared-workspace --status"
+require_file_contains install/ccc-provision-workstation.sh 'PRIMARY_CCC_HOME="${CCC_HOME:-/home/$PRIMARY_CCC_USER}"'
+require_file_contains install/ccc-provision-workstation.sh 'copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/plugins" "$CCC_HOME/.claude/plugins" "Claude plugins"'
+require_file_contains install/ccc-provision-workstation.sh 'copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/skills" "$CCC_HOME/.claude/skills" "Claude skills"'
+require_file_contains install/ccc-provision-workstation.sh 'copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/plugins" "$CCC_HOME/.codex/plugins" "Codex plugins"'
+require_file_contains install/ccc-provision-workstation.sh 'git config --system --add safe.directory "$OCULUS_CONFIGS_DIR"'
+require_file_contains install/ccc-provision-workstation.sh 'git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch'
 require_file_contains install/ccc-provision-workstation.sh "/etc/ccc/ssh/github_ed25519"
 require_file_contains install/ccc-provision-workstation.sh "Setup CCC Profile"
 require_file_contains README.md "ccc-sync-agent-configs"
@@ -467,6 +473,11 @@ require_file_contains container-code-companion/internal/system/management.go 'di
 require_file_contains container-code-companion/internal/system/management.go 'sudo chgrp " + shellQuote(group) + " " + shellQuote(home)'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chmod g+rx " + shellQuote(home)'
 require_file_contains container-code-companion/internal/system/management.go 'Direct Agent Config Sync'
+require_file_contains container-code-companion/internal/system/management.go 'copy_runtime_dir "$source_home/.claude/plugins" "$home/.claude/plugins"'
+require_file_contains container-code-companion/internal/system/management.go 'copy_runtime_dir "$source_home/.claude/skills" "$home/.claude/skills"'
+require_file_contains container-code-companion/internal/system/management.go 'copy_runtime_dir "$source_home/.codex/plugins" "$home/.codex/plugins"'
+require_file_contains container-code-companion/internal/system/management.go 'git config --system --add safe.directory \"$src\"'
+require_file_contains container-code-companion/internal/system/management.go 'safe.directory=" + dir'
 require_file_contains container-code-companion/internal/system/management.go 'chgrp "$shared_group" "$home"'
 require_file_contains container-code-companion/internal/system/management.go 'chmod g+rx "$home"'
 require_file_contains container-code-companion/internal/system/management.go 'copy_file "$src/claude/CLAUDE.md" "$home/.claude/CLAUDE.md"'

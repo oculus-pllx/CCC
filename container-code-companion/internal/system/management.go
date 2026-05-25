@@ -470,20 +470,24 @@ func allAgentConfigSyncCommand() string {
 func directAgentConfigSyncScript(runLine string) string {
 	return strings.Join([]string{
 		"set -euo pipefail",
+		`[ -r /etc/ccc/config ] && source /etc/ccc/config`,
 		`repo="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"`,
 		`ref="${OCULUS_CONFIGS_REF:-main}"`,
 		`src="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"`,
 		`shared_group="${CCC_SHARED_GROUP:-ccc}"`,
+		`primary_user="${CCC_USER:-claude-code}"`,
+		`source_home="${CCC_HOME:-/home/$primary_user}"`,
 		"refresh_source() {",
 		`  if [ ! -d "$src/.git" ]; then`,
 		`    rm -rf "$src"`,
 		`    git clone --depth 1 --branch "$ref" "$repo" "$src"`,
 		"  else",
-		`    git -C "$src" fetch --depth 1 origin "$ref"`,
-		`    git -C "$src" checkout -q "$ref" 2>/dev/null || git -C "$src" checkout -q -B "$ref"`,
-		`    git -C "$src" reset --hard "origin/$ref" >/dev/null`,
+		`    git -c "safe.directory=$src" -C "$src" fetch --depth 1 origin "$ref"`,
+		`    git -c "safe.directory=$src" -C "$src" checkout -q "$ref" 2>/dev/null || git -c "safe.directory=$src" -C "$src" checkout -q -B "$ref"`,
+		`    git -c "safe.directory=$src" -C "$src" reset --hard "origin/$ref" >/dev/null`,
 		"  fi",
 		"  chown -R root:root \"$src\"",
+		"  git config --system --add safe.directory \"$src\" 2>/dev/null || true",
 		"}",
 		"copy_file() {",
 		`  local from=$1 to=$2 label=$3`,
@@ -498,6 +502,15 @@ func directAgentConfigSyncScript(runLine string) string {
 		`  mkdir -p "$to"`,
 		`  cp -a "$from"/. "$to"/`,
 		`  printf '  copied dir  %s\n' "$label"`,
+		"}",
+		"copy_runtime_dir() {",
+		`  local from=$1 to=$2 label=$3`,
+		`  if [ "$source_home" = "$home" ]; then return 0; fi`,
+		`  if [ ! -d "$from" ]; then printf '  runtime dir missing, skipped %s\n' "$label"; return 0; fi`,
+		`  rm -rf "$to"`,
+		`  mkdir -p "$to"`,
+		`  cp -a "$from"/. "$to"/`,
+		`  printf '  copied runtime dir %s\n' "$label"`,
 		"}",
 		"write_claude_baseline() {",
 		`  local home=$1`,
@@ -553,6 +566,12 @@ func directAgentConfigSyncScript(runLine string) string {
 		`  copy_file "$src/gemini/GEMINI.md" "$home/.gemini/GEMINI.md" "Gemini GEMINI.md"`,
 		`  copy_dir "$src/gemini/skills" "$home/.gemini/skills" "Gemini skills"`,
 		`  copy_dir "$src/templates" "$home/Templates" "project templates"`,
+		`  copy_runtime_dir "$source_home/.claude/plugins" "$home/.claude/plugins" "Claude plugins"`,
+		`  copy_runtime_dir "$source_home/.claude/skills" "$home/.claude/skills" "Claude skills"`,
+		`  copy_runtime_dir "$source_home/.claude/commands" "$home/.claude/commands" "Claude commands"`,
+		`  copy_runtime_dir "$source_home/.codex/plugins" "$home/.codex/plugins" "Codex plugins"`,
+		`  copy_runtime_dir "$source_home/.codex/skills" "$home/.codex/skills" "Codex runtime skills"`,
+		`  copy_runtime_dir "$source_home/.gemini/skills" "$home/.gemini/skills" "Gemini runtime skills"`,
 		`  write_claude_baseline "$home"`,
 		`  chown -R "$target_user:$target_user" "$home/.claude" "$home/.codex" "$home/.gemini" "$home/Templates"`,
 		`  printf '\nValidation:\n'`,
@@ -1551,8 +1570,13 @@ func runText(name string, args ...string) string {
 }
 
 func gitText(dir string, args ...string) string {
-	gitArgs := append([]string{"-C", dir}, args...)
-	return runText("git", gitArgs...)
+	return runText("git", gitCommandArgs(dir, args...)...)
+}
+
+func gitCommandArgs(dir string, args ...string) []string {
+	gitArgs := []string{"-c", "safe.directory=" + dir, "-C", dir}
+	gitArgs = append(gitArgs, args...)
+	return gitArgs
 }
 
 func fileSize(info os.FileInfo, err error) int64 {
