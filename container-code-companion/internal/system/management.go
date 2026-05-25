@@ -562,7 +562,7 @@ func directAgentConfigSyncScript(runLine string) string {
 		`    --exclude=sessions/ \`,
 		`    --exclude=session-env/ \`,
 		`    --exclude=projects/ \`,
-		`    --exclude=cache/ \`,
+		`    --exclude=/cache/ \`,
 		`    --exclude=logs/ \`,
 		`    --exclude=backups/ \`,
 		`    --exclude=shell-snapshots/ \`,

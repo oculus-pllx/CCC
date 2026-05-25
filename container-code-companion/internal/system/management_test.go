@@ -96,7 +96,7 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 		"--exclude=.credentials.json",
 		"--exclude=auth.json",
 		"--exclude=sessions/",
-		"--exclude=cache/",
+		"--exclude=/cache/",
 		"write_claude_baseline \"$home\"",
 		"chgrp \"$shared_group\" \"$home\"",
 		"chmod g+rx \"$home\"",
