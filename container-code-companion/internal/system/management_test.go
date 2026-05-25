@@ -723,6 +723,9 @@ func TestAgentConfigSyncBaselineMergesSettingsWithPython(t *testing.T) {
 
 func TestAgentConfigSyncBaselineStatuslineShowsModel(t *testing.T) {
 	command := agentConfigSyncCommand("work-id")
+	if strings.Contains(command, `echo "${USER}@$(hostname -s):$(pwd`) {
+		t.Fatal("write_claude_baseline statusline is the minimal one-liner; must use full statusline with model/context")
+	}
 	if !strings.Contains(command, "jq") {
 		t.Fatal("write_claude_baseline statusline must use jq for model/thinking/context extraction")
 	}
