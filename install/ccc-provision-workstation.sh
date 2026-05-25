@@ -500,6 +500,57 @@ CLAUDESTATUSLINE
   fi
 }
 
+install_claude_plugins() {
+  local cache="$CCC_HOME/.claude/plugins/cache/claude-plugins-official"
+  mkdir -p "$cache"
+  if [[ ! -d "$cache/superpowers" ]]; then
+    git clone --quiet --depth 1 --branch v5.1.0 https://github.com/obra/superpowers "$cache/superpowers/5.1.0" 2>/dev/null \
+      && ok "superpowers plugin installed" \
+      || warn2 "superpowers plugin install failed (network?)"
+  fi
+  local need_cpo=0
+  [[ ! -d "$cache/frontend-design" ]] && need_cpo=1
+  [[ ! -d "$cache/skill-creator" ]] && need_cpo=1
+  if [[ $need_cpo -eq 1 ]]; then
+    local tmp
+    tmp=$(mktemp -d)
+    if git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/anthropics/claude-plugins-official "$tmp" 2>/dev/null; then
+      git -C "$tmp" sparse-checkout set plugins/frontend-design plugins/skill-creator 2>/dev/null
+      if [[ ! -d "$cache/frontend-design" && -d "$tmp/plugins/frontend-design" ]]; then
+        cp -r "$tmp/plugins/frontend-design" "$cache/frontend-design/unknown"
+        ok "frontend-design plugin installed"
+      fi
+      if [[ ! -d "$cache/skill-creator" && -d "$tmp/plugins/skill-creator" ]]; then
+        cp -r "$tmp/plugins/skill-creator" "$cache/skill-creator/unknown"
+        ok "skill-creator plugin installed"
+      fi
+    else
+      warn2 "anthropics plugin clone failed (network?)"
+    fi
+    rm -rf "$tmp"
+  fi
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - "$CCC_HOME" <<'REGISTRYGEN'
+import json, os, sys, glob
+from datetime import datetime, timezone
+home = sys.argv[1]
+cache = home + "/.claude/plugins/cache"
+plugins = {}
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+for mkt_path in sorted(glob.glob(cache + "/*")):
+    mkt = os.path.basename(mkt_path)
+    for plugin_path in sorted(glob.glob(mkt_path + "/*")):
+        plugin = os.path.basename(plugin_path)
+        vdirs = sorted(d for d in os.listdir(plugin_path) if os.path.isdir(os.path.join(plugin_path, d)))
+        version = vdirs[0] if vdirs else "unknown"
+        install_path = os.path.join(plugin_path, version) if vdirs else plugin_path
+        plugins[plugin + "@" + mkt] = [{"scope": "user", "installPath": install_path, "version": version, "installedAt": now, "lastUpdated": now}]
+open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {}}, indent=2) + "\n")
+REGISTRYGEN
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/plugins"
+  ok "plugin registry updated"
+}
+
 echo ""
 echo -e "${B}Agent Config Sync${N}"
 echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
@@ -557,6 +608,7 @@ copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
 
+install_claude_plugins
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"
 echo ""
@@ -1217,6 +1269,57 @@ CLAUDESTATUSLINE
   fi
 }
 
+install_claude_plugins() {
+  local cache="$CCC_HOME/.claude/plugins/cache/claude-plugins-official"
+  mkdir -p "$cache"
+  if [[ ! -d "$cache/superpowers" ]]; then
+    git clone --quiet --depth 1 --branch v5.1.0 https://github.com/obra/superpowers "$cache/superpowers/5.1.0" 2>/dev/null \
+      && ok "superpowers plugin installed" \
+      || warn2 "superpowers plugin install failed (network?)"
+  fi
+  local need_cpo=0
+  [[ ! -d "$cache/frontend-design" ]] && need_cpo=1
+  [[ ! -d "$cache/skill-creator" ]] && need_cpo=1
+  if [[ $need_cpo -eq 1 ]]; then
+    local tmp
+    tmp=$(mktemp -d)
+    if git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/anthropics/claude-plugins-official "$tmp" 2>/dev/null; then
+      git -C "$tmp" sparse-checkout set plugins/frontend-design plugins/skill-creator 2>/dev/null
+      if [[ ! -d "$cache/frontend-design" && -d "$tmp/plugins/frontend-design" ]]; then
+        cp -r "$tmp/plugins/frontend-design" "$cache/frontend-design/unknown"
+        ok "frontend-design plugin installed"
+      fi
+      if [[ ! -d "$cache/skill-creator" && -d "$tmp/plugins/skill-creator" ]]; then
+        cp -r "$tmp/plugins/skill-creator" "$cache/skill-creator/unknown"
+        ok "skill-creator plugin installed"
+      fi
+    else
+      warn2 "anthropics plugin clone failed (network?)"
+    fi
+    rm -rf "$tmp"
+  fi
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - "$CCC_HOME" <<'REGISTRYGEN'
+import json, os, sys, glob
+from datetime import datetime, timezone
+home = sys.argv[1]
+cache = home + "/.claude/plugins/cache"
+plugins = {}
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+for mkt_path in sorted(glob.glob(cache + "/*")):
+    mkt = os.path.basename(mkt_path)
+    for plugin_path in sorted(glob.glob(mkt_path + "/*")):
+        plugin = os.path.basename(plugin_path)
+        vdirs = sorted(d for d in os.listdir(plugin_path) if os.path.isdir(os.path.join(plugin_path, d)))
+        version = vdirs[0] if vdirs else "unknown"
+        install_path = os.path.join(plugin_path, version) if vdirs else plugin_path
+        plugins[plugin + "@" + mkt] = [{"scope": "user", "installPath": install_path, "version": version, "installedAt": now, "lastUpdated": now}]
+open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {}}, indent=2) + "\n")
+REGISTRYGEN
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/plugins"
+  ok "plugin registry updated"
+}
+
 echo ""
 echo -e "${B}Agent Config Sync${N}"
 echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
@@ -1274,6 +1377,7 @@ copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
 
+install_claude_plugins
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"
 echo ""
