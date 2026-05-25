@@ -772,6 +772,90 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   gap: 10px;
 }
 
+
+/* ── per-user config blocks ───────────────────────────────────────────── */
+.user-config-list {
+  display: grid;
+  gap: 16px;
+}
+
+.user-config-block {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel2);
+  display: grid;
+  gap: 10px;
+}
+
+.user-config-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.user-config-header strong {
+  font-size: 1em;
+}
+
+.user-cfg-file-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-cfg-file {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.78em;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.user-cfg-file.ok {
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.user-cfg-file.missing {
+  border-color: #f87171;
+  color: #f87171;
+  text-decoration: line-through;
+}
+
+.user-plugin-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plugin-toggle {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82em;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.plugin-toggle.enabled {
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.plugin-toggle.disabled {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.plugin-toggle:hover {
+  opacity: 0.75;
+}
+
 .config-list {
   display: grid;
   gap: 10px;

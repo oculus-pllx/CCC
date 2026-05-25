@@ -3,6 +3,7 @@ package system
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -76,11 +77,13 @@ type SSHUserSession struct {
 }
 
 type AccountStatus struct {
-	Username string `json:"username"`
-	UID      string `json:"uid"`
-	Groups   string `json:"groups"`
-	Home     string `json:"home"`
-	Shell    string `json:"shell"`
+	Username     string            `json:"username"`
+	UID          string            `json:"uid"`
+	Groups       string            `json:"groups"`
+	Home         string            `json:"home"`
+	Shell        string            `json:"shell"`
+	AgentConfigs []AgentConfigFile `json:"agentConfigs"`
+	Plugins      []PluginEntry     `json:"plugins"`
 }
 
 type FileEntry struct {
@@ -180,6 +183,12 @@ type AgentConfigFile struct {
 	IsDir  bool   `json:"isDir"`
 }
 
+type PluginEntry struct {
+	Name      string `json:"name"`
+	ShortName string `json:"shortName"`
+	Enabled   bool   `json:"enabled"`
+}
+
 type RepoStatus struct {
 	Path       string `json:"path"`
 	Exists     bool   `json:"exists"`
@@ -245,6 +254,8 @@ type AccountOperation struct {
 	Password  string `json:"password"`
 	Shell     string `json:"shell"`
 	Groups    string `json:"groups"`
+	Plugin    string `json:"plugin"`
+	Enabled   bool   `json:"enabled"`
 }
 
 func CollectManagementSnapshot() (ManagementSnapshot, error) {
@@ -427,6 +438,21 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 		return RunShellCommand(setupCCCProfileCommand(operation.Username), workstationHome())
 	case "sync-agent-configs":
 		return RunShellCommand(agentConfigSyncCommand(operation.Username), workstationHome())
+	case "toggle-plugin":
+		if operation.Plugin == "" {
+			return CommandResult{}, errors.New("plugin is required")
+		}
+		if !safePluginName(operation.Plugin) {
+			return CommandResult{}, errors.New("invalid plugin name")
+		}
+		home := "/home/" + operation.Username
+		enabledVal := "True"
+		if !operation.Enabled {
+			enabledVal = "False"
+		}
+		py := fmt.Sprintf("import json\npath=%q\ntry:\n data=json.load(open(path))\nexcept:\n data={}\nep=data.setdefault('enabledPlugins',{})\nep[%q]=%s\njson.dump(data,open(path,'w'),indent=2)\nprint('Plugin %s set to %s')\n",
+			home+"/.claude/settings.json", operation.Plugin, enabledVal, operation.Plugin, enabledVal)
+		return RunShellCommand("sudo python3 -c "+shellQuote(py), workstationHome())
 	case "delete":
 		return RunShellCommand("sudo userdel -r "+shellQuote(operation.Username), workstationHome())
 	default:
@@ -1566,16 +1592,57 @@ func collectAccounts() []AccountStatus {
 		if uid < 1000 || strings.Contains(fields[6], "nologin") || strings.Contains(fields[6], "false") {
 			continue
 		}
+		home := fields[5]
 		accounts = append(accounts, AccountStatus{
-			Username: fields[0],
-			UID:      fields[2],
-			Groups:   strings.TrimSpace(runText("id", "-nG", fields[0])),
-			Home:     fields[5],
-			Shell:    fields[6],
+			Username:     fields[0],
+			UID:          fields[2],
+			Groups:       strings.TrimSpace(runText("id", "-nG", fields[0])),
+			Home:         home,
+			Shell:        fields[6],
+			AgentConfigs: collectAgentConfigs(home),
+			Plugins:      collectPluginStatus(home),
 		})
 	}
 	return accounts
 }
+
+var knownPlugins = []struct{ name, shortName string }{
+	{"superpowers@claude-plugins-official", "Superpowers"},
+	{"frontend-design@claude-plugins-official", "Frontend Design"},
+	{"skill-creator@claude-plugins-official", "Skill Creator"},
+}
+
+func collectPluginStatus(home string) []PluginEntry {
+	data, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	var enabledPlugins map[string]bool
+	if err == nil {
+		var settings struct {
+			EnabledPlugins map[string]bool `json:"enabledPlugins"`
+		}
+		if json.Unmarshal(data, &settings) == nil {
+			enabledPlugins = settings.EnabledPlugins
+		}
+	}
+	entries := make([]PluginEntry, len(knownPlugins))
+	for i, p := range knownPlugins {
+		entries[i] = PluginEntry{
+			Name:      p.name,
+			ShortName: p.shortName,
+			Enabled:   enabledPlugins[p.name],
+		}
+	}
+	return entries
+}
+
+func safePluginName(s string) bool {
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '@' || c == '.') {
+			return false
+		}
+	}
+	return len(s) > 0 && len(s) <= 128
+}
+
 
 func collectUpdates() UpdateStatus {
 	updateStatusMu.RLock()

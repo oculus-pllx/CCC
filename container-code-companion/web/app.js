@@ -691,21 +691,63 @@ function renderProjects() {
 }
 
 function renderConfigs() {
-  const configs = snapshot.agentConfigs || [];
-  if (!configs.length) return '<p>No agent config files found.</p>';
-  return `
-    <div class="config-list">
-      ${configs.map(config => `
-        <section class="config-row">
-          <div>
-            <strong>${escapeHTML(config.name)}</strong>
-            <p>${escapeHTML(config.path)}</p>
-            <span>${config.exists ? escapeHTML(config.isDir ? 'directory' : formatBytes(config.size)) : 'missing'}</span>
+  const accounts = snapshot.accounts || [];
+  if (!accounts.length) return '<p>No user accounts found.</p>';
+
+  function configBadge(cfg) {
+    if (!cfg.exists) return `<span class="user-cfg-file missing" title="${escapeAttribute(cfg.path)}">${escapeHTML(cfg.name)}</span>`;
+    return `<span class="user-cfg-file ok" title="${escapeAttribute(cfg.path)}">${escapeHTML(cfg.name)}</span>`;
+  }
+
+  function editableConfigs(cfgs) {
+    return cfgs.filter(c => c.exists && !c.isDir && (c.name.includes('mcp') || c.name.includes('settings') || c.name.includes('CLAUDE') || c.name.includes('AGENTS') || c.name.includes('GEMINI')));
+  }
+
+  function pluginToggleBtn(username, plugin) {
+    const cls = plugin.enabled ? 'plugin-toggle enabled' : 'plugin-toggle disabled';
+    const label = plugin.enabled ? '● ' + escapeHTML(plugin.shortName) : '○ ' + escapeHTML(plugin.shortName);
+    return `<button class="${cls}" data-plugin-toggle="${escapeAttribute(username)}" data-plugin-name="${escapeAttribute(plugin.name)}" data-plugin-enabled="${plugin.enabled}">${label}</button>`;
+  }
+
+  const mainUser = accounts[0]?.username || '';
+
+  const blocks = accounts.map(account => {
+    const cfgs = account.agentConfigs || [];
+    const plugins = account.plugins || [];
+    const editable = editableConfigs(cfgs);
+    const presentCount = cfgs.filter(c => c.exists).length;
+    const isMain = account.username === mainUser;
+    return `
+      <div class="user-config-block">
+        <div class="user-config-header">
+          <strong>${escapeHTML(account.username)}</strong>
+          ${isMain ? '<span class="badge ok">main</span>' : '<span class="badge">work identity</span>'}
+          <span class="muted">${escapeHTML(account.home)} · ${presentCount}/${cfgs.length} configs</span>
+          <div class="action-row" style="margin-left:auto">
+            <button class="small-button" data-account-sync-configs="${escapeAttribute(account.username)}">Sync Configs</button>
           </div>
-          ${config.isDir ? '<span class="badge ok">synced</span>' : `<button class="small-button" data-config-edit="${escapeAttribute(config.path)}">Edit</button>`}
-        </section>
-      `).join('')}
+        </div>
+        <div class="user-cfg-file-grid">
+          ${cfgs.map(configBadge).join('')}
+        </div>
+        ${plugins.length ? `
+        <div class="user-plugin-row">
+          <span class="muted" style="font-size:0.82em;margin-right:6px">Plugins:</span>
+          ${plugins.map(p => pluginToggleBtn(account.username, p)).join('')}
+        </div>` : ''}
+        ${editable.length ? `
+        <div class="action-row" style="margin-top:8px;flex-wrap:wrap">
+          ${editable.map(c => `<button class="small-button" data-config-edit="${escapeAttribute(c.path)}">${escapeHTML(c.name)}</button>`).join('')}
+        </div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="user-config-list">
+      ${blocks}
     </div>
+    <pre id="config-output" class="output" hidden></pre>
     <div id="config-editor-panel" class="config-editor-panel" hidden>
       <div class="config-editor-header">
         <strong id="config-editor-title"></strong>
@@ -2130,10 +2172,52 @@ function bindConfigs() {
   document.querySelectorAll('[data-config-edit]').forEach(button => {
     button.addEventListener('click', () => showConfigEditor(button.dataset.configEdit));
   });
+  document.querySelectorAll('[data-plugin-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+      const username = button.dataset.pluginToggle;
+      const plugin = button.dataset.pluginName;
+      const currentlyEnabled = button.dataset.pluginEnabled === 'true';
+      togglePlugin(username, plugin, !currentlyEnabled);
+    });
+  });
+  document.querySelectorAll('[data-account-sync-configs]').forEach(button => {
+    button.addEventListener('click', () => syncConfigsForUser(button.dataset.accountSyncConfigs));
+  });
   const saveBtn = document.getElementById('config-editor-save');
   const cancelBtn = document.getElementById('config-editor-cancel');
   if (saveBtn) saveBtn.addEventListener('click', saveConfigFile);
   if (cancelBtn) cancelBtn.addEventListener('click', hideConfigEditor);
+}
+
+async function togglePlugin(username, plugin, enable) {
+  showConfigOutput('Updating...');
+  try {
+    const result = await postJSON('/api/account', { operation: 'toggle-plugin', username, plugin, enabled: enable });
+    await loadSnapshot();
+    renderSection('configs');
+    showConfigOutput(result.output || 'Plugin updated');
+  } catch (error) {
+    showConfigOutput(error.message);
+  }
+}
+
+async function syncConfigsForUser(username) {
+  showConfigOutput('Syncing...');
+  try {
+    const result = await postJSON('/api/account', { operation: 'sync-agent-configs', username });
+    await loadSnapshot();
+    renderSection('configs');
+    showConfigOutput(result.output || 'Synced');
+  } catch (error) {
+    showConfigOutput(error.message);
+  }
+}
+
+function showConfigOutput(text) {
+  const el = document.getElementById('config-output');
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = false;
 }
 
 async function showConfigEditor(path) {
