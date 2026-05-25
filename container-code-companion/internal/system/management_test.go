@@ -704,6 +704,33 @@ func TestExplainDriveMountFailureAddsLinuxHostContext(t *testing.T) {
 	}
 }
 
+func TestAgentConfigSyncBaselinePreservesExistingSettings(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if !strings.Contains(command, `if [ ! -f "$home/.claude/settings.json" ]`) {
+		t.Fatal("write_claude_baseline must check if settings.json exists before writing")
+	}
+}
+
+func TestAgentConfigSyncBaselineMergesSettingsWithPython(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if !strings.Contains(command, "python3") {
+		t.Fatal("write_claude_baseline must use python3 to merge settings.json when file exists")
+	}
+	if !strings.Contains(command, `perms.get("allow"`) {
+		t.Fatal("write_claude_baseline python merge must preserve existing allow list")
+	}
+}
+
+func TestAgentConfigSyncBaselineStatuslineShowsModel(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if !strings.Contains(command, "jq") {
+		t.Fatal("write_claude_baseline statusline must use jq for model/thinking/context extraction")
+	}
+	if !strings.Contains(command, "CTX_PCT") {
+		t.Fatal("write_claude_baseline statusline must show context percentage")
+	}
+}
+
 func TestAgentConfigSyncOptionalDirMergesNotReplaces(t *testing.T) {
 	command := agentConfigSyncCommand("work-id")
 	// Isolate the copy_optional_dir function body
