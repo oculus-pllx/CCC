@@ -51,7 +51,7 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"sudo usermod -aG 'ccc' 'work-id'",
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
-		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user",
+		"Direct Agent Config Sync",
 		"check_file \"$home/.claude/settings.json\"",
 		"check_exec \"$home/.claude/bin/statusline-command.sh\"",
 		"check_file \"$home/.codex/AGENTS.md\"",
@@ -78,15 +78,18 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 	command := agentConfigSyncCommand("work-id")
 	for _, want := range []string{
-		"home=$(getent passwd",
-		"sudo env NO_COLOR=1 ccc-sync-agent-configs --user",
-		"Synced account: %s",
-		"Synced home: %s",
+		"Direct Agent Config Sync",
+		"copy_file \"$src/claude/CLAUDE.md\" \"$home/.claude/CLAUDE.md\"",
+		"copy_dir \"$src/codex/skills\" \"$home/.codex/skills\"",
+		"copy_dir \"$src/gemini/skills\" \"$home/.gemini/skills\"",
+		"copy_dir \"$src/templates\" \"$home/Templates\"",
+		"write_claude_baseline \"$home\"",
+		"chown -R \"$target_user:$target_user\"",
 		"check_file \"$home/.claude/CLAUDE.md\"",
 		"check_file \"$home/.claude/settings.json\"",
 		"check_exec \"$home/.claude/bin/statusline-command.sh\"",
 		"check_dir \"$home/.codex/skills\"",
-		"sudo find \"$home/.claude\" \"$home/.codex\" \"$home/.gemini\"",
+		"find \"$home/.claude\" \"$home/.codex\" \"$home/.gemini\"",
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("agent sync command missing %q:\n%s", want, command)
@@ -96,8 +99,15 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 
 func TestAllAgentConfigSyncCommandSyncsAllUsers(t *testing.T) {
 	command := allAgentConfigSyncCommand()
-	if command != "sudo env NO_COLOR=1 ccc-sync-agent-configs --all-users" {
-		t.Fatalf("allAgentConfigSyncCommand() = %q", command)
+	for _, want := range []string{
+		"getent passwd | awk",
+		"sync_one \"$user\"",
+		"Direct Agent Config Sync",
+		"copy_file \"$src/claude/CLAUDE.md\"",
+	} {
+		if !strings.Contains(command, want) {
+			t.Fatalf("allAgentConfigSyncCommand() missing %q:\n%s", want, command)
+		}
 	}
 }
 

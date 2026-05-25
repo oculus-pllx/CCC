@@ -121,7 +121,7 @@ GUI:
 
 ## Phase 4: Work Identity Profile Setup
 
-Status: Blocked on existing-LXC per-user agent config delivery.
+Status: Complete with direct GUI delivery.
 
 Observed blocker:
 
@@ -144,11 +144,10 @@ Synced home: /home/prime
   missing file /home/prime/.claude/CLAUDE.md
 ```
 
-Conclusion: the current helper reports successful sync, but the GUI validation
-does not find files in the target account home. The next session should stop
-iterating on this helper path and replace GUI account setup/sync with an explicit
-direct-copy workflow from a freshly cloned or refreshed `oculus-configs` source
-into the real home returned by `getent passwd USER`.
+Conclusion: the helper-reported sync path was not reliable enough for GUI
+account setup/sync. GUI account setup/sync now bypasses the helper for delivery
+and uses an explicit direct-copy workflow from a refreshed `oculus-configs`
+source into the real home returned by `getent passwd USER`.
 
 ### Files
 
@@ -179,9 +178,9 @@ Setup should:
 - [x] add user to `ccc`
 - [x] link `~/projects` to `/srv/ccc/projects`
 - [x] create `~/.claude`, `~/.codex`, `~/.gemini`
-- [ ] reliably sync baseline configs into additional account homes on existing
+- [x] reliably sync baseline configs into additional account homes on existing
   LXC installs
-- [ ] replace current helper path with direct clone/copy from `oculus-configs`
+- [x] replace current helper path with direct clone/copy from `oculus-configs`
   into the target user's resolved home
 - [x] sync Claude rules, Codex skills, Gemini skills, and project templates for
   the selected work identity
