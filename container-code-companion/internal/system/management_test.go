@@ -703,3 +703,17 @@ func TestExplainDriveMountFailureAddsLinuxHostContext(t *testing.T) {
 		t.Fatalf("expected Linux host guidance, got %q", output)
 	}
 }
+
+func TestAgentConfigSyncOptionalDirMergesNotReplaces(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	// Isolate the copy_optional_dir function body
+	start := strings.Index(command, "copy_optional_dir() {")
+	end := strings.Index(command[start:], "\n}")
+	if start < 0 || end < 0 {
+		t.Fatal("copy_optional_dir function not found in sync command")
+	}
+	funcBody := command[start : start+end]
+	if strings.Contains(funcBody, "rm -rf") {
+		t.Fatal("copy_optional_dir must not rm -rf destination (use merge, not replace)")
+	}
+}
