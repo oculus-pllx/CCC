@@ -404,6 +404,7 @@ mirror_provider_profile() {
     --exclude=session-env/ \
     --exclude=projects/ \
     --exclude=/cache/ \
+    --exclude=plugins/cache/ \
     --exclude=logs/ \
     --exclude=backups/ \
     --exclude=shell-snapshots/ \
@@ -1175,6 +1176,7 @@ mirror_provider_profile() {
     --exclude=session-env/ \
     --exclude=projects/ \
     --exclude=/cache/ \
+    --exclude=plugins/cache/ \
     --exclude=logs/ \
     --exclude=backups/ \
     --exclude=shell-snapshots/ \
