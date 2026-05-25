@@ -5,7 +5,7 @@ Branch: `main`
 
 ## Current State
 
-Container Code Companion is functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, and day-to-day use.
+Container Code Companion is functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, and day-to-day use. Shared work identity permissions are working, but per-user agent config delivery for additional accounts is currently blocked on an existing LXC.
 
 Recent work completed:
 - Added shared work identity foundation: fresh installs now create the `ccc` group, `/srv/ccc/projects` as `root:ccc` with `2775`, and link the primary user's `~/projects` there.
@@ -65,6 +65,7 @@ Current verification set:
 
 ## Known Notes
 
+- **Open blocker: additional account agent configs are not landing in the target home on the existing LXC.** GUI `Sync Agent Configs` for `prime` reports `ccc-sync-agent-configs` success for Claude/Codex/Gemini files, then validation fails with `missing file /home/prime/.claude/CLAUDE.md`. That means the helper output is not proving files exist in the target account home. Next session should stop iterating on the current copy helper and switch to a simpler GUI-backed implementation: clone or refresh `oculus-configs` directly, then perform explicit `install -D` / `rsync` / `cp -a` operations into the real home from `getent passwd USER`, followed by a `find` inventory shown in the GUI output.
 - CIFS mounts from inside an unprivileged LXC often fail unless Proxmox/container settings allow it. Prefer host-side mount plus bind mount for fewer user issues.
 - Ubuntu 26.04 remains available, but Ubuntu 24.04 is the LXC default for package compatibility and Debian 13 is preferred when Playwright/headless Chromium matters.
 - Ollama was removed from App Catalog because local model serving inside this LXC is likely to create support problems on Proxmox hosts.
@@ -72,11 +73,11 @@ Current verification set:
 
 ## Next Work
 
-Shared work identities is complete:
+Shared work identities status:
 - Complete: shared project root at `/srv/ccc/projects`
 - Complete: CLI migration for existing installs via `ccc-migrate-shared-workspace`
 - Complete: managed machine GitHub SSH key under `/etc/ccc/ssh`
-- Complete: Accounts actions to setup/sync per-user CCC agent profiles without copying provider auth
+- Blocked: Accounts actions to setup/sync per-user CCC agent profiles are not writing files into `prime` on the existing LXC, despite success output from `ccc-sync-agent-configs`
 - Complete: project permission health and repair action
 - Complete: linked legacy project directories are included in permission repair
 - Complete: per-account config/skills and provider binary validation
@@ -88,6 +89,15 @@ Shared work identities is complete:
 - Complete: per-user Claude settings/statusline baseline sync
 - Complete: GUI action to sync the latest agent config baseline to all users
 - Complete: account sync output includes target home and created config inventory
+
+Recommended next implementation:
+- Replace or bypass the current `ccc-sync-agent-configs --user USER` copy path for GUI account setup with an explicit direct-copy workflow:
+  - resolve `home="$(getent passwd USER | cut -d: -f6)"`
+  - clone/fetch `https://github.com/oculus-pllx/oculus-configs.git` into a controlled source path
+  - copy `claude/CLAUDE.md`, `claude/rules`, `claude/mcp.json`, `codex/AGENTS.md`, `codex/skills`, `gemini/GEMINI.md`, `gemini/skills`, and `templates` directly into that home
+  - write the CCC-managed Claude `settings.json` and statusline directly
+  - `chown -R USER:USER` the touched directories
+  - print `find "$home/.claude" "$home/.codex" "$home/.gemini" -maxdepth 3` in the GUI output
 
 Blueprints:
 - `docs/specs/2026-05-23-shared-work-identities-design.md`

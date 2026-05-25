@@ -197,6 +197,25 @@ Fresh installs should:
   `ccc-sync-agent-configs --all-users`, allowing updates from the shared
   `/opt/oculus-configs` source checkout to be pushed to every normal login user.
 
+### Current Blocker
+
+On an existing LXC, GUI account sync for `prime` reports successful
+`ccc-sync-agent-configs` copy steps but the follow-up validation reports:
+
+```text
+Synced account: prime
+Synced home: /home/prime
+
+  missing file /home/prime/.claude/CLAUDE.md
+```
+
+The implementation must not treat helper success output as proof of delivery.
+Next design revision should make GUI account sync do explicit direct delivery:
+resolve the account home with `getent passwd USER`, clone or refresh
+`oculus-configs`, copy the known source paths into that home with structured
+`install`/`rsync`/`cp -a` operations, chown the touched directories, then print a
+`find` inventory from the target `.claude`, `.codex`, and `.gemini` directories.
+
 ## Update/Migration Changes
 
 Existing installs should receive a command callable by the GUI:
