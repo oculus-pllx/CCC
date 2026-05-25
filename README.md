@@ -195,7 +195,7 @@ ccc
 ## Container Specs
 
 ### Languages & Runtimes
-- **Node.js 22 LTS** — npm installed explicitly, typescript, ts-node, tsx
+- **Node.js 22 LTS** — NodeSource `nodejs` with bundled npm verified, plus typescript, ts-node, tsx
 - **Python 3** — pip (`--break-system-packages`), venv
 - **Go** (latest) — via official tarball, on PATH
 - **Rust** (latest) — via rustup, installed for claude-code user

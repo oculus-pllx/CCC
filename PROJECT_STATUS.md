@@ -39,7 +39,7 @@ Recent work completed:
 - Rebranded the project as Container Code Companion with Parallax Group branding.
 - Added a Debian/Ubuntu Linux-host installer path alongside the Proxmox LXC bootstrap.
 - Added Proxmox LXC OS choices for Ubuntu 24.04 LTS, Ubuntu 26.04 LTS, and Debian 13, with Ubuntu 24.04 as the compatibility default.
-- Fixed Node provisioning to install `npm` explicitly with Node.js.
+- Fixed Node provisioning to install NodeSource `nodejs` without the distro `npm` package, then verify bundled `npm`; installing `nodejs npm` together can trigger held/broken package failures on fresh Proxmox LXC installs.
 - Added Ubuntu 26.04 Playwright/Chromium warnings and documented Debian 13 as the safer browser automation path.
 - Added Projects Git clone/import and fast-forward pull actions for SSH and HTTPS remotes.
 - Improved Projects clone layout and added a visible header-message Edit button.

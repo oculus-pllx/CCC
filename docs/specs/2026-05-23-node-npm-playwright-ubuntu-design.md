@@ -14,6 +14,11 @@ The provisioner currently installs `nodejs` from NodeSource and immediately
 prints `npm --version`, but it does not explicitly install the `npm` package.
 Fresh images can therefore end up with Node available and npm missing.
 
+Update from fresh Proxmox LXC installs: installing the distro `npm` package
+alongside NodeSource `nodejs` can fail with held/broken package resolution
+errors because NodeSource `nodejs` already bundles npm and conflicts with the
+distribution `npm` dependency set.
+
 Ubuntu 26.04 also keeps `chromium-browser` as a transitional package to the
 Chromium snap. That is a poor fit for Proxmox LXC environments. Playwright has
 also tracked Ubuntu 26.04 Chromium install support separately upstream, so CCC
@@ -34,8 +39,10 @@ default OS away from Ubuntu 26.04, or add third-party Chromium repositories.
 
 ## Behavior
 
-CCC provisioning should install both `nodejs` and `npm` explicitly. The output
-should continue to print Node and npm versions after install.
+CCC provisioning should install NodeSource `nodejs` only, verify that `npm` is
+available from that package, and continue to print Node and npm versions after
+install. It should not install the distro `npm` package unless the NodeSource
+package stops bundling npm and a separate compatibility path is designed.
 
 `ccc-install-playwright` should detect Ubuntu 26.04 by reading `/etc/os-release`.
 On Ubuntu 26.04, it should print a clear warning before running Playwright that:
@@ -51,7 +58,7 @@ support can improve over time.
 
 Static checks should verify:
 
-- The provisioner installs `nodejs npm`.
+- The provisioner installs `nodejs`, verifies `npm`, and does not install
+  `nodejs npm` together.
 - The Playwright helper checks `VERSION_ID` and warns about Ubuntu 26.04.
 - README mentions Debian 13 as the safer browser automation path.
-

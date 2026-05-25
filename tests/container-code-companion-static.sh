@@ -150,7 +150,9 @@ require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -
 require_file_contains install/ccc-provision-workstation.sh 'command -v bwrap'
 require_file_contains install/ccc-provision-workstation.sh 'command -v gh'
 require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
-require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
+require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs"
+require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
+require_file_not_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
 require_file_contains install/ccc-provision-workstation.sh 'command -v tmux'
 require_file_contains install/ccc-provision-workstation.sh 'command -v code-server'
 require_file_contains README.md "bubblewrap"

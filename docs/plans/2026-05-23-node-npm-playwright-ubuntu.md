@@ -2,7 +2,7 @@
 
 > Implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ensure CCC installs npm with Node.js and warns users about Ubuntu 26.04 Playwright/Chromium limitations.
+**Goal:** Ensure CCC verifies npm bundled with NodeSource Node.js and warns users about Ubuntu 26.04 Playwright/Chromium limitations.
 
 **Architecture:** Add static regression checks first, then patch the shared provisioner and README. Keep the change in existing installer scripts and docs; do not add new package sources or change the OS default.
 
@@ -12,9 +12,9 @@
 
 ## File Map
 
-- Modify `tests/container-code-companion-static.sh`: add static checks for `nodejs npm`, Ubuntu 26.04 Playwright warning markers, and README guidance.
-- Modify `install/ccc-provision-workstation.sh`: install `npm` explicitly and warn in `ccc-install-playwright` on Ubuntu 26.04.
-- Modify `README.md`: document npm being installed explicitly and Debian 13 being safer for browser automation.
+- Modify `tests/container-code-companion-static.sh`: add static checks for `nodejs`, npm verification, no combined `nodejs npm` install, Ubuntu 26.04 Playwright warning markers, and README guidance.
+- Modify `install/ccc-provision-workstation.sh`: install NodeSource `nodejs`, verify bundled `npm`, and warn in `ccc-install-playwright` on Ubuntu 26.04.
+- Modify `README.md`: document npm verification and Debian 13 being safer for browser automation.
 
 ### Task 1: Add Failing Static Checks
 
@@ -26,7 +26,9 @@
 Add:
 
 ```bash
-require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
+require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs"
+require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
+require_file_not_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
 require_file_contains install/ccc-provision-workstation.sh "Ubuntu 26.04 Chromium support may lag Playwright releases"
 require_file_contains install/ccc-provision-workstation.sh 'VERSION_ID:-}" == "26.04"'
 require_file_contains README.md "Debian 13 is the safer CCC path when browser automation matters"
@@ -57,12 +59,13 @@ git commit -m "test(installer): cover npm and chromium guidance"
 - Modify: `install/ccc-provision-workstation.sh`
 - Modify: `README.md`
 
-- [x] **Step 1: Install npm explicitly**
+- [x] **Step 1: Install NodeSource Node.js and verify npm**
 
-Change the Node install command to:
+Use NodeSource `nodejs` only and verify bundled npm:
 
 ```bash
-apt-get install -y -qq nodejs npm
+apt-get install -y -qq nodejs
+command -v npm >/dev/null 2>&1
 ```
 
 - [x] **Step 2: Warn in `ccc-install-playwright` on Ubuntu 26.04**
@@ -71,7 +74,8 @@ Add an `/etc/os-release` check in the generated script before `npx --yes playwri
 
 - [x] **Step 3: Update README guidance**
 
-Add clear notes that npm is installed explicitly and that Debian 13 is the safer CCC path when browser automation matters.
+Add clear notes that npm is verified from the NodeSource package and that Debian
+13 is the safer CCC path when browser automation matters.
 
 - [x] **Step 4: Run focused verification**
 

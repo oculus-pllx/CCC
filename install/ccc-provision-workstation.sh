@@ -193,7 +193,11 @@ echo "    yq $(/usr/local/bin/yq --version | awk '{print $NF}')"
 # ── Node.js 22 LTS ───────────────────────────────────────────────────────────
 step 9 "Node.js 22 LTS"
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y -qq nodejs npm
+apt-get install -y -qq nodejs
+command -v npm >/dev/null 2>&1 || {
+  echo "[ERROR] npm was not installed by the Node.js package."
+  exit 1
+}
 echo "    Node $(node --version) / npm $(npm --version)"
 
 # ── Global npm: TypeScript runtime only ───────────────────────────────────────
