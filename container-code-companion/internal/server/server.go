@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/oculus-pllx/ccc/container-code-companion/internal/system"
 )
@@ -175,6 +176,7 @@ func New(config Config) *Server {
 	if s.driveOperation == nil {
 		s.driveOperation = system.RunDriveOperation
 	}
+	system.StartUpdateStatusPoller(4 * time.Hour)
 	s.routes()
 	return s
 }

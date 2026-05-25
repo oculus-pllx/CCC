@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSharedProjectsRootDefaultsToSrvCCCProjects(t *testing.T) {
@@ -586,6 +587,28 @@ func TestExplainProjectGitFailureSanitizesCredentialedHTTPSOutput(t *testing.T) 
 	}, "")
 	if strings.Contains(result.Output, "user:secret") {
 		t.Fatalf("expected credentialed remote to be sanitized, got %q", result.Output)
+	}
+}
+
+func TestStartUpdateStatusPollerDoesNotBlock(t *testing.T) {
+	// Poller must return immediately (it starts a goroutine)
+	done := make(chan struct{})
+	go func() {
+		StartUpdateStatusPoller(24 * time.Hour) // long interval — won't fire in test
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("StartUpdateStatusPoller blocked for >500ms; it must start a goroutine and return")
+	}
+}
+
+func TestCollectUpdatesReturnsImmediately(t *testing.T) {
+	start := time.Now()
+	_ = collectUpdates()
+	if time.Since(start) > 100*time.Millisecond {
+		t.Fatalf("collectUpdates took %v; must return cached data immediately without blocking", time.Since(start))
 	}
 }
 

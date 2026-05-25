@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -118,6 +119,39 @@ type UpdateStatus struct {
 	ContainerCodeCompanion string `json:"containerCodeCompanion"`
 	OS                     string `json:"os"`
 	SelfUpdateLog          string `json:"selfUpdateLog"`
+}
+
+var (
+	cachedUpdateStatus  UpdateStatus
+	updateStatusMu      sync.RWMutex
+	updatePollerStarted bool
+	updatePollerMu      sync.Mutex
+)
+
+// StartUpdateStatusPoller starts a background goroutine that refreshes
+// the update status cache on the given interval. Safe to call multiple
+// times; only the first call starts the goroutine.
+func StartUpdateStatusPoller(interval time.Duration) {
+	updatePollerMu.Lock()
+	defer updatePollerMu.Unlock()
+	if updatePollerStarted {
+		return
+	}
+	updatePollerStarted = true
+	go func() {
+		time.Sleep(30 * time.Second)
+		for {
+			status := UpdateStatus{
+				ContainerCodeCompanion: runText("ccc-update-status"),
+				OS:                     runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
+				SelfUpdateLog:          runText("bash", "-lc", "sudo tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
+			}
+			updateStatusMu.Lock()
+			cachedUpdateStatus = status
+			updateStatusMu.Unlock()
+			time.Sleep(interval)
+		}
+	}()
 }
 
 type ProjectStatus struct {
@@ -1464,11 +1498,9 @@ func collectAccounts() []AccountStatus {
 }
 
 func collectUpdates() UpdateStatus {
-	return UpdateStatus{
-		ContainerCodeCompanion: runText("ccc-update-status"),
-		OS:                     runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
-		SelfUpdateLog:          runText("bash", "-lc", "sudo tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
-	}
+	updateStatusMu.RLock()
+	defer updateStatusMu.RUnlock()
+	return cachedUpdateStatus
 }
 
 func collectProjects(root string) []ProjectStatus {
