@@ -82,7 +82,11 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 	for _, want := range []string{
 		"Direct Agent Config Sync",
 		"copy_file \"$src/claude/CLAUDE.md\" \"$home/.claude/CLAUDE.md\"",
+		"copy_optional_dir \"$src/claude/plugins\" \"$home/.claude/plugins\" \"Claude default plugins\"",
+		"copy_optional_dir \"$src/claude/skills\" \"$home/.claude/skills\" \"Claude default skills\"",
+		"copy_optional_dir \"$src/claude/commands\" \"$home/.claude/commands\" \"Claude default commands\"",
 		"copy_dir \"$src/codex/skills\" \"$home/.codex/skills\"",
+		"copy_optional_dir \"$src/codex/plugins\" \"$home/.codex/plugins\" \"Codex default plugins\"",
 		"copy_dir \"$src/gemini/skills\" \"$home/.gemini/skills\"",
 		"copy_dir \"$src/templates\" \"$home/Templates\"",
 		"copy_runtime_dir \"$source_home/.claude/plugins\" \"$home/.claude/plugins\" \"Claude plugins\"",
@@ -103,6 +107,29 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 		if !strings.Contains(command, want) {
 			t.Fatalf("agent sync command missing %q:\n%s", want, command)
 		}
+	}
+}
+
+func TestSelfUpdateRunsAgentConfigSyncForCurrentUser(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "install", "ccc-provision-workstation.sh"))
+	if err != nil {
+		t.Fatalf("read provisioner: %v", err)
+	}
+	text := string(data)
+	applyIndex := strings.Index(text, `bash "$SRC/install/ccc-provision-workstation.sh"`)
+	syncIndex := -1
+	if applyIndex >= 0 {
+		nextSync := strings.Index(text[applyIndex:], `ccc-sync-agent-configs`)
+		if nextSync >= 0 {
+			syncIndex = applyIndex + nextSync
+		}
+	}
+	finalIndex := strings.Index(text, `Finalizing update`)
+	if applyIndex < 0 || syncIndex < 0 || finalIndex < 0 {
+		t.Fatalf("expected self-update apply, sync, and final markers")
+	}
+	if !(applyIndex < syncIndex && syncIndex < finalIndex) {
+		t.Fatalf("expected ccc-sync-agent-configs to run after updateable apply and before finalizing")
 	}
 }
 

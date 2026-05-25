@@ -22,6 +22,7 @@ Recent work completed:
 - Updated account setup/sync to grant the shared `ccc` group read/traverse access on managed work identity homes so the dashboard file browser can list `/home/<user>` instead of showing an unreadable directory as empty.
 - Added an allowlisted provider runtime asset overlay for additional work identities so Claude/Codex/Gemini plugins and skills from the primary CCC user are copied without copying top-level credential/session/history files.
 - Fixed `oculus-configs` GUI repo status and sync paths to use Git `safe.directory` handling for the root-owned `/opt/oculus-configs` checkout.
+- Updated self-update to run the refreshed `ccc-sync-agent-configs` for the current CCC user so newly available default configs, skills, and plugin directories are applied immediately after a tooling update.
 - Forced account profile/config sync actions to run with `NO_COLOR=1` and added UI cleanup for malformed color remnants in account output.
 - Moved malformed ANSI color cleanup into the shared browser output sanitizer so bracket-only color remnants are removed across output panels.
 - Added Projects shared-root permission health and a repair action for group-write/setgid permissions.

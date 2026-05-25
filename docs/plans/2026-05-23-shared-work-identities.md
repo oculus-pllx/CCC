@@ -191,6 +191,8 @@ Setup should:
   credential/session/history files
 - [x] access the root-owned `/opt/oculus-configs` checkout with Git
   `safe.directory` handling from GUI repo status and sync paths
+- [x] run current-user agent config sync during self-update so default configs,
+  skills, and plugin directories are applied after CCC updates
 - [x] install CCC-managed Claude `settings.json` and statusline baseline for
   each synced work identity
 - [x] validate expected synced files/directories before reporting account config

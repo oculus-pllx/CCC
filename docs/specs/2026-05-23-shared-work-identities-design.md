@@ -203,6 +203,9 @@ Fresh installs should:
   while excluding top-level credential, session, history, and token files.
 - The root-owned `/opt/oculus-configs` checkout should be accessed with Git
   `safe.directory` handling so the GUI does not show dubious-ownership errors.
+- CCC self-update should run the refreshed agent config sync for the current
+  CCC user after updating helper scripts so new default configs, skills, and
+  plugin directories do not require a separate manual sync.
 - Accounts should expose a `Sync All Agent Configs` action that runs the same
   direct delivery workflow for every normal login user, allowing updates from
   the shared `/opt/oculus-configs` source checkout to be pushed through the GUI.

@@ -358,9 +358,9 @@ ccc-update                  # convenience: tooling + app CLI updates, no apt upg
 claude update               # Claude Code only
 ```
 
-`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` fetches the latest CCC repo, then re-runs the provisioner's marked updateable section so `/usr/local/bin` helper commands, cron, MOTD, the native UI binary/assets, service files, and `/etc/ccc/version` move together. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` fetches the latest CCC repo, then re-runs the provisioner's marked updateable section so `/usr/local/bin` helper commands, cron, MOTD, the native UI binary/assets, service files, `/etc/ccc/version`, and the current CCC user's agent configs move together. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
-`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live update output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version`; a failed build or provisioner step exits non-zero and leaves the error in the log.
+`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live update output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version` and runs `ccc-sync-agent-configs --user "$CCC_USER"` so newly available default configs, skills, and plugin directories are applied to the current CCC user; a failed build or provisioner step exits non-zero and leaves the error in the log.
 
 Older installs whose `ccc-self-update` predates the updateable-section runner may need a one-time helper refresh:
 

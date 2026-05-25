@@ -136,8 +136,13 @@ require_file_contains install/ccc-provision-workstation.sh 'PRIMARY_CCC_HOME="${
 require_file_contains install/ccc-provision-workstation.sh 'copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/plugins" "$CCC_HOME/.claude/plugins" "Claude plugins"'
 require_file_contains install/ccc-provision-workstation.sh 'copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/skills" "$CCC_HOME/.claude/skills" "Claude skills"'
 require_file_contains install/ccc-provision-workstation.sh 'copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/plugins" "$CCC_HOME/.codex/plugins" "Codex plugins"'
+require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins" "Claude default plugins"'
+require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/skills" "$CCC_HOME/.claude/skills" "Claude default skills"'
+require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins" "Codex default plugins"'
 require_file_contains install/ccc-provision-workstation.sh 'git config --system --add safe.directory "$OCULUS_CONFIGS_DIR"'
 require_file_contains install/ccc-provision-workstation.sh 'git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch'
+require_file_contains install/ccc-provision-workstation.sh 'Syncing current user agent configs, skills, and plugins'
+require_file_contains install/ccc-provision-workstation.sh 'NO_COLOR=1 ccc-sync-agent-configs --user "$CCC_USER"'
 require_file_contains install/ccc-provision-workstation.sh "/etc/ccc/ssh/github_ed25519"
 require_file_contains install/ccc-provision-workstation.sh "Setup CCC Profile"
 require_file_contains README.md "ccc-sync-agent-configs"
@@ -473,6 +478,9 @@ require_file_contains container-code-companion/internal/system/management.go 'di
 require_file_contains container-code-companion/internal/system/management.go 'sudo chgrp " + shellQuote(group) + " " + shellQuote(home)'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chmod g+rx " + shellQuote(home)'
 require_file_contains container-code-companion/internal/system/management.go 'Direct Agent Config Sync'
+require_file_contains container-code-companion/internal/system/management.go 'copy_optional_dir "$src/claude/plugins" "$home/.claude/plugins"'
+require_file_contains container-code-companion/internal/system/management.go 'copy_optional_dir "$src/claude/skills" "$home/.claude/skills"'
+require_file_contains container-code-companion/internal/system/management.go 'copy_optional_dir "$src/codex/plugins" "$home/.codex/plugins"'
 require_file_contains container-code-companion/internal/system/management.go 'copy_runtime_dir "$source_home/.claude/plugins" "$home/.claude/plugins"'
 require_file_contains container-code-companion/internal/system/management.go 'copy_runtime_dir "$source_home/.claude/skills" "$home/.claude/skills"'
 require_file_contains container-code-companion/internal/system/management.go 'copy_runtime_dir "$source_home/.codex/plugins" "$home/.codex/plugins"'

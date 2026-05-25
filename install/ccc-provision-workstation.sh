@@ -512,7 +512,11 @@ else
 fi
 
 copy_optional_dir "$OCULUS_CONFIGS_DIR/templates" "$CCC_HOME/Templates" "project templates"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins" "Claude default plugins"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/skills" "$CCC_HOME/.claude/skills" "Claude default skills"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/commands" "$CCC_HOME/.claude/commands" "Claude default commands"
 copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS.md" "Codex AGENTS.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins" "Codex default plugins"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
@@ -1195,7 +1199,11 @@ else
 fi
 
 copy_optional_dir "$OCULUS_CONFIGS_DIR/templates" "$CCC_HOME/Templates" "project templates"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins" "Claude default plugins"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/skills" "$CCC_HOME/.claude/skills" "Claude default skills"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/commands" "$CCC_HOME/.claude/commands" "Claude default commands"
 copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS.md" "Codex AGENTS.md"
+copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins" "Codex default plugins"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
@@ -1853,9 +1861,18 @@ CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git
 CCC_SELF_UPDATE_REF="$REF" \
 bash "$SRC/install/ccc-provision-workstation.sh"
 
-# [3/3] Finish
+# [3/4] Sync current user agent defaults
 echo ""
-echo -e "${C}[3/3]${N} Finalizing update..."
+echo -e "${C}[3/4]${N} Syncing current user agent configs, skills, and plugins..."
+if command -v ccc-sync-agent-configs >/dev/null 2>&1; then
+  NO_COLOR=1 ccc-sync-agent-configs --user "$CCC_USER"
+else
+  echo "  ccc-sync-agent-configs not installed; skipping."
+fi
+
+# [4/4] Finish
+echo ""
+echo -e "${C}[4/4]${N} Finalizing update..."
 echo ""
 echo -e "${G}${B}Self-update complete. Service restarting in background.${N}"
 echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')" | tee -a "$LOG_FILE" >/dev/null
