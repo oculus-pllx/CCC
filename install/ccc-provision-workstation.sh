@@ -293,7 +293,13 @@ sudo -u "$CCC_USER" tee "$CCC_HOME/.claude/settings.json" > /dev/null << 'SETTIN
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
   "statusLine": {
+    "type": "command",
     "command": "~/.claude/bin/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
   }
 }
 SETTINGS
@@ -436,7 +442,12 @@ write_claude_baseline() {
   },
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
-  "statusLine": {"command": "~/.claude/bin/statusline-command.sh"}
+  "statusLine": {"type": "command", "command": "~/.claude/bin/statusline-command.sh"},
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
+  }
 }
 CLAUDESETTINGS
     chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
@@ -461,7 +472,14 @@ for k, v in {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_MAX_OUTPU
     env.setdefault(k, v)
 data.setdefault("alwaysThinkingEnabled", True)
 data.setdefault("enableRemoteControl", True)
-data.setdefault("statusLine", {"command": "~/.claude/bin/statusline-command.sh"})
+sl = data.get("statusLine", {})
+if not isinstance(sl, dict): sl = {"command": str(sl)}
+sl.setdefault("type", "command")
+sl.setdefault("command", "~/.claude/bin/statusline-command.sh")
+data["statusLine"] = sl
+ep = data.setdefault("enabledPlugins", {})
+for k in ["superpowers@claude-plugins-official", "frontend-design@claude-plugins-official", "skill-creator@claude-plugins-official"]:
+    ep.setdefault(k, True)
 data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")
 open(path, "w").write(json.dumps(data, indent=2) + "\n")
 MERGESETTINGS
@@ -552,7 +570,7 @@ for mkt_path in sorted(glob.glob(cache + "/*")):
         version = vdirs[0] if vdirs else "unknown"
         install_path = os.path.join(plugin_path, version) if vdirs else plugin_path
         plugins[plugin + "@" + mkt] = [{"scope": "user", "installPath": install_path, "version": version, "installedAt": now, "lastUpdated": now}]
-open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {}}, indent=2) + "\n")
+open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {k: True for k in plugins}}, indent=2) + "\n")
 known_file = home + "/.claude/plugins/known_marketplaces.json"
 try:
     with open(known_file) as f: known = json.load(f)
@@ -1058,13 +1076,19 @@ if data.get("$schema") != "https://json.schemastore.org/claude-code-settings.jso
 
 status_line = data.get("statusLine")
 if isinstance(status_line, str):
-    data["statusLine"] = {"command": status_line}
+    data["statusLine"] = {"type": "command", "command": status_line}
     changed = True
 elif isinstance(status_line, dict):
-    command = status_line.get("command") or "~/.claude/bin/statusline-command.sh"
-    next_status_line = {"command": command}
-    if status_line != next_status_line:
-        data["statusLine"] = next_status_line
+    if status_line.get("type") != "command":
+        data["statusLine"]["type"] = "command"
+        changed = True
+    if not status_line.get("command"):
+        data["statusLine"]["command"] = "~/.claude/bin/statusline-command.sh"
+        changed = True
+ep = data.setdefault("enabledPlugins", {})
+for k in ["superpowers@claude-plugins-official", "frontend-design@claude-plugins-official", "skill-creator@claude-plugins-official"]:
+    if k not in ep:
+        ep[k] = True
         changed = True
 
 if changed:
@@ -1223,7 +1247,12 @@ write_claude_baseline() {
   },
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
-  "statusLine": {"command": "~/.claude/bin/statusline-command.sh"}
+  "statusLine": {"type": "command", "command": "~/.claude/bin/statusline-command.sh"},
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
+  }
 }
 CLAUDESETTINGS
     chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
@@ -1248,7 +1277,14 @@ for k, v in {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_MAX_OUTPU
     env.setdefault(k, v)
 data.setdefault("alwaysThinkingEnabled", True)
 data.setdefault("enableRemoteControl", True)
-data.setdefault("statusLine", {"command": "~/.claude/bin/statusline-command.sh"})
+sl = data.get("statusLine", {})
+if not isinstance(sl, dict): sl = {"command": str(sl)}
+sl.setdefault("type", "command")
+sl.setdefault("command", "~/.claude/bin/statusline-command.sh")
+data["statusLine"] = sl
+ep = data.setdefault("enabledPlugins", {})
+for k in ["superpowers@claude-plugins-official", "frontend-design@claude-plugins-official", "skill-creator@claude-plugins-official"]:
+    ep.setdefault(k, True)
 data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")
 open(path, "w").write(json.dumps(data, indent=2) + "\n")
 MERGESETTINGS
@@ -1339,7 +1375,7 @@ for mkt_path in sorted(glob.glob(cache + "/*")):
         version = vdirs[0] if vdirs else "unknown"
         install_path = os.path.join(plugin_path, version) if vdirs else plugin_path
         plugins[plugin + "@" + mkt] = [{"scope": "user", "installPath": install_path, "version": version, "installedAt": now, "lastUpdated": now}]
-open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {}}, indent=2) + "\n")
+open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {k: True for k in plugins}}, indent=2) + "\n")
 known_file = home + "/.claude/plugins/known_marketplaces.json"
 try:
     with open(known_file) as f: known = json.load(f)
