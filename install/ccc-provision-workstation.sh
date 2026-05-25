@@ -380,22 +380,39 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
-copy_runtime_dir() {
-  local src=$1 dest=$2 label=$3
+mirror_provider_profile() {
+  local provider_dir=$1 label=$2
+  local src="$PRIMARY_CCC_HOME/$provider_dir"
+  local dest="$CCC_HOME/$provider_dir"
   if [[ "$PRIMARY_CCC_HOME" == "$CCC_HOME" ]]; then
     return 0
   fi
-  mkdir -p "$dest"
   if [[ ! -d "$src" ]]; then
-    warn2 "runtime: $label not found, skipping"
-    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    warn2 "provider profile: $label not found, skipping"
     return 0
   fi
-  rm -rf "$dest"
   mkdir -p "$dest"
-  cp -a "$src"/. "$dest"/
+  rsync -a --delete \
+    --exclude=.git/ \
+    --exclude=.credentials.json \
+    --exclude=credentials.json \
+    --exclude=auth.json \
+    --exclude='auth*' \
+    --exclude='oauth*' \
+    --exclude='token*' \
+    --exclude=sessions/ \
+    --exclude=session-env/ \
+    --exclude=projects/ \
+    --exclude=cache/ \
+    --exclude=logs/ \
+    --exclude=backups/ \
+    --exclude=shell-snapshots/ \
+    --exclude=file-history/ \
+    --exclude='history*' \
+    --exclude='*.log' \
+    "$src"/ "$dest"/
   chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
-  ok "$label synced"
+  ok "$label profile mirrored"
 }
 
 write_claude_baseline() {
@@ -520,12 +537,9 @@ copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/plugins" "$CCC_HOME/.claude/plugins" "Claude plugins"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/skills" "$CCC_HOME/.claude/skills" "Claude skills"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/commands" "$CCC_HOME/.claude/commands" "Claude commands"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/plugins" "$CCC_HOME/.codex/plugins" "Codex plugins"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/skills" "$CCC_HOME/.codex/skills" "Codex runtime skills"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini runtime skills"
+mirror_provider_profile ".claude" "Claude"
+mirror_provider_profile ".codex" "Codex"
+mirror_provider_profile ".gemini" "Gemini"
 
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"
@@ -1067,22 +1081,39 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
-copy_runtime_dir() {
-  local src=$1 dest=$2 label=$3
+mirror_provider_profile() {
+  local provider_dir=$1 label=$2
+  local src="$PRIMARY_CCC_HOME/$provider_dir"
+  local dest="$CCC_HOME/$provider_dir"
   if [[ "$PRIMARY_CCC_HOME" == "$CCC_HOME" ]]; then
     return 0
   fi
-  mkdir -p "$dest"
   if [[ ! -d "$src" ]]; then
-    warn2 "runtime: $label not found, skipping"
-    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    warn2 "provider profile: $label not found, skipping"
     return 0
   fi
-  rm -rf "$dest"
   mkdir -p "$dest"
-  cp -a "$src"/. "$dest"/
+  rsync -a --delete \
+    --exclude=.git/ \
+    --exclude=.credentials.json \
+    --exclude=credentials.json \
+    --exclude=auth.json \
+    --exclude='auth*' \
+    --exclude='oauth*' \
+    --exclude='token*' \
+    --exclude=sessions/ \
+    --exclude=session-env/ \
+    --exclude=projects/ \
+    --exclude=cache/ \
+    --exclude=logs/ \
+    --exclude=backups/ \
+    --exclude=shell-snapshots/ \
+    --exclude=file-history/ \
+    --exclude='history*' \
+    --exclude='*.log' \
+    "$src"/ "$dest"/
   chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
-  ok "$label synced"
+  ok "$label profile mirrored"
 }
 
 write_claude_baseline() {
@@ -1207,12 +1238,9 @@ copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/plugins" "$CCC_HOME/.claude/plugins" "Claude plugins"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/skills" "$CCC_HOME/.claude/skills" "Claude skills"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.claude/commands" "$CCC_HOME/.claude/commands" "Claude commands"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/plugins" "$CCC_HOME/.codex/plugins" "Codex plugins"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.codex/skills" "$CCC_HOME/.codex/skills" "Codex runtime skills"
-copy_runtime_dir "$PRIMARY_CCC_HOME/.gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini runtime skills"
+mirror_provider_profile ".claude" "Claude"
+mirror_provider_profile ".codex" "Codex"
+mirror_provider_profile ".gemini" "Gemini"
 
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"
