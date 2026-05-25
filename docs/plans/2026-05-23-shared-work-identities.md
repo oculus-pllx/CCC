@@ -189,6 +189,8 @@ Setup should:
 - [x] mirror the primary CCC user's non-auth Claude/Codex/Gemini provider
   profile content so UI/options/add-ons/skills/plugins match across work
   identities without copying provider credential/session/history/cache data
+- [x] run the provider profile mirror before applying `oculus-configs` defaults
+  so missing primary-user directories cannot delete freshly copied defaults
 - [x] access the root-owned `/opt/oculus-configs` checkout with Git
   `safe.directory` handling from GUI repo status and sync paths
 - [x] run current-user agent config sync during self-update so default configs,

@@ -135,6 +135,18 @@ func TestSelfUpdateRunsAgentConfigSyncForCurrentUser(t *testing.T) {
 	}
 }
 
+func TestAgentConfigSyncMirrorsBeforeApplyingDefaults(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	mirrorIndex := strings.Index(command, `mirror_provider_profile ".claude" "Claude"`)
+	defaultIndex := strings.Index(command, `copy_file "$src/claude/CLAUDE.md"`)
+	if mirrorIndex < 0 || defaultIndex < 0 {
+		t.Fatalf("expected mirror and default copy commands in sync command")
+	}
+	if mirrorIndex > defaultIndex {
+		t.Fatalf("provider mirror must run before defaults so rsync --delete cannot remove freshly copied defaults")
+	}
+}
+
 func TestGitCommandArgsMarksRepositorySafe(t *testing.T) {
 	args := gitCommandArgs("/opt/oculus-configs", "status", "--short")
 	got := strings.Join(args, " ")

@@ -509,6 +509,9 @@ else
   ok "oculus-configs checkout present"
 fi
 
+mirror_provider_profile ".claude" "Claude"
+mirror_provider_profile ".codex" "Codex"
+mirror_provider_profile ".gemini" "Gemini"
 write_claude_baseline
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
@@ -537,9 +540,6 @@ copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
-mirror_provider_profile ".claude" "Claude"
-mirror_provider_profile ".codex" "Codex"
-mirror_provider_profile ".gemini" "Gemini"
 
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"
@@ -1210,6 +1210,9 @@ else
   ok "oculus-configs checkout present"
 fi
 
+mirror_provider_profile ".claude" "Claude"
+mirror_provider_profile ".codex" "Codex"
+mirror_provider_profile ".gemini" "Gemini"
 write_claude_baseline
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
@@ -1238,9 +1241,6 @@ copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
 copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
-mirror_provider_profile ".claude" "Claude"
-mirror_provider_profile ".codex" "Codex"
-mirror_provider_profile ".gemini" "Gemini"
 
 echo ""
 echo -e "${G}${B}Agent config sync complete.${N}"

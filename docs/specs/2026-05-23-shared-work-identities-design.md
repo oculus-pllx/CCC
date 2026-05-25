@@ -202,6 +202,9 @@ Fresh installs should:
   into additional work identities so UI/options/add-ons/skills/plugins match,
   while excluding credentials, auth/token files, sessions, history, cache/log
   directories, and provider project/session state.
+- The provider profile mirror should run before `oculus-configs` defaults are
+  applied so `rsync --delete` cannot remove default skills/plugins when the
+  primary CCC user is missing a default directory.
 - The root-owned `/opt/oculus-configs` checkout should be accessed with Git
   `safe.directory` handling so the GUI does not show dubious-ownership errors.
 - CCC self-update should run the refreshed agent config sync for the current
