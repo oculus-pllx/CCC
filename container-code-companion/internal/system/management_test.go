@@ -49,6 +49,8 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 	for _, want := range []string{
 		"id -u 'work-id'",
 		"sudo usermod -aG 'ccc' 'work-id'",
+		"sudo chgrp 'ccc' '/home/work-id'",
+		"sudo chmod g+rx '/home/work-id'",
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
 		"Direct Agent Config Sync",
@@ -84,6 +86,8 @@ func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
 		"copy_dir \"$src/gemini/skills\" \"$home/.gemini/skills\"",
 		"copy_dir \"$src/templates\" \"$home/Templates\"",
 		"write_claude_baseline \"$home\"",
+		"chgrp \"$shared_group\" \"$home\"",
+		"chmod g+rx \"$home\"",
 		"chown -R \"$target_user:$target_user\"",
 		"check_file \"$home/.claude/CLAUDE.md\"",
 		"check_file \"$home/.claude/settings.json\"",
@@ -108,6 +112,25 @@ func TestAllAgentConfigSyncCommandSyncsAllUsers(t *testing.T) {
 		if !strings.Contains(command, want) {
 			t.Fatalf("allAgentConfigSyncCommand() missing %q:\n%s", want, command)
 		}
+	}
+}
+
+func TestBrowseFilesReturnsUnreadableDirectoryError(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatalf("mkdir private dir: %v", err)
+	}
+	if err := os.Chmod(dir, 0); err != nil {
+		t.Fatalf("chmod private dir: %v", err)
+	}
+	defer os.Chmod(dir, 0o700)
+
+	_, err := BrowseFiles(dir)
+	if err == nil {
+		t.Fatal("expected unreadable directory error")
+	}
+	if !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("expected permission denied error, got %v", err)
 	}
 }
 

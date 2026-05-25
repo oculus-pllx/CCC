@@ -421,6 +421,8 @@ func setupCCCProfileCommand(username string) string {
 		"test $(id -u " + shellQuote(username) + ") -ge 1000",
 		"sudo groupadd -f " + shellQuote(group),
 		"sudo usermod -aG " + shellQuote(group) + " " + shellQuote(username),
+		"sudo chgrp " + shellQuote(group) + " " + shellQuote(home),
+		"sudo chmod g+rx " + shellQuote(home),
 		"sudo mkdir -p " + shellQuote(projectsRoot),
 		"sudo chown root:" + shellQuote(group) + " " + shellQuote(projectsRoot),
 		"sudo chmod 2775 " + shellQuote(projectsRoot),
@@ -471,6 +473,7 @@ func directAgentConfigSyncScript(runLine string) string {
 		`repo="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"`,
 		`ref="${OCULUS_CONFIGS_REF:-main}"`,
 		`src="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"`,
+		`shared_group="${CCC_SHARED_GROUP:-ccc}"`,
 		"refresh_source() {",
 		`  if [ ! -d "$src/.git" ]; then`,
 		`    rm -rf "$src"`,
@@ -536,6 +539,8 @@ func directAgentConfigSyncScript(runLine string) string {
 		`  printf '  Home: %s\n\n' "$home"`,
 		`  refresh_source`,
 		`  mkdir -p "$home/.claude" "$home/.codex" "$home/.gemini" "$home/Templates"`,
+		`  chgrp "$shared_group" "$home"`,
+		`  chmod g+rx "$home"`,
 		`  copy_file "$src/claude/CLAUDE.md" "$home/.claude/CLAUDE.md" "Claude CLAUDE.md"`,
 		`  copy_dir "$src/claude/rules" "$home/.claude/rules" "Claude rules"`,
 		`  if [ -f "$src/claude/mcp.json" ]; then`,
@@ -587,10 +592,14 @@ func BrowseFiles(path string) (FileListing, error) {
 	if err != nil {
 		return FileListing{}, err
 	}
+	entries, err := listFilesWithError(cleaned, 500)
+	if err != nil {
+		return FileListing{}, err
+	}
 	return FileListing{
 		Path:    cleaned,
 		Parent:  filepath.Dir(cleaned),
-		Entries: listFiles(cleaned, 500),
+		Entries: entries,
 	}, nil
 }
 
@@ -1439,9 +1448,17 @@ func collectRepoStatus(path string) RepoStatus {
 }
 
 func listFiles(root string, limit int) []FileEntry {
-	entries, err := os.ReadDir(root)
+	files, err := listFilesWithError(root, limit)
 	if err != nil {
 		return nil
+	}
+	return files
+}
+
+func listFilesWithError(root string, limit int) ([]FileEntry, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
 	}
 	files := make([]FileEntry, 0, len(entries))
 	for index, entry := range entries {
@@ -1466,7 +1483,7 @@ func listFiles(root string, limit int) []FileEntry {
 		})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
-	return files
+	return files, nil
 }
 
 func workstationHome() string {

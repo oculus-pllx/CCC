@@ -178,6 +178,8 @@ Setup should:
 - [x] add user to `ccc`
 - [x] link `~/projects` to `/srv/ccc/projects`
 - [x] create `~/.claude`, `~/.codex`, `~/.gemini`
+- [x] grant the shared `ccc` group read/traverse access on managed work identity
+  homes so the dashboard file browser can list `/home/<user>`
 - [x] reliably sync baseline configs into additional account homes on existing
   LXC installs
 - [x] replace current helper path with direct clone/copy from `oculus-configs`

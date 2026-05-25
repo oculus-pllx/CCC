@@ -193,6 +193,10 @@ Fresh installs should:
   should also validate provider CLI binaries under `~/.local/bin`.
 - Sync Agent Configs should print the target account, real home path, validation
   results, and a created config inventory so GUI output proves what was written.
+- Account profile setup and Sync Agent Configs should grant the shared `ccc`
+  group read/traverse access on managed work identity homes so the dashboard file
+  browser can list `/home/<user>` without making private credential files
+  group-readable.
 - Accounts should expose a `Sync All Agent Configs` action that runs the same
   direct delivery workflow for every normal login user, allowing updates from
   the shared `/opt/oculus-configs` source checkout to be pushed through the GUI.
