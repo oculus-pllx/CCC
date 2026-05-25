@@ -560,6 +560,26 @@ func TestExplainProjectGitFailureUsesGitHubOutputForPullGuidance(t *testing.T) {
 	}
 }
 
+func TestAgentConfigSyncCopyFileSkipsMissingSource(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if strings.Contains(command, `[ -f "$from" ] || { printf 'missing source file %s\n' "$from"; return 1; }`) {
+		t.Fatal("copy_file hard-fails on missing source; must skip gracefully (return 0)")
+	}
+	if !strings.Contains(command, `if [ ! -f "$from" ]`) {
+		t.Fatal("copy_file must use graceful if-branch for missing source check")
+	}
+}
+
+func TestAgentConfigSyncCopyDirSkipsMissingSource(t *testing.T) {
+	command := agentConfigSyncCommand("work-id")
+	if strings.Contains(command, `[ -d "$from" ] || { printf 'missing source dir %s\n' "$from"; return 1; }`) {
+		t.Fatal("copy_dir hard-fails on missing source; must skip gracefully (return 0)")
+	}
+	if !strings.Contains(command, `if [ ! -d "$from" ]`) {
+		t.Fatal("copy_dir must use graceful if-branch for missing source check")
+	}
+}
+
 func TestExplainProjectGitFailureSanitizesCredentialedHTTPSOutput(t *testing.T) {
 	result := explainProjectGitFailure(CommandResult{
 		Output: "fatal: https://user:secret@git.example.test/owner/repo.git authentication failed",
