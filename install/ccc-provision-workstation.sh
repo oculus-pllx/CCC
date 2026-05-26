@@ -599,11 +599,11 @@ if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
   git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
+  git config --system safe.directory "*" 2>/dev/null || true
   ok "oculus-configs cloned"
 elif [[ "$PULL" -eq 1 ]]; then
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
+  git config --system safe.directory "*" 2>/dev/null || true
   git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
   git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
   git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
@@ -1404,11 +1404,11 @@ if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
   rm -rf "$OCULUS_CONFIGS_DIR"
   git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
+  git config --system safe.directory "*" 2>/dev/null || true
   ok "oculus-configs cloned"
 elif [[ "$PULL" -eq 1 ]]; then
   chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  git config --system --add safe.directory "$OCULUS_CONFIGS_DIR" 2>/dev/null || true
+  git config --system safe.directory "*" 2>/dev/null || true
   git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
   git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
   git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
@@ -2051,68 +2051,75 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='
 [[ "$(id -u)" -ne 0 ]] && exec sudo "$0" "$@"
 
 REF="${CCC_SELF_UPDATE_REF:-main}"
-REPO_URL="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
-REPO_URL="${REPO_URL%.git}.git"
-SRC="/opt/container-code-companion-src"
-LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
-
-# SSH key: use device key if present, otherwise fall back to HTTPS for public repos.
-CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
-if [[ -r "$CCC_SSH_KEY" ]]; then
-  export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=no -o BatchMode=yes"
-elif [[ "$REPO_URL" == git@github.com:* ]]; then
+REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"
+if [[ "$REPO_URL" == git@github.com:* ]]; then
   REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
 fi
+REPO_URL="${REPO_URL%.git}.git"
+SRC="/opt/container-code-companion-src"
+BIN="/usr/local/bin/container-code-companion"
+WEB="/opt/container-code-companion/web"
+VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
+LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
+GO="/usr/local/go/bin/go"
 CCC_USER="${CCC_USER:-claude-code}"
-CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
-CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-ccc-bootstrap.sh}"
-CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-container}"
 
 echo ""
 echo -e "${B}Container Code Companion Self-Update${N}"
 echo ""
 
-# [1/3] Sync source
-echo -e "${C}[1/3]${N} Syncing source ($REPO_URL @ $REF)..."
+# [1/4] Sync source
+echo -e "${C}[1/4]${N} Syncing source ($REPO_URL @ $REF)..."
 _git() { git -c "safe.directory=$SRC" "$@"; }
-git config --system --add safe.directory "$SRC" 2>/dev/null || true
+git config --system safe.directory "*" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
+  _git -C "$SRC" remote set-url origin "$REPO_URL"
   _git -C "$SRC" fetch origin "$REF" --quiet
   _git -C "$SRC" reset --hard "origin/$REF" --quiet
 else
   rm -rf "$SRC"
   git clone --depth 1 --branch "$REF" "$REPO_URL" "$SRC"
-  git config --system --add safe.directory "$SRC" 2>/dev/null || true
+  git config --system safe.directory "*" 2>/dev/null || true
 fi
 COMMIT=$(_git -C "$SRC" rev-parse HEAD)
 echo -e "  Commit: ${C}${COMMIT:0:7}${N} — $(_git -C "$SRC" log -1 --format='%s')"
 
-# [2/3] Apply updateable provisioner sections
+# [2/4] Build binary
 echo ""
-echo -e "${C}[2/3]${N} Applying provisioner-managed commands, service files, and web UI..."
-CCC_LATEST_COMMIT="$COMMIT" \
-CCC_UPDATEABLE_ONLY=1 \
-CCC_INSTALL_MODE="${CCC_INSTALL_MODE:-proxmox-lxc}" \
-CCC_MACHINE_POLICY="${CCC_MACHINE_POLICY:-container}" \
-CCC_USER="$CCC_USER" \
-CCC_HOME="$CCC_HOME" \
-CCC_SELF_UPDATE_SCRIPT="$CCC_SELF_UPDATE_SCRIPT" \
-CCC_SELF_UPDATE_REPO="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}" \
-CCC_SELF_UPDATE_REF="$REF" \
-bash "$SRC/install/ccc-provision-workstation.sh"
+echo -e "${C}[2/4]${N} Building Container Code Companion binary..."
+timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false -o "$BIN" ./cmd/server
+chmod +x "$BIN"
+echo -e "  OK: $BIN"
 
-# [3/4] Sync current user agent defaults
+# [3/4] Sync web assets and management scripts
 echo ""
-echo -e "${C}[3/4]${N} Syncing current user agent configs, skills, and plugins..."
+echo -e "${C}[3/4]${N} Syncing web assets..."
+rsync -a --delete "$SRC/container-code-companion/web/" "$WEB/"
+echo -e "  OK: $WEB"
+
+# Sync current user agent configs
+echo ""
+echo -e "${C}Syncing current user agent configs, skills, and plugins...${N}"
 if command -v ccc-sync-agent-configs >/dev/null 2>&1; then
   NO_COLOR=1 ccc-sync-agent-configs --user "$CCC_USER"
 else
   echo "  ccc-sync-agent-configs not installed; skipping."
 fi
 
-# [4/4] Finish
+# [4/4] Write version + restart
 echo ""
-echo -e "${C}[4/4]${N} Finalizing update..."
+echo -e "${C}[4/4]${N} Recording version and restarting service..."
+mkdir -p /etc/ccc
+printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
+  "$COMMIT" "$REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" > "$VERSION_FILE"
+echo -e "  Recorded: ${C}${COMMIT:0:7}${N}"
+
+# Detach restart from the current process group. When run from the web terminal,
+# the PTY is a child of container-code-companion — a synchronous restart would kill this
+# script before it exits. setsid creates a new session; the restart survives PTY teardown.
+setsid systemctl restart container-code-companion.service &
+disown $! 2>/dev/null || true
+
 echo ""
 echo -e "${G}${B}Self-update complete. Service restarting in background.${N}"
 echo "Self-update successful: $(date '+%Y-%m-%d %H:%M:%S %z')" | tee -a "$LOG_FILE" >/dev/null
@@ -2162,6 +2169,7 @@ chmod +x /etc/update-motd.d/00-ccc
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
 step 26 "Git defaults"
+git config --system safe.directory "*" 2>/dev/null || true
 sudo -u "$CCC_USER" git config --global init.defaultBranch main
 sudo -u "$CCC_USER" git config --global core.editor nano
 sudo -u "$CCC_USER" git config --global pull.rebase false
@@ -2196,15 +2204,19 @@ systemctl disable --now cockpit.socket 2>/dev/null || true
 systemctl disable --now cockpit.service 2>/dev/null || true
 rm -f /etc/systemd/system/ccc-dashboard.service
 rm -rf /usr/share/cockpit/ccc
-if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; then
-  fuser -k 9090/tcp 2>/dev/null || true
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
+  if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; then
+    fuser -k 9090/tcp 2>/dev/null || true
+  fi
 fi
 systemctl daemon-reload
 
 CONTAINER_CODE_COMPANION_SRC="/opt/container-code-companion-src"
 CONTAINER_CODE_COMPANION_ROOT="/opt/container-code-companion"
 CONTAINER_CODE_COMPANION_ENV="/etc/container-code-companion/env"
-rm -rf "$CONTAINER_CODE_COMPANION_SRC"
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
+  rm -rf "$CONTAINER_CODE_COMPANION_SRC"
+fi
 mkdir -p "$CONTAINER_CODE_COMPANION_ROOT" /etc/container-code-companion
 
 _agent_repo="$CCC_SELF_UPDATE_REPO"
@@ -2212,12 +2224,14 @@ if [[ "$_agent_repo" == git@github.com:* ]]; then
   _agent_repo="https://github.com/${_agent_repo#git@github.com:}"
 fi
 _agent_repo="${_agent_repo%.git}.git"
-echo "    Cloning Container Code Companion source from $_agent_repo ($CCC_SELF_UPDATE_REF)..."
-if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" "$CONTAINER_CODE_COMPANION_SRC"; then
-  echo "[WARN] Could not clone $_agent_repo branch $CCC_SELF_UPDATE_REF; trying main."
-  git clone --quiet --depth 1 --branch main "$_agent_repo" "$CONTAINER_CODE_COMPANION_SRC"
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
+  echo "    Cloning Container Code Companion source from $_agent_repo ($CCC_SELF_UPDATE_REF)..."
+  if ! git clone --quiet --depth 1 --branch "$CCC_SELF_UPDATE_REF" "$_agent_repo" "$CONTAINER_CODE_COMPANION_SRC"; then
+    echo "[WARN] Could not clone $_agent_repo branch $CCC_SELF_UPDATE_REF; trying main."
+    git clone --quiet --depth 1 --branch main "$_agent_repo" "$CONTAINER_CODE_COMPANION_SRC"
+  fi
 fi
-git config --system --add safe.directory "$CONTAINER_CODE_COMPANION_SRC" 2>/dev/null || true
+git config --system safe.directory "*" 2>/dev/null || true
 
 echo "    Building Container Code Companion binary..."
 timeout 600 /usr/local/go/bin/go build \

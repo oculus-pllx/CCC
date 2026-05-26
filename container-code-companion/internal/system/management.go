@@ -478,6 +478,7 @@ func setupCCCProfileCommand(username string) string {
 		"sudo test -x " + shellQuote(home+"/.local/bin/gemini"),
 	}
 	commands := []string{
+		"sudo git config --system safe.directory \"*\" 2>/dev/null || true",
 		"test $(id -u " + shellQuote(username) + ") -ge 1000",
 		"sudo groupadd -f " + shellQuote(group),
 		"sudo usermod -aG " + shellQuote(group) + " " + shellQuote(username),
@@ -547,7 +548,7 @@ func directAgentConfigSyncScript(runLine string) string {
 		`    git -c "safe.directory=$src" -C "$src" reset --hard "origin/$ref" >/dev/null`,
 		"  fi",
 		"  chown -R root:root \"$src\"",
-		"  git config --system --add safe.directory \"$src\" 2>/dev/null || true",
+		"  git config --system safe.directory \"*\" 2>/dev/null || true",
 		"}",
 		"copy_file() {",
 		`  local from=$1 to=$2 label=$3`,
