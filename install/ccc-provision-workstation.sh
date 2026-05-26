@@ -2167,8 +2167,19 @@ echo ""
 MOTD
 chmod +x /etc/update-motd.d/00-ccc
 
+# ── Shared project umask ─────────────────────────────────────────────────────
+step 26 "Shared project umask"
+cat > /etc/profile.d/ccc-umask.sh << 'UMASKEOF'
+# Files created by ccc group members should be group-writable (664/775)
+# so all work identities can modify shared project files.
+if id -nG 2>/dev/null | grep -qw ccc; then
+  umask 002
+fi
+UMASKEOF
+chmod 0644 /etc/profile.d/ccc-umask.sh
+
 # ── Git defaults ──────────────────────────────────────────────────────────────
-step 26 "Git defaults"
+step 27 "Git defaults"
 git config --system safe.directory "*" 2>/dev/null || true
 sudo -u "$CCC_USER" git config --global init.defaultBranch main
 sudo -u "$CCC_USER" git config --global core.editor nano
