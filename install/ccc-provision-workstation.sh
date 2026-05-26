@@ -1966,18 +1966,23 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; D='
 [[ ! -t 1 || -n "${NO_COLOR:-}" ]] && B='' G='' C='' Y='' R='' D='' N=''
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 REF="${CCC_SELF_UPDATE_REF:-main}"
-REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"
-if [[ "$REPO_URL" == git@github.com:* ]]; then
-  REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
-fi
+REPO_URL="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
 REPO_URL="${REPO_URL%.git}.git"
 SRC="/opt/container-code-companion-src"
 VERSION_FILE="${CCC_VERSION_FILE:-/etc/ccc/version}"
 SHOW_ACTIONS=1
 [[ "${1:-}" == "--no-actions" ]] && SHOW_ACTIONS=0
 TMP_REPO=""
-cleanup() { [[ -n "${TMP_REPO:-}" ]] && rm -rf "$TMP_REPO"; }
+cleanup() { [[ -n "${TMP_REPO:-}" ]] && rm -rf "$TMP_REPO"; true; }
 trap cleanup EXIT
+
+# SSH key for GitHub — device key readable by ccc group, falls back to agent
+CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
+if [[ -r "$CCC_SSH_KEY" ]]; then
+  export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=no -o BatchMode=yes"
+else
+  export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o BatchMode=yes"
+fi
 
 installed_commit=""
 installed_date=""
@@ -1986,36 +1991,26 @@ installed_date=""
   installed_date=$(awk -F= '/^CCC_INSTALLED_DATE/{gsub(/"/,"",$2); print $2}' "$VERSION_FILE" | tail -1)
 }
 
-# Use the persistent source clone if available; otherwise clone fresh via HTTPS.
-_git() { git -c "safe.directory=$SRC" "$@"; }
-_grepo() { git -c "safe.directory=$REPO" "$@"; }
-if [[ -d "$SRC/.git" ]]; then
-  git -C "$SRC" remote set-url origin "$REPO_URL" 2>/dev/null || true
-  if _git -C "$SRC" fetch origin "$REF" --quiet 2>/dev/null; then
-    REPO="$SRC"
-    latest_commit=$(_grepo -C "$REPO" rev-parse "origin/$REF" 2>/dev/null || _grepo -C "$REPO" rev-parse HEAD)
-  else
-    TMP_REPO=$(mktemp -d /tmp/ccc-update-check.XXXXXX)
-    if ! git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO" 2>/dev/null; then
-      echo -e "${R}Could not reach GitHub. Check internet connection.${N}"
-      exit 1
-    fi
-    REPO="$TMP_REPO"
-    latest_commit=$(_grepo -C "$REPO" rev-parse HEAD)
-  fi
-else
-  TMP_REPO=$(mktemp -d /tmp/ccc-update-check.XXXXXX)
-  if ! git clone --quiet --depth 10 --branch "$REF" "$REPO_URL" "$TMP_REPO" 2>/dev/null; then
-    echo -e "${R}Could not reach GitHub. Check internet connection.${N}"
-    exit 1
-  fi
-  REPO="$TMP_REPO"
-  latest_commit=$(_grepo -C "$REPO" rev-parse HEAD)
+# Use git ls-remote — no local writes needed, works as any user, always current.
+latest_commit=$(git ls-remote "$REPO_URL" "refs/heads/$REF" 2>/dev/null | awk '{print $1}')
+if [[ -z "$latest_commit" ]]; then
+  echo -e "${R}Could not reach GitHub. Check SSH key and internet connection.${N}"
+  exit 1
 fi
-
 latest_short="${latest_commit:0:7}"
-latest_date=$(_grepo -C "$REPO" log -1 --format='%ci' "$latest_commit" 2>/dev/null || echo "")
-latest_subject=$(_grepo -C "$REPO" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")
+
+# Get commit details from the persistent clone (read-only) if it has this commit.
+_git() { git -c "safe.directory=$SRC" "$@"; }
+latest_date=""
+latest_subject=""
+latest_log=""
+if [[ -d "$SRC/.git" ]] && _git -C "$SRC" cat-file -e "${latest_commit}^{commit}" 2>/dev/null; then
+  latest_date=$(_git -C "$SRC" log -1 --format='%ci' "$latest_commit" 2>/dev/null || echo "")
+  latest_subject=$(_git -C "$SRC" log -1 --format='%s' "$latest_commit" 2>/dev/null || echo "")
+  if [[ -n "$installed_commit" && "${installed_commit:0:7}" != "$latest_short" ]]; then
+    latest_log=$(_git -C "$SRC" log --oneline --max-count=5 "${installed_commit}..${latest_commit}" 2>/dev/null | sed 's/^/  • /' || echo "")
+  fi
+fi
 
 echo ""
 echo -e "${B}Container Code Companion Update Status${N}"
@@ -2034,7 +2029,7 @@ elif [[ "${installed_commit:0:7}" == "$latest_short" ]]; then
   echo -e "  ${G}Up to date.${N}"
 else
   echo -e "  ${Y}Update available.${N}"
-  _grepo -C "$REPO" log --oneline --max-count=5 2>/dev/null | sed 's/^/  • /' || true
+  [[ -n "$latest_log" ]] && echo "$latest_log"
 fi
 
 [[ "$SHOW_ACTIONS" -eq 1 ]] && { echo ""; echo -e "  Update: ${C}sudo ccc-self-update${N}"; }
@@ -2052,13 +2047,16 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='
 [[ "$(id -u)" -ne 0 ]] && exec sudo "$0" "$@"
 
 REF="${CCC_SELF_UPDATE_REF:-main}"
-REPO_URL="${CCC_SELF_UPDATE_REPO:-https://github.com/oculus-pllx/CCC.git}"
-if [[ "$REPO_URL" == git@github.com:* ]]; then
-  REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
-fi
+REPO_URL="${CCC_SELF_UPDATE_REPO:-git@github.com:oculus-pllx/CCC.git}"
 REPO_URL="${REPO_URL%.git}.git"
 SRC="/opt/container-code-companion-src"
 LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
+
+# SSH key for GitHub — device key, always available as root
+CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
+if [[ -r "$CCC_SSH_KEY" ]]; then
+  export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=no -o BatchMode=yes"
+fi
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 CCC_SELF_UPDATE_SCRIPT="${CCC_SELF_UPDATE_SCRIPT:-ccc-bootstrap.sh}"
