@@ -1,13 +1,21 @@
 # Project Status
 
-Last updated: 2026-05-24
-Branch: `main`
+Last updated: 2026-05-26
+Branch: `main` @ `e323532`
 
 ## Current State
 
-Container Code Companion is functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, shared work identity permissions, and day-to-day use.
+Container Code Companion is fully functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, shared work identity permissions, and day-to-day use.
 
 Recent work completed:
+- Fixed `ccc-self-update` silently aborting: the old 3-step provisioner-delegation approach ran `fuser -k 9090/tcp` which killed the running update process mid-way through. Replaced with a direct 4-step binary-build approach (pull source, build binary, sync web assets, write version + restart) that never calls the provisioner and cannot kill itself.
+- Fixed update scripts (`ccc-update-status`, `ccc-self-update`) to use device SSH key with HTTPS fallback for installs without a key, and `git ls-remote` instead of `git fetch` so non-root users can run status checks without permission errors.
+- Fixed shared project write permissions: work identities in the `ccc` group couldn't modify files created by `oculus` because `umask 022` made new files `644`. Added `/etc/profile.d/ccc-umask.sh` to set `umask 002` for all ccc group members so files are created as `664`.
+- Replaced all `git config --system --add safe.directory <path>` with `safe.directory = *` wildcard in system gitconfig, eliminating "dubious ownership" errors for all users on shared projects and stopping the accumulation of duplicate entries on every update.
+- Added GitHub multi-user setup instructions to the GitHub page explaining when and why to click "Configure For All Work Identities".
+- Added plugin startup warning hint to the Configs page.
+- Rewrote Configs page as per-user cards with plugin toggle pill buttons, config file presence grid, and per-user Sync Configs.
+- Added `toggle-plugin` account operation that writes `enabledPlugins` in a user's `settings.json` via sudo python3.
 - Added shared work identity foundation: fresh installs now create the `ccc` group, `/srv/ccc/projects` as `root:ccc` with `2775`, and link the primary user's `~/projects` there.
 - Moved backend Projects and default file browsing operations to the shared `/srv/ccc/projects` root.
 - Added `ccc-migrate-shared-workspace --status|--apply` for existing installs, with rsync migration, retained timestamped backups, compatibility symlink creation, and permission repair.
