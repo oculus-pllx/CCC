@@ -1977,11 +1977,15 @@ cleanup() { [[ -n "${TMP_REPO:-}" ]] && rm -rf "$TMP_REPO"; true; }
 trap cleanup EXIT
 
 # SSH key for GitHub — device key readable by ccc group, falls back to agent
+# SSH key: use device key if present, otherwise fall back to HTTPS for public repos.
 CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
 if [[ -r "$CCC_SSH_KEY" ]]; then
   export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=no -o BatchMode=yes"
+  FETCH_URL="$REPO_URL"
+elif [[ "$REPO_URL" == git@github.com:* ]]; then
+  FETCH_URL="https://github.com/${REPO_URL#git@github.com:}"
 else
-  export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o BatchMode=yes"
+  FETCH_URL="$REPO_URL"
 fi
 
 installed_commit=""
@@ -1992,9 +1996,9 @@ installed_date=""
 }
 
 # Use git ls-remote — no local writes needed, works as any user, always current.
-latest_commit=$(git ls-remote "$REPO_URL" "refs/heads/$REF" 2>/dev/null | awk '{print $1}')
+latest_commit=$(git ls-remote "$FETCH_URL" "refs/heads/$REF" 2>/dev/null | awk '{print $1}')
 if [[ -z "$latest_commit" ]]; then
-  echo -e "${R}Could not reach GitHub. Check SSH key and internet connection.${N}"
+  echo -e "${R}Could not reach GitHub. Check internet connection.${N}"
   exit 1
 fi
 latest_short="${latest_commit:0:7}"
@@ -2052,10 +2056,12 @@ REPO_URL="${REPO_URL%.git}.git"
 SRC="/opt/container-code-companion-src"
 LOG_FILE="${CCC_SELF_UPDATE_LOG:-/var/log/ccc-self-update.log}"
 
-# SSH key for GitHub — device key, always available as root
+# SSH key: use device key if present, otherwise fall back to HTTPS for public repos.
 CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
 if [[ -r "$CCC_SSH_KEY" ]]; then
   export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=no -o BatchMode=yes"
+elif [[ "$REPO_URL" == git@github.com:* ]]; then
+  REPO_URL="https://github.com/${REPO_URL#git@github.com:}"
 fi
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
