@@ -734,6 +734,7 @@ function renderConfigs() {
         <div class="user-plugin-row">
           <span class="muted" style="font-size:0.82em;margin-right:6px">Plugins:</span>
           ${plugins.map(p => pluginToggleBtn(account.username, p)).join('')}
+          <span class="muted" style="font-size:0.75em;margin-left:4px" title="If Claude Code shows a marketplace warning for a plugin on startup, click Sync Configs or toggle any plugin to refresh the cache.">⚠ startup warning? click a toggle or Sync Configs</span>
         </div>` : ''}
         ${editable.length ? `
         <div class="action-row" style="margin-top:8px;flex-wrap:wrap">
@@ -786,6 +787,15 @@ function renderOculus() {
 function renderGitHub() {
   return `
     <p class="section-description">Manage the shared machine SSH key for GitHub repository access from CCC work identities.</p>
+    <div class="info-steps">
+      <strong>Multi-user GitHub setup</strong>
+      <ol>
+        <li>Click <em>Copy Machine Public Key</em> and add it to <a href="https://github.com/settings/keys" target="_blank" rel="noopener">github.com/settings/keys</a> as an SSH key.</li>
+        <li>Click <em>Test GitHub Connection</em> to confirm the key is accepted.</li>
+        <li>Click <strong>Configure For All Work Identities</strong> — this writes the machine key into every work identity's <code>~/.ssh/config</code> so all users (prime, etc.) can push and pull without individual keys.</li>
+        <li>Re-run <em>Configure For All Work Identities</em> any time a new work identity is added.</li>
+      </ol>
+    </div>
     <div id="github-key-panel">
       <p class="muted">Loading SSH key status...</p>
     </div>

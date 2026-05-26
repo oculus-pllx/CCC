@@ -861,6 +861,39 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   gap: 10px;
 }
 
+
+/* ── GitHub setup instructions ────────────────────────────────────────── */
+.info-steps {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel2);
+  margin-bottom: 14px;
+}
+
+.info-steps strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.info-steps ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.info-steps li em {
+  color: var(--text);
+  font-style: normal;
+}
+
+.info-steps a {
+  color: var(--accent);
+}
+
 .network-graph-wrap {
   display: grid;
   gap: 8px;
