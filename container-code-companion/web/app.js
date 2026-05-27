@@ -547,6 +547,53 @@ function renderUpdateConsole() {
   `;
 }
 
+function renderAutoUpdatePanel() {
+  const enabled = snapshot.updates?.autoUpdateEnabled || false;
+  const lastRun = snapshot.updates?.autoUpdateLastRun || '';
+  const freq = snapshot.updates?.autoUpdateFreq || 'daily';
+  const hour = snapshot.updates?.autoUpdateHour ?? 3;
+
+  const toggleClass = enabled ? 'plugin-toggle enabled' : 'plugin-toggle disabled';
+  const toggleLabel = enabled ? 'ON' : 'OFF';
+
+  const freqOptions = [
+    ['daily', 'Daily'],
+    ['every2days', 'Every 2 days'],
+    ['every3days', 'Every 3 days'],
+    ['weekly-0', 'Weekly (Sun)'],
+    ['weekly-1', 'Weekly (Mon)'],
+    ['weekly-2', 'Weekly (Tue)'],
+    ['weekly-3', 'Weekly (Wed)'],
+    ['weekly-4', 'Weekly (Thu)'],
+    ['weekly-5', 'Weekly (Fri)'],
+    ['weekly-6', 'Weekly (Sat)'],
+  ];
+
+  const freqSelect = `<select id="autoupdate-freq" ${enabled ? '' : 'disabled'}>
+    ${freqOptions.map(([val, label]) =>
+      `<option value="${val}"${val === freq ? ' selected' : ''}>${escapeHTML(label)}</option>`
+    ).join('')}
+  </select>`;
+
+  const hourSelect = `<select id="autoupdate-hour" ${enabled ? '' : 'disabled'}>
+    ${Array.from({length: 24}, (_, h) => {
+      const display = h === 0 ? '12 AM' : h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`;
+      return `<option value="${h}"${h === hour ? ' selected' : ''}>${display}</option>`;
+    }).join('')}
+  </select>`;
+
+  return `
+    <div class="autoupdate-panel">
+      <div class="autoupdate-row">
+        <span class="autoupdate-label">Auto-Update</span>
+        <button class="${toggleClass}" id="autoupdate-toggle">${toggleLabel}</button>
+        ${enabled ? `<span class="muted" style="font-size:0.8em">Schedule: ${freqSelect} at ${hourSelect}</span>` : ''}
+      </div>
+      ${lastRun ? `<p class="muted" style="font-size:0.8em;margin:2px 0 0 0">Last run: ${escapeHTML(lastRun)}</p>` : ''}
+    </div>
+  `;
+}
+
 function renderAppUpdateTab(updateText, updateLog) {
   const updateBadge = updateStatusBadge(updateText, updateLog);
   const logPreview = firstUsefulLines(updateLog, 10);
@@ -561,6 +608,7 @@ function renderAppUpdateTab(updateText, updateLog) {
     <div class="action-row">
       <button class="small-button" id="self-update-btn">Update App</button>
     </div>
+    ${renderAutoUpdatePanel()}
     <p id="update-check-state" class="muted update-check-state">${escapeHTML(cccUpdateStatusMessage)}</p>
     <pre id="update-status-output" class="output">${escapeHTML(updateText || 'No Container Code Companion update status.')}</pre>
     ${logPreview ? `
@@ -1293,6 +1341,17 @@ function monitorReconnect(output) {
   }, 5000);
 }
 
+async function setAutoUpdateSchedule() {
+  const freq = document.getElementById('autoupdate-freq')?.value || 'daily';
+  const hour = parseInt(document.getElementById('autoupdate-hour')?.value || '3', 10);
+  const action = `set-autoupdate-schedule:${freq}:${hour}`;
+  const result = await postJSON('/api/action', { action });
+  if (result.exitCode !== 0) {
+    const out = document.getElementById('action-output');
+    if (out) { out.hidden = false; out.textContent = result.output || 'Schedule change failed.'; }
+  }
+}
+
 async function controlService(service, operation) {
   const output = document.getElementById('action-output');
   output.hidden = false;
@@ -1318,6 +1377,24 @@ function bindUpdates() {
     });
   });
   document.getElementById('self-update-btn')?.addEventListener('click', runSelfUpdateStream);
+
+  document.getElementById('autoupdate-toggle')?.addEventListener('click', async () => {
+    const enabled = snapshot.updates?.autoUpdateEnabled || false;
+    const action = enabled ? 'disable-autoupdate' : 'enable-autoupdate';
+    const result = await postJSON('/api/action', { action });
+    if (result.exitCode !== 0) {
+      const out = document.getElementById('action-output');
+      if (out) { out.hidden = false; out.textContent = result.output || 'Toggle failed.'; }
+      return;
+    }
+    await loadSnapshot();
+    renderSection('updates');
+    bindUpdates();
+  });
+
+  document.getElementById('autoupdate-freq')?.addEventListener('change', setAutoUpdateSchedule);
+  document.getElementById('autoupdate-hour')?.addEventListener('change', setAutoUpdateSchedule);
+
   document.getElementById('os-update-btn')?.addEventListener('click', () => runAction('os-update'));
 }
 
