@@ -5,11 +5,11 @@
 
 ## Overview
 
-Add an opt-in auto-update toggle to the CCC web UI. When enabled, a daily cron fires a smart check: if GitHub has a newer commit than the installed binary, `ccc-self-update` runs automatically. If already current, it logs a skip and exits. The CCC service restarts briefly (~5 seconds) when an update deploys; no other processes, SSH sessions, or user work is affected.
+Add an opt-in auto-update toggle with configurable schedule to the CCC web UI. When enabled, a cron fires at the user-selected frequency and time. It runs a smart check: if GitHub has a newer commit than the installed binary, `ccc-self-update` runs automatically. If already current, it logs a skip and exits. The CCC service restarts briefly (~5 seconds) when an update deploys; no other processes, SSH sessions, or user work is affected.
 
 ## Background
 
-A weekly cron already exists (`/etc/cron.d/ccc-app-update`) that unconditionally runs `ccc-update` every Sunday at 3 AM. There is no UI visibility or opt-in control. This design replaces that with a smarter, UI-controlled daily cron that is disabled by default.
+A weekly cron already exists (`/etc/cron.d/ccc-app-update`) that unconditionally runs `ccc-update` every Sunday at 3 AM. There is no UI visibility, opt-in control, or schedule configuration. This design replaces that with a UI-controlled smart cron that is disabled by default and fully configurable.
 
 ## Components
 
@@ -19,105 +19,134 @@ A weekly cron already exists (`/etc/cron.d/ccc-app-update`) that unconditionally
 - Default: absent (off). Existing installs are not auto-enrolled.
 - Created/removed by backend actions via `sudo`.
 
-### 2. New Script: `ccc-auto-update` (`/usr/local/bin/ccc-auto-update`)
+### 2. Schedule Config: `/etc/ccc/autoupdate-schedule`
+
+Stores frequency and hour as shell variables:
+```
+AUTOUPDATE_FREQ=daily
+AUTOUPDATE_HOUR=3
+```
+
+Valid `AUTOUPDATE_FREQ` values: `daily`, `every2days`, `every3days`, `weekly-0` through `weekly-6` (0=Sunday).  
+Valid `AUTOUPDATE_HOUR`: 0–23.
+
+Written by the `set-autoupdate-schedule` action, read back by the snapshot for display. Default when absent: `daily` @ hour `3`.
+
+### 3. New Script: `ccc-auto-update` (`/usr/local/bin/ccc-auto-update`)
 
 Installed by the provisioner. Logic:
 
 ```
 1. Check /etc/ccc/autoupdate-enabled exists — if not, exit 0 silently.
 2. Log "Auto-update check: $(date)" to /var/log/ccc-app-update.log.
-3. Run ccc-update-status; parse output for "up to date" vs newer commit.
+3. Run ccc-update-status; parse output for newer commit vs up to date.
 4. If up to date: log "Already at <commit>. No update needed." and exit 0.
-5. If update available: run ccc-self-update (logs to /var/log/ccc-self-update.log).
+5. If update available: run ccc-self-update (which logs to /var/log/ccc-self-update.log).
 6. Log result (success or failure with exit code).
 ```
 
-Logs to `/var/log/ccc-app-update.log` (existing log, existing logrotate config).
+### 4. Cron: `/etc/cron.d/ccc-app-update`
 
-### 3. Cron: `/etc/cron.d/ccc-app-update`
+Rewritten by the backend whenever the schedule changes. Generated from the schedule config. Examples:
 
-Changed from:
-```
-0 3 * * 0  root  /usr/local/bin/ccc-update >> /var/log/ccc-app-update.log 2>&1
-```
-To:
-```
-0 3 * * *  root  /usr/local/bin/ccc-auto-update >> /var/log/ccc-app-update.log 2>&1
-```
+| Frequency | Hour | Cron expression |
+|---|---|---|
+| Daily | 3 | `0 3 * * *` |
+| Every 2 days | 3 | `0 3 */2 * *` |
+| Every 3 days | 3 | `0 3 */3 * *` |
+| Weekly (Sun) | 3 | `0 3 * * 0` |
+| Weekly (Mon) | 3 | `0 3 * * 1` |
 
-Daily at 3 AM instead of weekly Sunday. Safe because the smart check means no restart fires unless a real update is available.
+Full cron line: `<expr>  root  /usr/local/bin/ccc-auto-update >> /var/log/ccc-app-update.log 2>&1`
 
-### 4. Go Backend
+Logrotate config for `/var/log/ccc-app-update.log` already exists; no change needed.
+
+### 5. Go Backend
 
 **New fields on `UpdateStatus`** (`internal/system/management.go`):
 ```go
-AutoUpdateEnabled bool   `json:"autoUpdateEnabled"`
-AutoUpdateLastRun string `json:"autoUpdateLastRun"`
+AutoUpdateEnabled  bool   `json:"autoUpdateEnabled"`
+AutoUpdateLastRun  string `json:"autoUpdateLastRun"`
+AutoUpdateSchedule string `json:"autoUpdateSchedule"` // human label e.g. "Daily @ 3 AM"
 ```
 
-`AutoUpdateEnabled`: check if `/etc/ccc/autoupdate-enabled` exists (no sudo needed — readable by service user).  
-`AutoUpdateLastRun`: last non-empty line of `/var/log/ccc-app-update.log` (read with `tail -1`, no sudo).
+- `AutoUpdateEnabled`: `os.Stat("/etc/ccc/autoupdate-enabled")` — no sudo needed.
+- `AutoUpdateLastRun`: last non-empty line of `/var/log/ccc-app-update.log` via `tail -1`.
+- `AutoUpdateSchedule`: read `/etc/ccc/autoupdate-schedule`, parse freq+hour, format as human label.
 
-**New actions** in `RunWorkstationAction`:
+**New actions** in `RunWorkstationAction` (all via sudo):
 - `enable-autoupdate` → `sudo touch /etc/ccc/autoupdate-enabled`
 - `disable-autoupdate` → `sudo rm -f /etc/ccc/autoupdate-enabled`
+- `set-autoupdate-schedule` — accepts JSON body with `freq` and `hour` fields; writes schedule config and rewrites cron file. Action body passed via the existing action mechanism (or as a structured account-style operation if needed).
 
-Both require sudo (file lives in `/etc/ccc/` which is root-owned). Both are already covered by the existing `ALL=(ALL) NOPASSWD: ALL` sudoers rule for the service account.
+**Schedule rewrite helper** (`scheduleAutoupdateCron(freq string, hour int) error`):
+- Validates freq and hour inputs.
+- Writes `/etc/ccc/autoupdate-schedule` via sudo tee.
+- Generates cron expression, writes `/etc/cron.d/ccc-app-update` via sudo tee.
 
-### 5. UI (`web/app.js`)
+### 6. UI (`web/app.js`)
 
-In the Updates → App tab render function, add below the version comparison lines:
+In the Updates → App tab, below the version comparison:
 
 ```
-Auto-Update  [ ON ● ] / [ OFF ○ ]   Daily @ 3 AM
-Last run: 2026-05-25 03:00 — already up to date
+  Auto-Update   [ ON ● ]
+  Schedule:   [ Daily ▼ ]  at  [ 03:00 ▼ ]
+  Last run: 2026-05-27 03:00 — already up to date
 ```
 
-- Toggle is a pill button (matches existing plugin toggle pattern in Configs tab).
-- Clicking toggle calls the appropriate action and re-renders the section.
-- "Last run" line is hidden when log is empty (fresh install, never run).
-- Label shows "Daily @ 3 AM" as static text (no schedule picker needed).
+- Toggle is a pill button (matches existing plugin toggle pattern).
+- Schedule dropdowns appear only when auto-update is enabled.
+- **Frequency options:** Daily, Every 2 days, Every 3 days, Weekly (Mon) … Weekly (Sun)
+- **Time options:** 00:00 through 23:00 in 1-hour steps
+- Changes to either dropdown fire `set-autoupdate-schedule` immediately (no save button).
+- Last run line hidden when log is empty.
+- Schedule label (`"Daily @ 3 AM"`) comes from `snapshot.updates.autoUpdateSchedule`.
 
 ## Data Flow
 
 ```
-User clicks toggle ON
+User enables toggle
   → POST /api/action { action: "enable-autoupdate" }
   → sudo touch /etc/ccc/autoupdate-enabled
-  → GET /api/workstation → snapshot.updates.autoUpdateEnabled = true
-  → UI re-renders toggle as ON
+  → snapshot refresh → autoUpdateEnabled: true → dropdowns appear
 
-3 AM cron fires
+User changes frequency to "Every 2 days"
+  → POST /api/action { action: "set-autoupdate-schedule", freq: "every2days", hour: 3 }
+  → writes /etc/ccc/autoupdate-schedule
+  → rewrites /etc/cron.d/ccc-app-update with "0 3 */2 * *"
+  → snapshot refresh → autoUpdateSchedule: "Every 2 days @ 3 AM"
+
+Cron fires at scheduled time
   → /usr/local/bin/ccc-auto-update
-  → checks flag file (exists → continue)
-  → runs ccc-update-status → parses "GitHub: abc1234" vs "Installed: abc1234"
-  → if newer: runs ccc-self-update → service restarts (~5s)
+  → checks flag file (present → continue)
+  → runs ccc-update-status → parses output
+  → if newer commit: runs ccc-self-update → service restarts (~5s)
   → logs result to /var/log/ccc-app-update.log
 
-User views Updates tab
-  → snapshot.updates.autoUpdateLastRun = last line of /var/log/ccc-app-update.log
-  → displayed below toggle
+User opens Updates tab next time
+  → autoUpdateLastRun: "2026-05-28 03:00 — updated to abc1234"
 ```
 
 ## Error Handling
 
-- If `ccc-update-status` fails: log the error and exit without updating. No restart.
-- If `ccc-self-update` fails: log the exit code. Service continues running current version. Next cron fire will retry.
-- Toggle action failures (sudo fails, disk full): backend returns exitCode 1, UI shows error in existing action-output panel.
+- `ccc-update-status` fails: log error, exit without updating.
+- `ccc-self-update` fails: log exit code, service keeps running current version, next cron retries.
+- `set-autoupdate-schedule` with invalid freq/hour: backend returns exitCode 1, UI shows error.
+- Cron file write fails (permissions, disk): action returns error, no partial state written.
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `install/ccc-provision-workstation.sh` | Add `ccc-auto-update` heredoc, update cron entry |
-| `internal/system/management.go` | Add 2 fields to UpdateStatus, add 2 actions, read flag+log in collectUpdates |
-| `web/app.js` | Add toggle pill + last-run line to Updates > App render |
+| `install/ccc-provision-workstation.sh` | Add `ccc-auto-update` heredoc, update cron entry to use new script |
+| `internal/system/management.go` | 3 new fields on UpdateStatus, 3 new actions, schedule config read/write helper |
+| `web/app.js` | Toggle pill + frequency dropdown + time dropdown + last-run line in Updates > App render |
 
 No new Go files. No new routes. No schema changes.
 
 ## Out of Scope
 
-- Schedule picker (daily @ 3 AM is fixed)
-- Auto-updating Claude/Codex CLIs on the auto-update timer (user can run `ccc-update` manually)
-- Notification when auto-update fires (log is visible in the UI after next page load)
-- Machine reboot (never happens — only the CCC service restarts)
+- Sub-hour granularity (hourly or every N minutes)
+- Auto-updating Claude/Codex CLIs on the auto-update timer
+- Push notifications when auto-update fires
+- Machine reboot (never — only CCC service restarts)
