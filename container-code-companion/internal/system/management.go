@@ -337,6 +337,8 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 	case "disable-autoupdate":
 		return RunShellCommand("sudo rm -f /etc/ccc/autoupdate-enabled", workstationHome())
 	default:
+		// set-autoupdate-schedule carries a variable payload (freq:hour) so it
+		// cannot be matched as a static case — check with HasPrefix instead.
 		if strings.HasPrefix(action, "set-autoupdate-schedule:") {
 			parts := strings.SplitN(action, ":", 3)
 			if len(parts) != 3 {
@@ -545,16 +547,16 @@ func scheduleAutoupdateCron(freq string, hour int) error {
 		cronExpr,
 	)
 
-	writeCmd := exec.Command("sudo", "bash", "-c",
-		fmt.Sprintf("printf '%%s' %s > /etc/ccc/autoupdate-schedule", shellQuote(scheduleContent)))
-	if out, err := writeCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("write schedule config: %w: %s", err, out)
-	}
-
-	cronCmd := exec.Command("sudo", "bash", "-c",
-		fmt.Sprintf("printf '%%s' %s > /etc/cron.d/ccc-app-update && chmod 0644 /etc/cron.d/ccc-app-update", shellQuote(cronContent)))
-	if out, err := cronCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("write cron file: %w: %s", err, out)
+	script := fmt.Sprintf(
+		"printf '%%s' %s > /etc/ccc/autoupdate-schedule && "+
+			"printf '%%s' %s > /etc/cron.d/ccc-app-update && "+
+			"chmod 0644 /etc/cron.d/ccc-app-update",
+		shellQuote(scheduleContent), shellQuote(cronContent))
+	var errOut bytes.Buffer
+	cmd := exec.Command("sudo", "bash", "-c", script)
+	cmd.Stderr = &errOut
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("write autoupdate config: %w: %s", err, errOut.String())
 	}
 	return nil
 }
