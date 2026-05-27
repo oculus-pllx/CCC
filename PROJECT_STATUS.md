@@ -1,13 +1,14 @@
 # Project Status
 
 Last updated: 2026-05-26
-Branch: `main` @ `e323532`
+Branch: `main` @ `6223070`
 
 ## Current State
 
 Container Code Companion is fully functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, shared work identity permissions, and day-to-day use.
 
 Recent work completed:
+- Fixed shared project group-write permissions: work identities in `ccc` could not write to project directories cloned before `/srv/ccc/projects` had its setgid bit. The permission repair command now also sets `core.sharedRepository = group` on all git repos so git does not fight against group-write over time. Clone and create operations also set this immediately. Fixed stale test assertions left over from the old provisioner-delegation self-update approach.
 - Fixed `ccc-self-update` silently aborting: the old 3-step provisioner-delegation approach ran `fuser -k 9090/tcp` which killed the running update process mid-way through. Replaced with a direct 4-step binary-build approach (pull source, build binary, sync web assets, write version + restart) that never calls the provisioner and cannot kill itself.
 - Fixed update scripts (`ccc-update-status`, `ccc-self-update`) to use device SSH key with HTTPS fallback for installs without a key, and `git ls-remote` instead of `git fetch` so non-root users can run status checks without permission errors.
 - Fixed shared project write permissions: work identities in the `ccc` group couldn't modify files created by `oculus` because `umask 022` made new files `644`. Added `/etc/profile.d/ccc-umask.sh` to set `umask 002` for all ccc group members so files are created as `664`.
