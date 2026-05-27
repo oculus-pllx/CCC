@@ -801,3 +801,62 @@ func TestAgentConfigSyncPluginsReclonesEmptySuperpowers(t *testing.T) {
 		t.Fatal("install_claude_plugins must remove stale superpowers dir before re-cloning")
 	}
 }
+
+func TestFormatScheduleLabelDaily(t *testing.T) {
+	got := formatScheduleLabel("daily", 3)
+	if got != "Daily @ 3 AM" {
+		t.Fatalf("got %q, want %q", got, "Daily @ 3 AM")
+	}
+}
+
+func TestFormatScheduleLabelEvery2Days(t *testing.T) {
+	got := formatScheduleLabel("every2days", 14)
+	if got != "Every 2 days @ 2 PM" {
+		t.Fatalf("got %q, want %q", got, "Every 2 days @ 2 PM")
+	}
+}
+
+func TestFormatScheduleLabelWeekly(t *testing.T) {
+	got := formatScheduleLabel("weekly-0", 3)
+	if got != "Weekly (Sun) @ 3 AM" {
+		t.Fatalf("got %q, want %q", got, "Weekly (Sun) @ 3 AM")
+	}
+	got = formatScheduleLabel("weekly-1", 0)
+	if got != "Weekly (Mon) @ 12 AM" {
+		t.Fatalf("got %q, want %q", got, "Weekly (Mon) @ 12 AM")
+	}
+}
+
+func TestReadAutoUpdateScheduleDefaults(t *testing.T) {
+	label := formatScheduleLabel("daily", 3)
+	if label != "Daily @ 3 AM" {
+		t.Fatalf("default label = %q, want %q", label, "Daily @ 3 AM")
+	}
+}
+
+func TestAutoUpdateCronInProvisioner(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "install", "ccc-provision-workstation.sh"))
+	if err != nil {
+		t.Fatalf("read provisioner: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "ccc-auto-update") {
+		t.Fatal("provisioner must install ccc-auto-update script")
+	}
+	if !strings.Contains(text, "/usr/local/bin/ccc-auto-update") {
+		t.Fatal("provisioner cron must call /usr/local/bin/ccc-auto-update")
+	}
+	if strings.Contains(text, "0 3 * * 0 root /usr/local/bin/ccc-auto-update") {
+		t.Fatal("provisioner must not use old weekly-Sunday schedule for ccc-auto-update")
+	}
+}
+
+func TestAutoUpdateEnabledFlagFile(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "install", "ccc-provision-workstation.sh"))
+	if err != nil {
+		t.Fatalf("read provisioner: %v", err)
+	}
+	if !strings.Contains(string(data), "/etc/ccc/autoupdate-enabled") {
+		t.Fatal("provisioner must reference /etc/ccc/autoupdate-enabled flag file")
+	}
+}
