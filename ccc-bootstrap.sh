@@ -183,8 +183,8 @@ get_config() {
   read -rp "CPU cores [4]: " CT_CORES
   CT_CORES="${CT_CORES:-4}"
 
-  read -rp "RAM in MB [10240]: " CT_RAM
-  CT_RAM="${CT_RAM:-10240}"
+  read -rp "RAM in MB [2048]: " CT_RAM
+  CT_RAM="${CT_RAM:-2048}"
 
   read -rp "Swap in MB [2048]: " CT_SWAP
   CT_SWAP="${CT_SWAP:-2048}"

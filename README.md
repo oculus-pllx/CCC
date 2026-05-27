@@ -17,6 +17,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-install-linux.sh)
 ```
 
+**Step-by-step guides:** [First Setup](docs/guides/first-setup.md) · [Work Identities](docs/guides/work-identities.md) · [Projects](docs/guides/projects.md) · [Updates](docs/guides/updates.md)
+
 ---
 
 ## What You Get
@@ -53,7 +55,8 @@ For a new Proxmox LXC:
 - Proxmox VE 8.x+ host
 - Run as root on the Proxmox host
 - Internet access from the host and container
-- Recommended: 4 vCPU / 10GB RAM / 30GB disk
+- Minimum: 2 vCPU / 2GB RAM / 20GB disk
+- Recommended: 4 vCPU / 4GB RAM / 30GB disk for comfortable multi-session use
 
 For an existing Linux host:
 
@@ -91,7 +94,7 @@ The script is interactive. You'll be prompted for:
 | User password | — | Password for your chosen username |
 | code-server password | `codeserver` | Web VS Code UI |
 | CPU cores | `4` | |
-| RAM | `10240` MB | |
+| RAM | `2048` MB | |
 | Swap | `2048` MB | |
 | Disk | `30` GB | |
 | Storage | auto-detected | Active `rootdir`-capable pools listed; defaults to `local-lvm` if present, else first found |
@@ -123,6 +126,8 @@ The Linux-host installer installs CCC services, code-server, baseline dev tools,
 
 ## Shared Workspace Migration
 
+> See [docs/guides/projects.md](docs/guides/projects.md) for clone, create, and permissions workflows.
+
 Fresh installs use `/srv/ccc/projects` as the canonical project root and link `~/projects` there for compatibility.
 
 The generated `~/projects/WELCOME.md` also points new users at the shared workspace, migration commands, per-user CCC profile setup, and the managed GitHub machine key path.
@@ -147,6 +152,8 @@ If Check Migration reports that `ccc-migrate-shared-workspace` is not installed,
 Migration and account setup output stays visible after the page refreshes. If an action fails, leave the output open and use it as the first troubleshooting source.
 
 ## Work Identities
+
+> See [docs/guides/work-identities.md](docs/guides/work-identities.md) for a full step-by-step walkthrough.
 
 CCC supports multiple local Linux work identities on one personal workstation. Each identity gets its own provider auth/session directories:
 
@@ -337,6 +344,8 @@ echo '{"model":{"id":"claude-sonnet-4"},"thinking":{"enabled":true}}' \
 ---
 
 ## Updating the Container
+
+> See [docs/guides/updates.md](docs/guides/updates.md) for a full walkthrough including auto-update setup.
 
 Container Code Companion separates updates so OS packages, workstation tooling, and shared agent behavior can move independently.
 
