@@ -1205,11 +1205,15 @@ async function runSelfUpdateStream() {
   output.hidden = false;
   output.textContent = 'Connecting...\n';
   let gotLines = false;
+  // Stop the snapshot poll so it doesn't re-render the section and detach
+  // this output element from the DOM mid-stream.
+  stopSnapshotPolling();
 
   try {
     const response = await fetch('/api/self-update', { method: 'POST', credentials: 'include' });
     if (!response.ok) {
       output.textContent = `Update failed: HTTP ${response.status}`;
+      startSnapshotPolling();
       return;
     }
     const reader = response.body.getReader();
@@ -1234,6 +1238,7 @@ async function runSelfUpdateStream() {
           if (msg.status === 'done') { break outer; }
           if (msg.status === 'error') {
             output.textContent += `\nUpdate failed: ${msg.msg || 'unknown error'}`;
+            startSnapshotPolling();
             return;
           }
         }
@@ -1245,6 +1250,7 @@ async function runSelfUpdateStream() {
 
   if (!gotLines) {
     output.textContent = 'Failed to start update. Service may be unavailable.';
+    startSnapshotPolling();
     return;
   }
 
