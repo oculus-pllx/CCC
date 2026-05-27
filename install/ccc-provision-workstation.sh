@@ -2074,7 +2074,7 @@ _git() { git -c "safe.directory=$SRC" "$@"; }
 git config --system safe.directory "*" 2>/dev/null || true
 if [[ -d "$SRC/.git" ]]; then
   _git -C "$SRC" remote set-url origin "$REPO_URL"
-  if ! timeout 120 _git -C "$SRC" fetch --depth 1 origin "$REF" 2>&1; then
+  if ! timeout 120 git -c "safe.directory=$SRC" -C "$SRC" fetch --depth 1 origin "$REF" 2>&1; then
     echo "  fetch timed out or failed — re-cloning..."
     rm -rf "$SRC"
     git clone --depth 1 --branch "$REF" "$REPO_URL" "$SRC"
