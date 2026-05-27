@@ -1,13 +1,14 @@
 # Project Status
 
 Last updated: 2026-05-27
-Branch: `main` @ `86f2822`
+Branch: `main` @ `102826e`
 
 ## Current State
 
 Container Code Companion is fully functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, shared work identity permissions, and day-to-day use.
 
 Recent work completed:
+- Added auto-update toggle with configurable schedule to the Updates > App tab. Smart check: only triggers ccc-self-update when GitHub has a newer commit. Opt-in via /etc/ccc/autoupdate-enabled flag file. Schedule (frequency + hour) stored in /etc/ccc/autoupdate-schedule and shown live in the UI. Cron file is rewritten when schedule changes from the UI.
 - Fixed UI self-update permanently: replaced the broken SSE streaming approach with background-job + log-poll. POST /api/self-update now launches ccc-self-update via setsid (outside systemd cgroup) and returns immediately. GET /api/self-update-log serves /var/log/ccc-self-update.log plus a running flag (via /proc scan). Client polls every 2s, handles the service-restart gap transparently, and resumes showing the same log after reconnect. The service restart that happens at step 4 no longer kills the update mid-way.
 - Fixed CLI self-update hang at [1/4]: replaced silent --quiet git fetch with timeout 120 + visible output and automatic re-clone fallback if fetch times out or fails.
 - Fixed shared project group-write permissions: work identities in `ccc` could not write to project directories cloned before `/srv/ccc/projects` had its setgid bit. The permission repair command now also sets `core.sharedRepository = group` on all git repos so git does not fight against group-write over time. Clone and create operations also set this immediately. Fixed stale test assertions left over from the old provisioner-delegation self-update approach.
