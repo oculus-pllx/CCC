@@ -119,20 +119,22 @@ func TestSelfUpdateRunsAgentConfigSyncForCurrentUser(t *testing.T) {
 		t.Fatalf("read provisioner: %v", err)
 	}
 	text := string(data)
-	applyIndex := strings.Index(text, `bash "$SRC/install/ccc-provision-workstation.sh"`)
+	// The 4-step self-update syncs web assets (step 3), then runs agent config
+	// sync, then records the version and restarts (step 4).
+	assetsIndex := strings.Index(text, `Syncing web assets`)
 	syncIndex := -1
-	if applyIndex >= 0 {
-		nextSync := strings.Index(text[applyIndex:], `ccc-sync-agent-configs`)
+	if assetsIndex >= 0 {
+		nextSync := strings.Index(text[assetsIndex:], `ccc-sync-agent-configs`)
 		if nextSync >= 0 {
-			syncIndex = applyIndex + nextSync
+			syncIndex = assetsIndex + nextSync
 		}
 	}
-	finalIndex := strings.Index(text, `Finalizing update`)
-	if applyIndex < 0 || syncIndex < 0 || finalIndex < 0 {
-		t.Fatalf("expected self-update apply, sync, and final markers")
+	finalIndex := strings.Index(text, `Recording version and restarting service`)
+	if assetsIndex < 0 || syncIndex < 0 || finalIndex < 0 {
+		t.Fatalf("expected self-update asset sync, agent config sync, and version/restart markers")
 	}
-	if !(applyIndex < syncIndex && syncIndex < finalIndex) {
-		t.Fatalf("expected ccc-sync-agent-configs to run after updateable apply and before finalizing")
+	if !(assetsIndex < syncIndex && syncIndex < finalIndex) {
+		t.Fatalf("expected ccc-sync-agent-configs to run after web asset sync and before version/restart")
 	}
 }
 
@@ -205,6 +207,7 @@ func TestSharedProjectPermissionRepairCommandFollowsTopLevelSymlinkedProjects(t 
 		"if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R 'ccc' \"$entry\"/",
 		"sudo chmod -R g+rwX \"$entry\"/",
 		"sudo find \"$entry\"/ -type d -exec chmod g+s {} +",
+		"core.sharedRepository group",
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("repair command missing %q:\n%s", want, command)

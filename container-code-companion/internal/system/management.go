@@ -820,6 +820,7 @@ func sharedProjectPermissionRepairCommand(projectsRoot, group string) string {
 		"sudo chmod -R g+rwX " + quotedRoot,
 		"sudo find " + quotedRoot + " -type d -exec chmod g+s {} +",
 		"for entry in " + quotedRoot + "/*; do if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R " + quotedGroup + " \"$entry\"/ && sudo chmod -R g+rwX \"$entry\"/ && sudo find \"$entry\"/ -type d -exec chmod g+s {} +; fi; done",
+		"for proj in " + quotedRoot + "/*/; do [ -d \"$proj/.git\" ] && git -C \"$proj\" config core.sharedRepository group 2>/dev/null || true; done",
 	}, " && ")
 }
 
@@ -1130,7 +1131,7 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 				return CommandResult{}, err
 			}
 		}
-		_, _ = RunShellCommand("git init", path)
+		_, _ = RunShellCommand("git init && git config core.sharedRepository group", path)
 		if operation.Remote != "" {
 			return RunShellCommand("gh repo create "+shellQuote(operation.Remote)+" --private --source=. --push", path)
 		}
@@ -1189,6 +1190,7 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 		if result.ExitCode != 0 {
 			return result, errors.New("Git clone failed")
 		}
+		_, _ = RunShellCommand("git config core.sharedRepository group", target)
 		return result, nil
 	case "pull":
 		projectPath, err := managedProjectPath(projectsRoot, operation.Name)
