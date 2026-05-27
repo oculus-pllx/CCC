@@ -2192,14 +2192,43 @@ sudo -u "$CCC_USER" git config --global core.editor nano
 sudo -u "$CCC_USER" git config --global pull.rebase false
 sudo -u "$CCC_USER" git config --global core.autocrlf false
 
+# ── ccc-auto-update ───────────────────────────────────────────────────────────
+cat > /usr/local/bin/ccc-auto-update << 'AUTOUPDATESCRIPT'
+#!/bin/bash
+set -euo pipefail
+B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+[[ ! -t 1 || -n "${NO_COLOR:-}" ]] && B='' G='' C='' Y='' R='' N=''
+
+# Gate: only run if auto-update is enabled via the UI toggle.
+[[ -f /etc/ccc/autoupdate-enabled ]] || exit 0
+
+echo ""
+echo -e "${B}Container Code Companion Auto-Update Check${N} — $(date -Is)"
+
+# Smart check: only update if GitHub has a newer commit.
+STATUS=$(ccc-update-status 2>&1 || true)
+echo "$STATUS"
+
+if echo "$STATUS" | grep -q "Up to date\."; then
+    echo -e "${G}Already up to date. No update needed.${N}"
+    exit 0
+fi
+
+echo ""
+echo -e "${C}Update available — running ccc-self-update...${N}"
+ccc-self-update
+AUTOUPDATESCRIPT
+chmod +x /usr/local/bin/ccc-auto-update
+
 # ── Auto-update cron ──────────────────────────────────────────────────────────
 step 27 "Application auto-update cron"
 rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
 cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-# Weekly Container Code Companion tooling update from GitHub. Does not run apt upgrade.
-0 3 * * 0 root /usr/local/bin/ccc-update >> /var/log/ccc-app-update.log 2>&1
+# Container Code Companion auto-update (smart check — only updates when GitHub has a newer commit).
+# Schedule can be changed from the CCC web UI (Updates > Auto-Update).
+0 3 * * * root /usr/local/bin/ccc-auto-update >> /var/log/ccc-app-update.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/ccc-app-update
 
