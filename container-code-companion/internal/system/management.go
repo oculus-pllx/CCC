@@ -125,6 +125,8 @@ type UpdateStatus struct {
 	AutoUpdateEnabled      bool   `json:"autoUpdateEnabled"`
 	AutoUpdateLastRun      string `json:"autoUpdateLastRun"`
 	AutoUpdateSchedule     string `json:"autoUpdateSchedule"`
+	AutoUpdateFreq         string `json:"autoUpdateFreq"`
+	AutoUpdateHour         int    `json:"autoUpdateHour"`
 }
 
 var (
@@ -147,13 +149,16 @@ func StartUpdateStatusPoller(interval time.Duration) {
 	go func() {
 		time.Sleep(30 * time.Second)
 		for {
+			updateFreq, updateHour := readAutoUpdateSchedule()
 			status := UpdateStatus{
 				ContainerCodeCompanion: runText("ccc-update-status"),
 				OS:                     runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
 				SelfUpdateLog:          runText("bash", "-lc", "sudo tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
 				AutoUpdateEnabled:      autoUpdateEnabled(),
 				AutoUpdateLastRun:      autoUpdateLastRun(),
-				AutoUpdateSchedule:     autoUpdateScheduleLabel(),
+				AutoUpdateSchedule:     formatScheduleLabel(updateFreq, updateHour),
+				AutoUpdateFreq:         updateFreq,
+				AutoUpdateHour:         updateHour,
 			}
 			updateStatusMu.Lock()
 			cachedUpdateStatus = status
