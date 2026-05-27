@@ -1198,64 +1198,74 @@ function maybeRefreshCCCUpdateStatus(force = false) {
   refreshCCCUpdateStatus();
 }
 
-// Streams ccc-self-update output via SSE. The connection drops when systemctl
-// restarts the service; any disconnect-after-output is treated as success.
+// Launches ccc-self-update as a detached background job, then polls
+// /api/self-update-log every 2 seconds to show live progress.
+// This approach survives the systemd service restart that occurs at step 4
+// of the update: the background process writes to /var/log/ccc-self-update.log
+// outside the service cgroup, and the new service instance serves the same
+// log file when the client reconnects after restart.
 async function runSelfUpdateStream() {
   const output = document.getElementById('self-update-output');
   output.hidden = false;
-  output.textContent = 'Connecting...\n';
-  let gotLines = false;
+  output.textContent = 'Starting update...\n';
   // Stop the snapshot poll so it doesn't re-render the section and detach
-  // this output element from the DOM mid-stream.
+  // this output element from the DOM mid-update.
   stopSnapshotPolling();
 
+  // Trigger the background job. Returns immediately once the detached process
+  // is launched — exitCode 0 means the job started, not that it finished.
+  let startResult;
   try {
-    const response = await fetch('/api/self-update', { method: 'POST', credentials: 'include' });
-    if (!response.ok) {
-      output.textContent = `Update failed: HTTP ${response.status}`;
-      startSnapshotPolling();
-      return;
-    }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-
-    outer: while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const parts = buf.split('\n\n');
-      buf = parts.pop();
-      for (const part of parts) {
-        for (const raw of part.split('\n')) {
-          if (!raw.startsWith('data:')) continue;
-          let msg;
-          try { msg = JSON.parse(raw.slice(5).trim()); } catch { continue; }
-          if (msg.line) {
-            output.textContent += msg.line + '\n';
-            gotLines = true;
-          }
-          if (msg.status === 'done') { break outer; }
-          if (msg.status === 'error') {
-            output.textContent += `\nUpdate failed: ${msg.msg || 'unknown error'}`;
-            startSnapshotPolling();
-            return;
-          }
-        }
-      }
-    }
-  } catch {
-    // Connection dropped — service likely restarted mid-update
+    startResult = await postJSON('/api/self-update', {});
+  } catch (err) {
+    output.textContent = 'Failed to start update: ' + err.message;
+    startSnapshotPolling();
+    return;
   }
-
-  if (!gotLines) {
-    output.textContent = 'Failed to start update. Service may be unavailable.';
+  if (startResult.exitCode !== 0) {
+    output.textContent = startResult.output || 'Failed to start update.';
     startSnapshotPolling();
     return;
   }
 
-  output.textContent += '\nService restarting — reconnecting...';
-  monitorReconnect(output);
+  // Poll the log file every 2 seconds. The log persists through service
+  // restarts, so the client can reconnect and resume showing progress.
+  let notRunningCount = 0;
+  let reconnecting = false;
+
+  const logPoll = setInterval(async () => {
+    try {
+      const resp = await fetch('/api/self-update-log', { credentials: 'include' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+
+      reconnecting = false;
+      if (output.isConnected) {
+        output.textContent = data.log || '(no output yet)\n';
+      }
+
+      if (!data.running) {
+        notRunningCount++;
+        // Wait two quiet polls (4 s) to ensure the log is fully flushed
+        // before declaring done. Then hand off to monitorReconnect so it can
+        // wait for the service restart that ccc-self-update triggers.
+        if (notRunningCount >= 2) {
+          clearInterval(logPoll);
+          monitorReconnect(output);
+        }
+      } else {
+        notRunningCount = 0;
+      }
+    } catch {
+      // Fetch failed — service is restarting. Show a message once and retry.
+      if (!reconnecting) {
+        reconnecting = true;
+        if (output.isConnected) {
+          output.textContent += '\nService restarting — will reconnect...\n';
+        }
+      }
+    }
+  }, 2000);
 }
 
 function monitorReconnect(output) {

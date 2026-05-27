@@ -385,6 +385,32 @@ func StartSelfUpdate() (CommandResult, error) {
 	}, nil
 }
 
+// IsSelfUpdateRunning returns true if a ccc-self-update process is still running.
+// It scans /proc without sudo so it works from the service account.
+func IsSelfUpdateRunning() bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		n := e.Name()
+		if len(n) == 0 || n[0] < '1' || n[0] > '9' {
+			continue
+		}
+		data, err := os.ReadFile("/proc/" + n + "/cmdline")
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), "ccc-self-update") {
+			return true
+		}
+	}
+	return false
+}
+
 func ControlService(service string, operation string) (CommandResult, error) {
 	service = strings.TrimSpace(service)
 	operation = strings.TrimSpace(operation)
