@@ -29,7 +29,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
 - **Shared project workspace** — projects live at `/srv/ccc/projects`, with `~/projects` linked there for compatibility
 - **Shared work identities** — local Linux users keep separate Claude/Codex/Gemini auth state while sharing projects, baseline configs, and a managed GitHub machine key
-- **Three update paths** — OS packages, Container Code Companion tooling, and shared agent configs are updated separately
+- **Three update paths** — OS packages, CCC tooling, and shared agent configs move independently
+- **Opt-in auto-update** — configure frequency (daily through weekly) and time from the Updates page; smart check only runs `ccc-self-update` when GitHub has a newer commit
 - **Health check** — `ccc-doctor` checks network, runtimes, services, disk
 - **code-server / VS Code Web** on port 8080 — multi-terminal tabs, file editor, welcome guide
 - **Container Code Companion UI** on port 9090 — native headless management dashboard with Parallax branding, mobile drawer navigation, 7 accent color presets, optional CRT display effects, system overview, SSH connection counts, services, logs, networking, accounts, files, notes, terminal, projects, updates, app catalog, map drives, provider configs, and GitHub SSH key management
@@ -42,7 +43,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **Optional Proxmox HA** — register with `ha-manager` at provision time (cluster only)
 - **oculus-configs** — shared Claude/Codex/Gemini config, rules, skills, and templates synced from [oculus-configs](https://github.com/oculus-pllx/oculus-configs)
 - **Zero Docker** — pure native toolchain, minimal overhead
-- **Weekly Container Code Companion tooling updates** — Sundays 3 AM ET; OS and agent config updates stay explicit
 
 ---
 
@@ -241,7 +241,7 @@ Open `http://<container-ip>:9090` after provisioning and sign in with the workin
 The native UI is built into the Go service, not Cockpit and not a Node dashboard. It currently includes:
 
 - **Overview** — host, IP, uptime, services, projects, SSH session count, resource gauges, update status, and recent logs. SSH counts use login records when available and fall back to `sshd` or `sshd-session` process titles on hosts where `who` is empty.
-- **Updates** — separate App and OS tabs; App updates stream `ccc-self-update` output and reconnect after service restart
+- **Updates** — separate App and OS tabs; App updates launch as background jobs, stream live log output, and auto-reconnect after the brief service restart. Opt-in auto-update with configurable frequency and time.
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
@@ -341,7 +341,7 @@ echo '{"model":{"id":"claude-sonnet-4"},"thinking":{"enabled":true}}' \
 Container Code Companion separates updates so OS packages, workstation tooling, and shared agent behavior can move independently.
 
 Update cadence:
-- CCC tooling auto-update runs weekly from cron on Sundays at 3:00 AM ET via `/etc/cron.d/ccc-app-update`.
+- **CCC tooling auto-update** is opt-in and configurable from **Updates > App**. Enable the toggle, then choose a frequency (daily through weekly) and an hour. The cron fires `ccc-auto-update`, which checks GitHub first — if already current, it logs a skip. Only when a newer commit is available does it run `ccc-self-update`. Disabled by default; existing installs are not auto-enrolled.
 - `ccc-update-status` checks GitHub when you run it, when the MOTD/status flow invokes it, when Overview refreshes its update panel, or when the Updates page requests status.
 - OS package updates and `oculus-configs` agent config sync are manual; run `sudo ccc-os-update` and `sudo ccc-sync-agent-configs` when you want them applied.
 - App Catalog package/version checks run on demand from the native UI, not continuously in the background.
@@ -360,7 +360,7 @@ claude update               # Claude Code only
 
 `ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` fetches the latest CCC repo, then re-runs the provisioner's marked updateable section so `/usr/local/bin` helper commands, cron, MOTD, the native UI binary/assets, service files, `/etc/ccc/version`, and the current CCC user's agent configs move together. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
-`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI streams live update output via SSE and automatically reconnects after the service restarts. A successful tooling update records `/etc/ccc/version` and runs `ccc-sync-agent-configs --user "$CCC_USER"` so newly available default configs, skills, and plugin directories are applied to the current CCC user; a failed build or provisioner step exits non-zero and leaves the error in the log.
+`ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI launches the update as a background job detached from the service process, polls the live log every 2 seconds, and automatically reconnects after the brief service restart (~5 seconds). The update process cannot kill itself. A successful tooling update records `/etc/ccc/version` and runs `ccc-sync-agent-configs --user "$CCC_USER"` so newly available default configs, skills, and plugin directories are applied to the current CCC user; a failed build or provisioner step exits non-zero and leaves the error in the log.
 
 Older installs whose `ccc-self-update` predates the updateable-section runner may need a one-time helper refresh:
 
@@ -484,6 +484,17 @@ If the error mentions `unknown filesystem type` or `bad option`, confirm `cifs-u
 - `yq` is the [mikefarah Go binary](https://github.com/mikefarah/yq), not the apt Python wrapper.
 - Redis server is installed but disabled at boot. Start it when tests need it.
 - Rust is installed twice (root + claude-code user). Root install is a known cleanup candidate.
+
+---
+
+## Guides
+
+Step-by-step workflows for common tasks:
+
+- [First Setup](docs/guides/first-setup.md) — install, first login, authenticate all three providers, GitHub SSH
+- [Work Identities](docs/guides/work-identities.md) — add a second/third OAuth user, shared GitHub key for all accounts, switching between identities
+- [Projects](docs/guides/projects.md) — create a project, clone a repo, shared workspace migration, permission repair
+- [Updates](docs/guides/updates.md) — manual update, opt-in auto-update with configurable schedule, OS updates, agent config sync
 
 ---
 
