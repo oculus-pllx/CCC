@@ -1,13 +1,15 @@
 # Project Status
 
-Last updated: 2026-05-26
-Branch: `main` @ `6223070`
+Last updated: 2026-05-27
+Branch: `main` @ `86f2822`
 
 ## Current State
 
 Container Code Companion is fully functional for Proxmox LXC workstation provisioning, Debian/Ubuntu host installation, shared work identity permissions, and day-to-day use.
 
 Recent work completed:
+- Fixed UI self-update permanently: replaced the broken SSE streaming approach with background-job + log-poll. POST /api/self-update now launches ccc-self-update via setsid (outside systemd cgroup) and returns immediately. GET /api/self-update-log serves /var/log/ccc-self-update.log plus a running flag (via /proc scan). Client polls every 2s, handles the service-restart gap transparently, and resumes showing the same log after reconnect. The service restart that happens at step 4 no longer kills the update mid-way.
+- Fixed CLI self-update hang at [1/4]: replaced silent --quiet git fetch with timeout 120 + visible output and automatic re-clone fallback if fetch times out or fails.
 - Fixed shared project group-write permissions: work identities in `ccc` could not write to project directories cloned before `/srv/ccc/projects` had its setgid bit. The permission repair command now also sets `core.sharedRepository = group` on all git repos so git does not fight against group-write over time. Clone and create operations also set this immediately. Fixed stale test assertions left over from the old provisioner-delegation self-update approach.
 - Fixed `ccc-self-update` silently aborting: the old 3-step provisioner-delegation approach ran `fuser -k 9090/tcp` which killed the running update process mid-way through. Replaced with a direct 4-step binary-build approach (pull source, build binary, sync web assets, write version + restart) that never calls the provisioner and cannot kill itself.
 - Fixed update scripts (`ccc-update-status`, `ccc-self-update`) to use device SSH key with HTTPS fallback for installs without a key, and `git ls-remote` instead of `git fetch` so non-root users can run status checks without permission errors.
