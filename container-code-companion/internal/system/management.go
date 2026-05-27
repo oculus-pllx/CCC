@@ -122,6 +122,9 @@ type UpdateStatus struct {
 	ContainerCodeCompanion string `json:"containerCodeCompanion"`
 	OS                     string `json:"os"`
 	SelfUpdateLog          string `json:"selfUpdateLog"`
+	AutoUpdateEnabled      bool   `json:"autoUpdateEnabled"`
+	AutoUpdateLastRun      string `json:"autoUpdateLastRun"`
+	AutoUpdateSchedule     string `json:"autoUpdateSchedule"`
 }
 
 var (
@@ -148,6 +151,9 @@ func StartUpdateStatusPoller(interval time.Duration) {
 				ContainerCodeCompanion: runText("ccc-update-status"),
 				OS:                     runText("bash", "-lc", "apt list --upgradable 2>/dev/null | sed -n '1,60p'"),
 				SelfUpdateLog:          runText("bash", "-lc", "sudo tail -120 /var/log/ccc-self-update.log 2>/dev/null || true"),
+				AutoUpdateEnabled:      autoUpdateEnabled(),
+				AutoUpdateLastRun:      autoUpdateLastRun(),
+				AutoUpdateSchedule:     autoUpdateScheduleLabel(),
 			}
 			updateStatusMu.Lock()
 			cachedUpdateStatus = status
@@ -326,7 +332,27 @@ func RunWorkstationAction(action string) (CommandResult, error) {
 		return RunShellCommand(sharedWorkspaceMigrationCommand("--status", false), workstationHome())
 	case "shared-workspace-apply":
 		return RunShellCommand(sharedWorkspaceMigrationCommand("--apply", true), workstationHome())
+	case "enable-autoupdate":
+		return RunShellCommand("sudo touch /etc/ccc/autoupdate-enabled", workstationHome())
+	case "disable-autoupdate":
+		return RunShellCommand("sudo rm -f /etc/ccc/autoupdate-enabled", workstationHome())
 	default:
+		if strings.HasPrefix(action, "set-autoupdate-schedule:") {
+			parts := strings.SplitN(action, ":", 3)
+			if len(parts) != 3 {
+				return CommandResult{}, fmt.Errorf("invalid set-autoupdate-schedule action format")
+			}
+			freq := parts[1]
+			hour, err := strconv.Atoi(parts[2])
+			if err != nil {
+				return CommandResult{}, fmt.Errorf("invalid hour %q", parts[2])
+			}
+			if err := scheduleAutoupdateCron(freq, hour); err != nil {
+				return CommandResult{ExitCode: 1, Output: err.Error()}, err
+			}
+			label := formatScheduleLabel(freq, hour)
+			return CommandResult{ExitCode: 0, Output: "Auto-update schedule set: " + label}, nil
+		}
 		return CommandResult{}, fmt.Errorf("action %q is not allowed", action)
 	}
 }
@@ -409,6 +435,128 @@ func IsSelfUpdateRunning() bool {
 		}
 	}
 	return false
+}
+
+func autoUpdateEnabled() bool {
+	_, err := os.Stat("/etc/ccc/autoupdate-enabled")
+	return err == nil
+}
+
+func autoUpdateLastRun() string {
+	out, err := exec.Command("bash", "-lc",
+		"tail -1 /var/log/ccc-app-update.log 2>/dev/null || true").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func autoUpdateScheduleLabel() string {
+	freq, hour := readAutoUpdateSchedule()
+	return formatScheduleLabel(freq, hour)
+}
+
+func readAutoUpdateSchedule() (freq string, hour int) {
+	freq = "daily"
+	hour = 3
+	data, err := os.ReadFile("/etc/ccc/autoupdate-schedule")
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if v, ok := strings.CutPrefix(line, "AUTOUPDATE_FREQ="); ok {
+			freq = strings.TrimSpace(v)
+		}
+		if v, ok := strings.CutPrefix(line, "AUTOUPDATE_HOUR="); ok {
+			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n >= 0 && n <= 23 {
+				hour = n
+			}
+		}
+	}
+	return
+}
+
+func formatScheduleLabel(freq string, hour int) string {
+	dayNames := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+	var freqLabel string
+	switch freq {
+	case "daily":
+		freqLabel = "Daily"
+	case "every2days":
+		freqLabel = "Every 2 days"
+	case "every3days":
+		freqLabel = "Every 3 days"
+	default:
+		if strings.HasPrefix(freq, "weekly-") {
+			d, err := strconv.Atoi(strings.TrimPrefix(freq, "weekly-"))
+			if err == nil && d >= 0 && d <= 6 {
+				freqLabel = "Weekly (" + dayNames[d] + ")"
+			}
+		}
+	}
+	if freqLabel == "" {
+		freqLabel = "Daily"
+	}
+	ampm := "AM"
+	h := hour
+	if h == 0 {
+		h = 12
+	} else if h >= 12 {
+		ampm = "PM"
+		if h > 12 {
+			h -= 12
+		}
+	}
+	return fmt.Sprintf("%s @ %d %s", freqLabel, h, ampm)
+}
+
+func scheduleAutoupdateCron(freq string, hour int) error {
+	validFreqs := map[string]bool{
+		"daily": true, "every2days": true, "every3days": true,
+	}
+	for d := 0; d <= 6; d++ {
+		validFreqs[fmt.Sprintf("weekly-%d", d)] = true
+	}
+	if !validFreqs[freq] {
+		return fmt.Errorf("invalid frequency %q", freq)
+	}
+	if hour < 0 || hour > 23 {
+		return fmt.Errorf("hour %d out of range (0-23)", hour)
+	}
+
+	var cronExpr string
+	switch freq {
+	case "daily":
+		cronExpr = fmt.Sprintf("0 %d * * *", hour)
+	case "every2days":
+		cronExpr = fmt.Sprintf("0 %d */2 * *", hour)
+	case "every3days":
+		cronExpr = fmt.Sprintf("0 %d */3 * *", hour)
+	default:
+		d, _ := strconv.Atoi(strings.TrimPrefix(freq, "weekly-"))
+		cronExpr = fmt.Sprintf("0 %d * * %d", hour, d)
+	}
+
+	scheduleContent := fmt.Sprintf("AUTOUPDATE_FREQ=%s\nAUTOUPDATE_HOUR=%d\n", freq, hour)
+	cronContent := fmt.Sprintf(
+		"SHELL=/bin/bash\nPATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin\n"+
+			"# Container Code Companion auto-update (smart check — only updates when GitHub has a newer commit).\n"+
+			"%s root /usr/local/bin/ccc-auto-update >> /var/log/ccc-app-update.log 2>&1\n",
+		cronExpr,
+	)
+
+	writeCmd := exec.Command("sudo", "bash", "-c",
+		fmt.Sprintf("printf '%%s' %s > /etc/ccc/autoupdate-schedule", shellQuote(scheduleContent)))
+	if out, err := writeCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("write schedule config: %w: %s", err, out)
+	}
+
+	cronCmd := exec.Command("sudo", "bash", "-c",
+		fmt.Sprintf("printf '%%s' %s > /etc/cron.d/ccc-app-update && chmod 0644 /etc/cron.d/ccc-app-update", shellQuote(cronContent)))
+	if out, err := cronCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("write cron file: %w: %s", err, out)
+	}
+	return nil
 }
 
 func ControlService(service string, operation string) (CommandResult, error) {
