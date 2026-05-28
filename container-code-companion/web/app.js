@@ -60,6 +60,7 @@ let networkPollTimer = null;
 let lastNetworkSample = null;
 let networkHistory = [];
 let terminalInitialized = false;
+let batchUploadInProgress = false;
 
 async function loadHealth() {
   const target = document.getElementById('health');
@@ -1929,8 +1930,13 @@ async function uploadCurrentDirectory(event) {
 }
 
 async function uploadBatch(input) {
+  if (batchUploadInProgress) return;
+  batchUploadInProgress = true;
   const files = input.files;
-  if (!files || files.length === 0) return;
+  if (!files || files.length === 0) {
+    batchUploadInProgress = false;
+    return;
+  }
   const formData = new FormData();
   for (const file of files) {
     formData.append('file', file);
@@ -1954,6 +1960,7 @@ async function uploadBatch(input) {
   } catch (err) {
     if (output) output.textContent = `Error: ${err.message}`;
   } finally {
+    batchUploadInProgress = false;
     input.value = '';
   }
 }
