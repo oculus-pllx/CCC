@@ -1177,10 +1177,14 @@ func SaveUploadedFiles(destDir string, entries []BatchUploadEntry) ([]string, er
 		if err != nil {
 			return nil, err
 		}
-		_, copyErr := io.Copy(f, io.LimitReader(entry.Reader, 64*1024*1024+1))
+		n, copyErr := io.Copy(f, io.LimitReader(entry.Reader, 64*1024*1024+1))
 		_ = f.Close()
 		if copyErr != nil {
 			return nil, copyErr
+		}
+		if n > 64*1024*1024 {
+			_ = os.Remove(target)
+			return nil, fmt.Errorf("file %q is larger than 64 MiB", entry.RelPath)
 		}
 		written = append(written, target)
 	}

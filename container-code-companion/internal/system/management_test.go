@@ -3,6 +3,7 @@ package system
 import (
 	"archive/zip"
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -996,4 +997,27 @@ func TestStreamZipDownloadCreatesZipFromMultiplePaths(t *testing.T) {
 	if !names["a.txt"] || !names["b.txt"] {
 		t.Fatalf("expected a.txt and b.txt in zip, got %v", names)
 	}
+}
+
+func TestSaveUploadedFilesRejectsOversizedFile(t *testing.T) {
+	root := t.TempDir()
+	entries := []BatchUploadEntry{
+		{RelPath: "big.bin", Reader: io.LimitReader(infiniteReader{}, 64*1024*1024+1)},
+	}
+	_, err := SaveUploadedFiles(root, entries)
+	if err == nil {
+		t.Fatal("expected error for oversized file, got nil")
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "big.bin")); !os.IsNotExist(statErr) {
+		t.Fatal("oversized file partial write must be removed")
+	}
+}
+
+type infiniteReader struct{}
+
+func (infiniteReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
 }
