@@ -1868,7 +1868,7 @@ function renderFileEntry(entry) {
         <small>${isDir ? '-' : escapeHTML(formatBytes(entry.size))}</small>
         <small>${escapeHTML(entry.mtime || '')}</small>
       </button>
-      ${isDir ? `<button class="icon-button file-download-dir" data-path="${escapeAttribute(entry.path)}" title="Download as zip">&#11015;</button>` : ''}
+      ${isDir ? `<button type="button" class="icon-button file-download-dir" data-path="${escapeAttribute(entry.path)}" title="Download as zip">&#11015;</button>` : ''}
     </div>
   `;
 }
