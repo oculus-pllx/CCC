@@ -250,7 +250,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Overview** — host, IP, uptime, services, projects, SSH session count, resource gauges, update status, and recent logs. SSH counts use login records when available and fall back to `sshd` or `sshd-session` process titles on hosts where `who` is empty.
 - **Updates** — separate App and OS tabs; App updates launch as background jobs, stream live log output, and auto-reconnect after the brief service restart. Opt-in auto-update with configurable frequency and time.
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
-- **Files** — browse directories, open/edit text files, create files/folders, rename, and delete
+- **Files** — browse directories, open/edit text files, create/rename/delete files and folders, single-file upload and download, multi-file upload, folder upload (preserves directory structure), directory download as zip, and multi-item checkbox selection download as zip
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
 - **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
