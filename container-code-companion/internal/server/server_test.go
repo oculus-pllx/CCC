@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -1007,12 +1008,31 @@ func TestProtectedFileDownloadZipReturnsZipForDirectory(t *testing.T) {
 	if !strings.Contains(res.Header().Get("Content-Disposition"), expectedName) {
 		t.Fatalf("expected filename %q in Content-Disposition, got %q", expectedName, res.Header().Get("Content-Disposition"))
 	}
-	zr, err := zip.NewReader(bytes.NewReader(res.Body.Bytes()), int64(res.Body.Len()))
+	body := res.Body.Bytes()
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		t.Fatalf("response is not a valid zip: %v", err)
 	}
-	if len(zr.File) == 0 {
-		t.Fatal("expected at least one file in zip")
+	// addDirToZip names entries as <dirname>/filename relative to the parent dir
+	wantName := filepath.Base(root) + "/hello.txt"
+	if len(zr.File) != 1 || zr.File[0].Name != wantName {
+		names := make([]string, len(zr.File))
+		for i, f := range zr.File {
+			names[i] = f.Name
+		}
+		t.Fatalf("expected zip to contain exactly [%q], got %v", wantName, names)
+	}
+	rc, err := zr.File[0].Open()
+	if err != nil {
+		t.Fatalf("open zip entry: %v", err)
+	}
+	defer rc.Close()
+	content, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatalf("read zip entry: %v", err)
+	}
+	if string(content) != "hello" {
+		t.Fatalf("expected zip entry content %q, got %q", "hello", string(content))
 	}
 }
 
@@ -1034,6 +1054,25 @@ func TestProtectedFileDownloadZipReturnsZipForMultiplePaths(t *testing.T) {
 	}
 	if !strings.Contains(res.Header().Get("Content-Disposition"), "download.zip") {
 		t.Fatalf("expected download.zip in Content-Disposition, got %q", res.Header().Get("Content-Disposition"))
+	}
+	body := res.Body.Bytes()
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatalf("response is not a valid zip: %v", err)
+	}
+	// addFileToZip stores plain files by basename
+	if len(zr.File) != 2 {
+		names := make([]string, len(zr.File))
+		for i, f := range zr.File {
+			names[i] = f.Name
+		}
+		t.Fatalf("expected exactly 2 files in zip, got %v", names)
+	}
+	wantNames := map[string]bool{"a.txt": true, "b.txt": true}
+	for _, f := range zr.File {
+		if !wantNames[f.Name] {
+			t.Fatalf("unexpected zip entry %q, expected a.txt and b.txt", f.Name)
+		}
 	}
 }
 

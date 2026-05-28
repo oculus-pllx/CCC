@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -442,6 +443,7 @@ func (s *Server) handleFileUploadBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entries := make([]system.BatchUploadEntry, 0, len(fileHeaders))
+	files := make([]multipart.File, 0, len(fileHeaders))
 	for i, header := range fileHeaders {
 		relPath := header.Filename
 		if i < len(relPaths) {
@@ -449,13 +451,19 @@ func (s *Server) handleFileUploadBatch(w http.ResponseWriter, r *http.Request) {
 		}
 		file, err := header.Open()
 		if err != nil {
+			for _, f := range files {
+				f.Close()
+			}
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "could not read uploaded file"})
 			return
 		}
-		defer file.Close()
+		files = append(files, file)
 		entries = append(entries, system.BatchUploadEntry{RelPath: relPath, Reader: file})
 	}
 	written, err := s.uploadFiles(r.URL.Query().Get("path"), entries)
+	for _, f := range files {
+		f.Close()
+	}
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
@@ -475,11 +483,16 @@ func (s *Server) handleFileDownloadZip(w http.ResponseWriter, r *http.Request) {
 	}
 	zipName := "download.zip"
 	if len(paths) == 1 {
-		zipName = filepath.Base(paths[0]) + ".zip"
+		base := filepath.Base(paths[0])
+		if base != "" && base != "." && base != ".." && base != "/" {
+			zipName = base + ".zip"
+		}
 	}
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", zipName))
-	_ = s.downloadZip(w, paths)
+	if err := s.downloadZip(w, paths); err != nil {
+		log.Printf("downloadZip error: %v", err)
+	}
 }
 
 func safeUploadFilename(header *multipart.FileHeader) (string, error) {
