@@ -1,6 +1,7 @@
 package system
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -1118,6 +1119,130 @@ func PrepareFileDownload(path string) (DownloadFile, error) {
 		return DownloadFile{}, errors.New("directory downloads are not supported yet")
 	}
 	return DownloadFile{Path: cleaned, Name: filepath.Base(cleaned), Size: info.Size()}, nil
+}
+
+type BatchUploadEntry struct {
+	RelPath string
+	Reader  io.Reader
+}
+
+func safeRelPath(relPath string) (string, error) {
+	if strings.TrimSpace(relPath) == "" {
+		return "", errors.New("relative path is required")
+	}
+	if strings.Contains(relPath, "\x00") {
+		return "", errors.New("relative path contains invalid characters")
+	}
+	cleaned := filepath.Clean(relPath)
+	if filepath.IsAbs(cleaned) {
+		return "", errors.New("relative path must not be absolute")
+	}
+	for _, part := range strings.Split(cleaned, string(filepath.Separator)) {
+		if part == ".." {
+			return "", errors.New("relative path must not contain ..")
+		}
+	}
+	return cleaned, nil
+}
+
+func SaveUploadedFiles(destDir string, entries []BatchUploadEntry) ([]string, error) {
+	if strings.TrimSpace(destDir) == "" {
+		return nil, errors.New("destination directory is required")
+	}
+	cleanedDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(cleanedDir)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, errors.New("destination must be a directory")
+	}
+	var written []string
+	for _, entry := range entries {
+		cleanRel, err := safeRelPath(entry.RelPath)
+		if err != nil {
+			return nil, fmt.Errorf("invalid path %q: %w", entry.RelPath, err)
+		}
+		target := filepath.Join(cleanedDir, cleanRel)
+		if !strings.HasPrefix(target+string(filepath.Separator), cleanedDir+string(filepath.Separator)) {
+			return nil, fmt.Errorf("path %q escapes destination directory", entry.RelPath)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return nil, err
+		}
+		f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		if err != nil {
+			return nil, err
+		}
+		_, copyErr := io.Copy(f, io.LimitReader(entry.Reader, 64*1024*1024+1))
+		_ = f.Close()
+		if copyErr != nil {
+			return nil, copyErr
+		}
+		written = append(written, target)
+	}
+	return written, nil
+}
+
+func StreamZipDownload(w io.Writer, paths []string) error {
+	if len(paths) == 0 {
+		return errors.New("at least one path is required")
+	}
+	zw := zip.NewWriter(w)
+	for _, p := range paths {
+		cleanP, err := filepath.Abs(p)
+		if err != nil {
+			return err
+		}
+		info, err := os.Stat(cleanP)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if err := addDirToZip(zw, cleanP); err != nil {
+				return err
+			}
+		} else {
+			if err := addFileToZip(zw, cleanP, filepath.Base(cleanP)); err != nil {
+				return err
+			}
+		}
+	}
+	return zw.Close()
+}
+
+func addFileToZip(zw *zip.Writer, path, name string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w, err := zw.Create(name)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(w, f)
+	return err
+}
+
+func addDirToZip(zw *zip.Writer, dir string) error {
+	base := filepath.Dir(dir)
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(base, path)
+		if err != nil {
+			return err
+		}
+		return addFileToZip(zw, path, rel)
+	})
 }
 
 func RunFileOperation(operation FileOperation) (CommandResult, error) {

@@ -1,6 +1,8 @@
 package system
 
 import (
+	"archive/zip"
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -858,5 +860,140 @@ func TestAutoUpdateEnabledFlagFile(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "/etc/ccc/autoupdate-enabled") {
 		t.Fatal("provisioner must reference /etc/ccc/autoupdate-enabled flag file")
+	}
+}
+
+func TestSafeRelPathRejectsTraversal(t *testing.T) {
+	cases := []struct {
+		input string
+		valid bool
+	}{
+		{"file.txt", true},
+		{"src/utils/helpers.js", true},
+		{"a/b/c.go", true},
+		{"../escape.txt", false},
+		{"src/../../etc/passwd", false},
+		{"/absolute/path", false},
+		{"", false},
+		{"with\x00null", false},
+	}
+	for _, tc := range cases {
+		_, err := safeRelPath(tc.input)
+		if tc.valid && err != nil {
+			t.Errorf("safeRelPath(%q): expected valid, got error %v", tc.input, err)
+		}
+		if !tc.valid && err == nil {
+			t.Errorf("safeRelPath(%q): expected error, got nil", tc.input)
+		}
+	}
+}
+
+func TestSaveUploadedFilesWritesFlatFiles(t *testing.T) {
+	root := t.TempDir()
+	entries := []BatchUploadEntry{
+		{RelPath: "a.txt", Reader: strings.NewReader("content a")},
+		{RelPath: "b.txt", Reader: strings.NewReader("content b")},
+	}
+	written, err := SaveUploadedFiles(root, entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(written) != 2 {
+		t.Fatalf("expected 2 written files, got %d", len(written))
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "a.txt"))
+	if string(got) != "content a" {
+		t.Fatalf("expected 'content a', got %q", got)
+	}
+}
+
+func TestSaveUploadedFilesPreservesDirectoryStructure(t *testing.T) {
+	root := t.TempDir()
+	entries := []BatchUploadEntry{
+		{RelPath: "src/utils/helpers.js", Reader: strings.NewReader("// helpers")},
+		{RelPath: "src/index.js", Reader: strings.NewReader("// index")},
+	}
+	_, err := SaveUploadedFiles(root, entries)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "src/utils/helpers.js"))
+	if string(got) != "// helpers" {
+		t.Fatalf("expected helpers content, got %q", got)
+	}
+}
+
+func TestSaveUploadedFilesRejectsTraversalPath(t *testing.T) {
+	root := t.TempDir()
+	entries := []BatchUploadEntry{
+		{RelPath: "../escape.txt", Reader: strings.NewReader("nope")},
+	}
+	_, err := SaveUploadedFiles(root, entries)
+	if err == nil {
+		t.Fatal("expected error for traversal path, got nil")
+	}
+	if _, statErr := os.Stat(filepath.Join(filepath.Dir(root), "escape.txt")); !os.IsNotExist(statErr) {
+		t.Fatal("traversal file must not be created")
+	}
+}
+
+func TestStreamZipDownloadCreatesZipFromDirectory(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "hello.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	sub := filepath.Join(root, "sub")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "world.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var buf bytes.Buffer
+	err := StreamZipDownload(&buf, []string{root})
+	if err != nil {
+		t.Fatalf("StreamZipDownload error: %v", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("zip.NewReader error: %v", err)
+	}
+	names := make(map[string]bool)
+	for _, f := range zr.File {
+		names[f.Name] = true
+	}
+	dirBase := filepath.Base(root)
+	if !names[dirBase+"/hello.txt"] {
+		t.Fatalf("expected %s/hello.txt in zip, got %v", dirBase, names)
+	}
+	if !names[dirBase+"/sub/world.txt"] {
+		t.Fatalf("expected %s/sub/world.txt in zip, got %v", dirBase, names)
+	}
+}
+
+func TestStreamZipDownloadCreatesZipFromMultiplePaths(t *testing.T) {
+	root := t.TempDir()
+	fileA := filepath.Join(root, "a.txt")
+	fileB := filepath.Join(root, "b.txt")
+	_ = os.WriteFile(fileA, []byte("aaa"), 0o644)
+	_ = os.WriteFile(fileB, []byte("bbb"), 0o644)
+
+	var buf bytes.Buffer
+	err := StreamZipDownload(&buf, []string{fileA, fileB})
+	if err != nil {
+		t.Fatalf("StreamZipDownload error: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("zip.NewReader: %v", err)
+	}
+	names := make(map[string]bool)
+	for _, f := range zr.File {
+		names[f.Name] = true
+	}
+	if !names["a.txt"] || !names["b.txt"] {
+		t.Fatalf("expected a.txt and b.txt in zip, got %v", names)
 	}
 }
