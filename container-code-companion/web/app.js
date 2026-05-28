@@ -477,6 +477,11 @@ function renderFiles() {
           <span>Size</span>
           <span>Modified</span>
         </div>
+        <div id="file-selection-bar" hidden>
+          <span id="file-selection-count">0 items selected</span>
+          <button id="file-selection-download" class="small-button">Download Selected</button>
+          <button id="file-selection-clear" class="small-button">Clear</button>
+        </div>
         <div id="file-list" class="file-list">Loading...</div>
       </div>
       <div>
@@ -1790,6 +1795,17 @@ function bindFileBrowser() {
   const folderInput = document.getElementById('file-upload-folder-input');
   if (folderInput) folderInput.addEventListener('change', () => uploadBatch(folderInput));
   document.getElementById('file-download-button')?.addEventListener('click', downloadCurrentFile);
+  const dlSelected = document.getElementById('file-selection-download');
+  if (dlSelected) dlSelected.addEventListener('click', () => {
+    const paths = [...document.querySelectorAll('.file-select-checkbox:checked')]
+      .map(cb => cb.dataset.path);
+    if (paths.length > 0) downloadZip(paths);
+  });
+  const clearBtn = document.getElementById('file-selection-clear');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    document.querySelectorAll('.file-select-checkbox').forEach(cb => cb.checked = false);
+    updateSelectionBar();
+  });
   loadFiles(filePath);
 }
 
@@ -1828,6 +1844,13 @@ async function loadFiles(path) {
         }
       });
     });
+    list.querySelectorAll('.file-select-checkbox').forEach(cb => {
+      cb.addEventListener('change', updateSelectionBar);
+    });
+    list.querySelectorAll('.file-download-dir').forEach(btn => {
+      btn.addEventListener('click', () => downloadZip([btn.dataset.path]));
+    });
+    updateSelectionBar();
   } catch (error) {
     list.textContent = error.message;
     if (count) count.textContent = 'Unavailable';
@@ -1837,12 +1860,16 @@ async function loadFiles(path) {
 function renderFileEntry(entry) {
   const isDir = entry.type === 'dir';
   return `
-    <button class="file-entry ${isDir ? 'directory' : 'regular-file'}" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}" data-name="${escapeAttribute(entry.name)}" data-size="${escapeAttribute(formatBytes(entry.size))}" data-mtime="${escapeAttribute(entry.mtime || '')}" data-mode="${escapeAttribute(entry.mode || '')}">
-      <span class="file-entry-icon">${isDir ? 'DIR' : 'FILE'}</span>
-      <strong>${escapeHTML(entry.name)}</strong>
-      <small>${isDir ? '-' : escapeHTML(formatBytes(entry.size))}</small>
-      <small>${escapeHTML(entry.mtime || '')}</small>
-    </button>
+    <div class="file-entry-row">
+      <input type="checkbox" class="file-select-checkbox" data-path="${escapeAttribute(entry.path)}">
+      <button class="file-entry ${isDir ? 'directory' : 'regular-file'}" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}" data-name="${escapeAttribute(entry.name)}" data-size="${escapeAttribute(formatBytes(entry.size))}" data-mtime="${escapeAttribute(entry.mtime || '')}" data-mode="${escapeAttribute(entry.mode || '')}">
+        <span class="file-entry-icon">${isDir ? 'DIR' : 'FILE'}</span>
+        <strong>${escapeHTML(entry.name)}</strong>
+        <small>${isDir ? '-' : escapeHTML(formatBytes(entry.size))}</small>
+        <small>${escapeHTML(entry.mtime || '')}</small>
+      </button>
+      ${isDir ? `<button class="icon-button file-download-dir" data-path="${escapeAttribute(entry.path)}" title="Download as zip">&#11015;</button>` : ''}
+    </div>
   `;
 }
 
@@ -1926,6 +1953,25 @@ async function uploadCurrentDirectory(event) {
     output.textContent = error.message;
   } finally {
     input.value = '';
+  }
+}
+
+function downloadZip(paths) {
+  const qs = paths.map(p => 'path=' + encodeURIComponent(p)).join('&');
+  window.location.href = `/api/file-download-zip?${qs}`;
+}
+
+function updateSelectionBar() {
+  const checkboxes = document.querySelectorAll('.file-select-checkbox:checked');
+  const bar = document.getElementById('file-selection-bar');
+  const count = document.getElementById('file-selection-count');
+  if (!bar || !count) return;
+  const n = checkboxes.length;
+  if (n === 0) {
+    bar.hidden = true;
+  } else {
+    count.textContent = `${n} item${n === 1 ? '' : 's'} selected`;
+    bar.hidden = false;
   }
 }
 
