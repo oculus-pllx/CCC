@@ -453,6 +453,10 @@ function renderFiles() {
         <button id="file-new-folder-button" class="small-button">New Folder</button>
         <label class="small-button file-upload-label" for="file-upload-input">Upload</label>
         <input id="file-upload-input" type="file" hidden>
+        <label class="small-button file-upload-label" for="file-upload-multi-input">Upload Files</label>
+        <input id="file-upload-multi-input" type="file" multiple hidden>
+        <label class="small-button file-upload-label" for="file-upload-folder-input">Upload Folder</label>
+        <input id="file-upload-folder-input" type="file" webkitdirectory hidden>
         <button id="file-download-button" class="small-button">Download</button>
         <button id="file-copy-button" class="small-button">Copy</button>
         <button id="file-rename-button" class="small-button">Rename</button>
@@ -1780,6 +1784,10 @@ function bindFileBrowser() {
   document.getElementById('file-chmod-button')?.addEventListener('click', chmodCurrentFile);
   document.getElementById('file-delete-button')?.addEventListener('click', deleteCurrentFile);
   document.getElementById('file-upload-input')?.addEventListener('change', uploadCurrentDirectory);
+  const multiInput = document.getElementById('file-upload-multi-input');
+  if (multiInput) multiInput.addEventListener('change', () => uploadBatch(multiInput));
+  const folderInput = document.getElementById('file-upload-folder-input');
+  if (folderInput) folderInput.addEventListener('change', () => uploadBatch(folderInput));
   document.getElementById('file-download-button')?.addEventListener('click', downloadCurrentFile);
   loadFiles(filePath);
 }
@@ -1915,6 +1923,36 @@ async function uploadCurrentDirectory(event) {
     await loadFiles(filePath);
   } catch (error) {
     output.textContent = error.message;
+  } finally {
+    input.value = '';
+  }
+}
+
+async function uploadBatch(input) {
+  const files = input.files;
+  if (!files || files.length === 0) return;
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('file', file);
+    formData.append('relpath', file.webkitRelativePath || file.name);
+  }
+  const output = document.getElementById('file-output');
+  if (output) {
+    output.hidden = false;
+    output.textContent = `Uploading ${files.length} file(s)...`;
+  }
+  try {
+    const resp = await fetch(`/api/file-upload-batch?path=${encodeURIComponent(filePath)}`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Upload failed');
+    if (output) output.textContent = `Uploaded ${data.count} file(s)`;
+    await loadFiles(filePath);
+  } catch (err) {
+    if (output) output.textContent = `Error: ${err.message}`;
   } finally {
     input.value = '';
   }
