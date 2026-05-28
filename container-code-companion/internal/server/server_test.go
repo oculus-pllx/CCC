@@ -1,6 +1,7 @@
 package server
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -890,4 +891,160 @@ func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
 		}
 	}
 	return nil
+}
+
+func TestProtectedFileUploadBatchWritesMultipleFiles(t *testing.T) {
+	root := t.TempDir()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for _, name := range []string{"first.txt", "second.txt"} {
+		part, err := writer.CreateFormFile("file", name)
+		if err != nil {
+			t.Fatalf("create form file: %v", err)
+		}
+		_, _ = part.Write([]byte("content of " + name))
+		_ = writer.WriteField("relpath", name)
+	}
+	_ = writer.Close()
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/file-upload-batch?path="+root, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	var result map[string]any
+	if err := json.Unmarshal(res.Body.Bytes(), &result); err != nil {
+		t.Fatalf("response not JSON: %v", err)
+	}
+	if result["count"].(float64) != 2 {
+		t.Fatalf("expected count 2, got %v", result["count"])
+	}
+	for _, name := range []string{"first.txt", "second.txt"} {
+		content, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			t.Fatalf("expected file %s: %v", name, err)
+		}
+		if string(content) != "content of "+name {
+			t.Fatalf("wrong content for %s: %q", name, content)
+		}
+	}
+}
+
+func TestProtectedFileUploadBatchPreservesSubdirectories(t *testing.T) {
+	root := t.TempDir()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "helpers.js")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("// helpers"))
+	_ = writer.WriteField("relpath", "src/utils/helpers.js")
+	_ = writer.Close()
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/file-upload-batch?path="+root, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	content, err := os.ReadFile(filepath.Join(root, "src/utils/helpers.js"))
+	if err != nil {
+		t.Fatalf("expected nested file: %v", err)
+	}
+	if string(content) != "// helpers" {
+		t.Fatalf("wrong content: %q", content)
+	}
+}
+
+func TestProtectedFileUploadBatchRejectsTraversalRelPath(t *testing.T) {
+	root := t.TempDir()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, _ := writer.CreateFormFile("file", "escape.txt")
+	_, _ = part.Write([]byte("nope"))
+	_ = writer.WriteField("relpath", "../escape.txt")
+	_ = writer.Close()
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/file-upload-batch?path="+root, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", res.Code)
+	}
+}
+
+func TestProtectedFileDownloadZipReturnsZipForDirectory(t *testing.T) {
+	root := t.TempDir()
+	_ = os.WriteFile(filepath.Join(root, "hello.txt"), []byte("hello"), 0o644)
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/file-download-zip?path="+root, nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if res.Header().Get("Content-Type") != "application/zip" {
+		t.Fatalf("expected application/zip, got %q", res.Header().Get("Content-Type"))
+	}
+	expectedName := filepath.Base(root) + ".zip"
+	if !strings.Contains(res.Header().Get("Content-Disposition"), expectedName) {
+		t.Fatalf("expected filename %q in Content-Disposition, got %q", expectedName, res.Header().Get("Content-Disposition"))
+	}
+	zr, err := zip.NewReader(bytes.NewReader(res.Body.Bytes()), int64(res.Body.Len()))
+	if err != nil {
+		t.Fatalf("response is not a valid zip: %v", err)
+	}
+	if len(zr.File) == 0 {
+		t.Fatal("expected at least one file in zip")
+	}
+}
+
+func TestProtectedFileDownloadZipReturnsZipForMultiplePaths(t *testing.T) {
+	root := t.TempDir()
+	fileA := filepath.Join(root, "a.txt")
+	fileB := filepath.Join(root, "b.txt")
+	_ = os.WriteFile(fileA, []byte("aaa"), 0o644)
+	_ = os.WriteFile(fileB, []byte("bbb"), 0o644)
+
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/file-download-zip?path="+fileA+"&path="+fileB, nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Header().Get("Content-Disposition"), "download.zip") {
+		t.Fatalf("expected download.zip in Content-Disposition, got %q", res.Header().Get("Content-Disposition"))
+	}
+}
+
+func TestProtectedFileDownloadZipRequiresAtLeastOnePath(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/file-download-zip", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", res.Code)
+	}
 }

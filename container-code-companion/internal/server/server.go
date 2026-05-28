@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,6 +31,8 @@ type Config struct {
 	WriteFile        func(path string, content string) error
 	UploadFile       func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
 	DownloadFile     func(path string) (system.DownloadFile, error)
+	UploadFiles      func(destDir string, entries []system.BatchUploadEntry) ([]string, error)
+	DownloadZip      func(w io.Writer, paths []string) error
 	ControlService   func(service string, operation string) (system.CommandResult, error)
 	FileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
@@ -61,6 +64,8 @@ type Server struct {
 	writeFile        func(path string, content string) error
 	uploadFile       func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
 	downloadFile     func(path string) (system.DownloadFile, error)
+	uploadFiles      func(destDir string, entries []system.BatchUploadEntry) ([]string, error)
+	downloadZip      func(w io.Writer, paths []string) error
 	controlService   func(service string, operation string) (system.CommandResult, error)
 	fileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
@@ -93,6 +98,8 @@ func New(config Config) *Server {
 		writeFile:        config.WriteFile,
 		uploadFile:       config.UploadFile,
 		downloadFile:     config.DownloadFile,
+		uploadFiles:      config.UploadFiles,
+		downloadZip:      config.DownloadZip,
 		controlService:   config.ControlService,
 		fileOperation:    config.FileOperation,
 		projectOperation: config.ProjectOperation,
@@ -134,6 +141,12 @@ func New(config Config) *Server {
 	}
 	if s.downloadFile == nil {
 		s.downloadFile = system.PrepareFileDownload
+	}
+	if s.uploadFiles == nil {
+		s.uploadFiles = system.SaveUploadedFiles
+	}
+	if s.downloadZip == nil {
+		s.downloadZip = system.StreamZipDownload
 	}
 	if s.controlService == nil {
 		s.controlService = system.ControlService
@@ -197,6 +210,8 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/file", s.requireSession(http.HandlerFunc(s.handleFile)))
 	s.mux.Handle("/api/file-upload", s.requireSession(http.HandlerFunc(s.handleFileUpload)))
 	s.mux.Handle("/api/file-download", s.requireSession(http.HandlerFunc(s.handleFileDownload)))
+	s.mux.Handle("/api/file-upload-batch", s.requireSession(http.HandlerFunc(s.handleFileUploadBatch)))
+	s.mux.Handle("/api/file-download-zip", s.requireSession(http.HandlerFunc(s.handleFileDownloadZip)))
 	s.mux.Handle("/api/file-op", s.requireSession(http.HandlerFunc(s.handleFileOperation)))
 	s.mux.Handle("/api/service", s.requireSession(http.HandlerFunc(s.handleService)))
 	s.mux.Handle("/api/project", s.requireSession(http.HandlerFunc(s.handleProject)))
@@ -408,6 +423,63 @@ func (s *Server) handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", download.Name))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", download.Size))
 	http.ServeFile(w, r, download.Path)
+}
+
+func (s *Server) handleFileUploadBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseMultipartForm(64 * 1024 * 1024); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid upload request"})
+		return
+	}
+	form := r.MultipartForm
+	fileHeaders := form.File["file"]
+	relPaths := form.Value["relpath"]
+	if len(fileHeaders) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "at least one file is required"})
+		return
+	}
+	entries := make([]system.BatchUploadEntry, 0, len(fileHeaders))
+	for i, header := range fileHeaders {
+		relPath := header.Filename
+		if i < len(relPaths) {
+			relPath = relPaths[i]
+		}
+		file, err := header.Open()
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "could not read uploaded file"})
+			return
+		}
+		defer file.Close()
+		entries = append(entries, system.BatchUploadEntry{RelPath: relPath, Reader: file})
+	}
+	written, err := s.uploadFiles(r.URL.Query().Get("path"), entries)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "count": len(written), "files": written})
+}
+
+func (s *Server) handleFileDownloadZip(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	paths := r.URL.Query()["path"]
+	if len(paths) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "at least one path is required"})
+		return
+	}
+	zipName := "download.zip"
+	if len(paths) == 1 {
+		zipName = filepath.Base(paths[0]) + ".zip"
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", zipName))
+	_ = s.downloadZip(w, paths)
 }
 
 func safeUploadFilename(header *multipart.FileHeader) (string, error) {
