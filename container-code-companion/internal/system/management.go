@@ -1196,6 +1196,7 @@ func StreamZipDownload(w io.Writer, paths []string) error {
 		return errors.New("at least one path is required")
 	}
 	zw := zip.NewWriter(w)
+	// Plain files are stored by basename; callers must ensure no two paths share the same base name.
 	for _, p := range paths {
 		cleanP, err := filepath.Abs(p)
 		if err != nil {
