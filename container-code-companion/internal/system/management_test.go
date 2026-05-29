@@ -72,7 +72,8 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 		"cd ~/projects",
 		"CCC shell environment",
 		"export PATH=\"$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH\"",
-		"npm install -g --prefix '/home/work-id/.local' @anthropic-ai/claude-code @openai/codex @google/gemini-cli",
+		"curl -fsSL https://claude.ai/install.sh | bash",
+		"npm install -g --prefix '/home/work-id/.local' @openai/codex @google/gemini-cli",
 		"IdentityFile /etc/ccc/ssh/github_ed25519",
 	} {
 		if !strings.Contains(command, want) {
@@ -675,7 +676,7 @@ func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
 }
 
 func TestProviderNPMToolsInstallToUserPrefix(t *testing.T) {
-	for _, tool := range []string{"claude", "gemini"} {
+	for _, tool := range []string{"gemini"} {
 		command, err := toolInstallCommand(tool)
 		if err != nil {
 			t.Fatalf("expected %s install command: %v", tool, err)
@@ -683,6 +684,14 @@ func TestProviderNPMToolsInstallToUserPrefix(t *testing.T) {
 		if !strings.Contains(command, `--prefix "$HOME/.local"`) {
 			t.Fatalf("expected %s to install under user npm prefix, got %q", tool, command)
 		}
+	}
+	// Claude uses the official binary installer, not npm
+	claudeCmd, err := toolInstallCommand("claude")
+	if err != nil {
+		t.Fatalf("expected claude install command: %v", err)
+	}
+	if !strings.Contains(claudeCmd, "claude.ai/install.sh") {
+		t.Fatalf("expected claude to use binary installer, got %q", claudeCmd)
 	}
 }
 
