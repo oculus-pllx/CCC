@@ -33,9 +33,10 @@ Go to **Updates > App** and click **Update Now**. The UI launches the update in 
 What `ccc-self-update` does:
 1. Pulls the latest CCC source from GitHub
 2. Builds the new `container-code-companion` binary
-3. Syncs web assets
-4. Writes the new version to `/etc/ccc/version` and restarts the service
-5. Runs `ccc-sync-agent-configs` for your user so new default configs are applied immediately
+3. Re-runs the updateable provisioner section — keeps `/usr/local/bin` helper commands, cron, MOTD, tmux configs, and system scripts current without a full reprovisioning
+4. Syncs web assets
+5. Writes the new version to `/etc/ccc/version` and restarts the service
+6. Runs `ccc-sync-agent-configs` for your user so new default configs are applied immediately
 
 If the build fails, the service keeps running the old version and the error is in `/var/log/ccc-self-update.log`.
 
@@ -83,7 +84,7 @@ sudo ccc-sync-agent-configs --all-users  # every normal login user
 
 Pulls the latest Claude/Codex/Gemini rules, skills, and templates from `oculus-configs` and writes them to the target user's home. Does not touch auth tokens, sessions, or history.
 
-**Web UI:** Accounts > **Sync All Agent Configs** does the same as `--all-users`.
+**Web UI:** Accounts > **Sync All Account Configs** does the same as `--all-users`.
 
 ---
 

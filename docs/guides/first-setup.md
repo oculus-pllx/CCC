@@ -103,7 +103,7 @@ Pull the latest Claude/Codex/Gemini rules, skills, and templates from `oculus-co
 sudo ccc-sync-agent-configs
 ```
 
-Or use **Accounts > Sync All Agent Configs** in the web UI.
+Or use **Accounts > Sync All Account Configs** in the web UI.
 
 ---
 

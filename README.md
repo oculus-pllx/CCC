@@ -234,7 +234,7 @@ ccc
 - Sync the current CCC user with `sudo ccc-sync-agent-configs`
 - Sync another work identity with `sudo ccc-sync-agent-configs --user <username>`
 - Sync all normal login users with `sudo ccc-sync-agent-configs --all-users`
-- The Accounts page has `Sync All Agent Configs` for pushing the latest shared config baseline to every normal login user.
+- The Accounts page has `Sync All Account Configs` for pushing the latest shared config baseline to every normal login user.
 
 ### code-server Extensions
 Python, Go, Rust Analyzer, Prettier, GitLens, TypeScript Next, Playwright, Vitest Explorer, YAML, TOML, JSON
@@ -255,7 +255,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
-- **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, and delete users
+- **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, view and manage tmux sessions per user, and delete users
 - **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
 - **GitHub** — manage the shared machine key at `/etc/ccc/ssh/github_ed25519`, copy its public key, test GitHub SSH access, configure work identities, and explicitly promote an existing user key when needed
@@ -367,7 +367,7 @@ ccc-update                  # convenience: tooling + app CLI updates, no apt upg
 claude update               # Claude Code only
 ```
 
-`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` fetches the latest CCC repo, then re-runs the provisioner's marked updateable section so `/usr/local/bin` helper commands, cron, MOTD, the native UI binary/assets, service files, `/etc/ccc/version`, and the current CCC user's agent configs move together. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
+`ccc-update-status` shows the installed provisioner commit, latest GitHub commit, behind count, and recent commits. `ccc-self-update` fetches the latest CCC repo, builds the new binary, re-runs the provisioner's marked updateable section (so `/usr/local/bin` helper commands, cron, MOTD, tmux configs, and system scripts stay current without a full reprovisioning), syncs web assets, writes `/etc/ccc/version`, restarts the service, and runs `ccc-sync-agent-configs` for the current CCC user so newly available default configs, skills, and plugin directories are applied. Override `CCC_SELF_UPDATE_REPO`, `CCC_SELF_UPDATE_REF`, or `CCC_SELF_UPDATE_SCRIPT` in `/etc/ccc/config` for forks or private repos.
 
 `ccc-self-update` can be run from the CLI or triggered from the native Updates page in the GUI. The GUI launches the update as a background job detached from the service process, polls the live log every 2 seconds, and automatically reconnects after the brief service restart (~5 seconds). The update process cannot kill itself. A successful tooling update records `/etc/ccc/version` and runs `ccc-sync-agent-configs --user "$CCC_USER"` so newly available default configs, skills, and plugin directories are applied to the current CCC user; a failed build or provisioner step exits non-zero and leaves the error in the log.
 
@@ -379,7 +379,7 @@ curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/install/ccc-pr
 sudo bash -lc 'set -a; . /etc/ccc/config; set +a; CCC_UPDATEABLE_ONLY=1 bash /tmp/ccc-provision-workstation.sh'
 ```
 
-`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout for the primary CLI sync path. In the GUI, Accounts > Sync Agent Configs and Setup CCC Profile use a direct delivery path: resolve the account home with `getent`, grant the shared `ccc` group read/traverse access on that managed home for dashboard browsing, refresh `oculus-configs`, copy known Claude/Codex/Gemini files and directories into that home, mirror the main CCC user's non-auth `.claude`, `.codex`, and `.gemini` profile content, write the CCC-managed Claude `settings.json` and statusline script, chown touched directories, validate the result, and print a created config inventory. The mirror excludes provider credentials, auth/token files, sessions, history, cache/log directories, and provider project/session state; it keeps UI/options/add-ons/skills/plugins aligned across work identities. Accounts > Sync All Agent Configs runs the same direct delivery for every normal login user; Provider Configs shows the managed files plus the synced rules/skills/template directories.
+`ccc-sync-agent-configs` keeps `/opt/oculus-configs` as a shared root-owned checkout for the primary CLI sync path. In the GUI, Accounts > Sync Account Configs and Setup CCC Profile use a direct delivery path: resolve the account home with `getent`, grant the shared `ccc` group read/traverse access on that managed home for dashboard browsing, refresh `oculus-configs`, copy known Claude/Codex/Gemini files and directories into that home, mirror the main CCC user's non-auth `.claude`, `.codex`, and `.gemini` profile content, write the CCC-managed Claude `settings.json` and statusline script, chown touched directories, validate the result, and print a created config inventory. The mirror excludes provider credentials, auth/token files, sessions, history, cache/log directories, and provider project/session state; it keeps UI/options/add-ons/skills/plugins aligned across work identities. Accounts > Sync All Account Configs runs the same direct delivery for every normal login user; Provider Configs shows the managed files plus the synced rules/skills/template directories.
 
 ---
 

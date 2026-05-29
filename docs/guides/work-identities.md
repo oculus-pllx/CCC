@@ -53,7 +53,7 @@ Still in **Accounts**, find the new user and click **Setup CCC Profile**. This:
 - Adds the shell login helper (new SSH sessions start in `~/projects`)
 - Validates all expected files exist
 
-Wait for the output panel to confirm everything was created. If it reports missing binaries or config files, run **Sync Agent Configs** for that user and check again.
+Wait for the output panel to confirm everything was created. If it reports missing binaries or config files, run **Sync Account Configs** for that user and check again.
 
 ---
 
@@ -126,7 +126,7 @@ Inside the web UI Terminal, you can `su - <username>` to switch inline, or open 
 
 When you update agent configs, skills, or rules for the primary user, push them to all work identities:
 
-**Web UI:** Accounts > **Sync All Agent Configs**
+**Web UI:** Accounts > **Sync All Account Configs**
 
 **CLI:**
 ```bash
@@ -159,7 +159,7 @@ ssh <username>@<container-ip>
 Then verify: `groups` should include `ccc`.
 
 **Setup CCC Profile output shows missing files**
-Run **Sync Agent Configs** for that user. If it still fails, check that `oculus-configs` is accessible:
+Run **Sync Account Configs** for that user. If it still fails, check that `oculus-configs` is accessible:
 ```bash
 ls /opt/oculus-configs
 ```
