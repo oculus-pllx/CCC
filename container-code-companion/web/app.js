@@ -1480,6 +1480,66 @@ function bindAccounts() {
   document.querySelectorAll('[data-account-delete]').forEach(button => {
     button.addEventListener('click', () => deleteAccount(button.dataset.accountDelete));
   });
+
+  // tmux attach — switch to terminal and inject attach command
+  document.querySelectorAll('[data-tmux-attach]').forEach(button => {
+    button.addEventListener('click', () => {
+      const session = button.dataset.tmuxSession;
+      selectSection('terminal');
+      setTimeout(() => sendTerminalInput(`tmux attach-session -t ${session}\n`), 300);
+    });
+  });
+
+  // tmux new session
+  document.querySelectorAll('[data-tmux-new]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const username = button.dataset.tmuxNew;
+      const name = prompt('Session name', 'work');
+      if (!name) return;
+      await runAccountOperation({ operation: 'tmux-new', username, sessionName: name });
+    });
+  });
+
+  // tmux kill session
+  document.querySelectorAll('[data-tmux-kill]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const username = button.dataset.tmuxKill;
+      const session = button.dataset.tmuxSession;
+      if (!confirm(`Kill session "${session}" for ${username}?`)) return;
+      await runAccountOperation({ operation: 'tmux-kill', username, sessionName: session });
+    });
+  });
+
+  // tmux kill all sessions
+  document.querySelectorAll('[data-tmux-killall]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const username = button.dataset.tmuxKillall;
+      if (!confirm(`Kill ALL tmux sessions for ${username}?`)) return;
+      await runAccountOperation({ operation: 'tmux-kill-all', username });
+    });
+  });
+
+  // tmux rename
+  document.querySelectorAll('[data-tmux-rename]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const username = button.dataset.tmuxRename;
+      const session = button.dataset.tmuxSession;
+      const newName = prompt(`Rename session "${session}" to:`, session);
+      if (!newName || newName === session) return;
+      await runAccountOperation({ operation: 'tmux-rename', username, sessionName: session, newName });
+    });
+  });
+
+  // tmux send keys
+  document.querySelectorAll('[data-tmux-sendkeys]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const username = button.dataset.tmuxSendkeys;
+      const session = button.dataset.tmuxSession;
+      const keys = prompt(`Send command to "${session}" (${username}):`);
+      if (!keys) return;
+      await runAccountOperation({ operation: 'tmux-send-keys', username, sessionName: session, keys });
+    });
+  });
 }
 
 async function setupCCCProfile(username) {
