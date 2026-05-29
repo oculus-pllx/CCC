@@ -2141,7 +2141,7 @@ if [[ -f "$PROVISIONER" ]]; then
   _updateable_tmp="$(mktemp /tmp/ccc-updateable.XXXXXX.sh)"
   awk '/^# CCC_UPDATEABLE_START/{found=1; next} /^# CCC_UPDATEABLE_END/{found=0; next} found{print}' \
     "$PROVISIONER" > "$_updateable_tmp"
-  CCC_LATEST_COMMIT="$COMMIT" bash "$_updateable_tmp"
+  CCC_LATEST_COMMIT="$COMMIT" CCC_UPDATEABLE_ONLY=1 bash "$_updateable_tmp"
   rm -f "$_updateable_tmp"
   echo -e "  OK: system scripts updated"
 else
@@ -2330,15 +2330,17 @@ if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
 fi
 git config --system safe.directory "*" 2>/dev/null || true
 
-echo "    Building Container Code Companion binary..."
-timeout 600 /usr/local/go/bin/go build \
-  -C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion" \
-  -buildvcs=false \
-  -o /usr/local/bin/container-code-companion \
-  ./cmd/server
-chmod +x /usr/local/bin/container-code-companion
-echo "    Syncing Container Code Companion web assets..."
-rsync -a --delete "$CONTAINER_CODE_COMPANION_SRC/container-code-companion/web/" "$CONTAINER_CODE_COMPANION_ROOT/web/"
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
+  echo "    Building Container Code Companion binary..."
+  timeout 600 /usr/local/go/bin/go build \
+    -C "$CONTAINER_CODE_COMPANION_SRC/container-code-companion" \
+    -buildvcs=false \
+    -o /usr/local/bin/container-code-companion \
+    ./cmd/server
+  chmod +x /usr/local/bin/container-code-companion
+  echo "    Syncing Container Code Companion web assets..."
+  rsync -a --delete "$CONTAINER_CODE_COMPANION_SRC/container-code-companion/web/" "$CONTAINER_CODE_COMPANION_ROOT/web/"
+fi
 
 if [[ -r "$CONTAINER_CODE_COMPANION_ENV" ]]; then
   _ccc_ui_user=$(awk -F= '/^CONTAINER_CODE_COMPANION_USERNAME=/{print $2; exit}' "$CONTAINER_CODE_COMPANION_ENV")
@@ -2357,19 +2359,21 @@ if ! id "$CCC_USER" &>/dev/null; then
   echo "Could not determine Container Code Companion user for systemd unit. Set CCC_USER in /etc/ccc/config." >&2
   exit 1
 fi
-CONTAINER_CODE_COMPANION_SESSION_TOKEN="${CONTAINER_CODE_COMPANION_SESSION_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)}"
-CONTAINER_CODE_COMPANION_PASSWORD="${CONTAINER_CODE_COMPANION_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | head -c 24)}"
-cat > "$CONTAINER_CODE_COMPANION_ENV" <<EOF
+
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
+  CONTAINER_CODE_COMPANION_SESSION_TOKEN="${CONTAINER_CODE_COMPANION_SESSION_TOKEN:-$(head -c 32 /dev/urandom | base64 | tr -d '=+/' | head -c 40)}"
+  CONTAINER_CODE_COMPANION_PASSWORD="${CONTAINER_CODE_COMPANION_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | head -c 24)}"
+  cat > "$CONTAINER_CODE_COMPANION_ENV" <<EOF
 CONTAINER_CODE_COMPANION_ADDR=0.0.0.0:9090
 CONTAINER_CODE_COMPANION_WEB_DIR=$CONTAINER_CODE_COMPANION_ROOT/web
 CONTAINER_CODE_COMPANION_SESSION_TOKEN=$CONTAINER_CODE_COMPANION_SESSION_TOKEN
 CONTAINER_CODE_COMPANION_USERNAME=$CCC_USER
 CONTAINER_CODE_COMPANION_PASSWORD=$CONTAINER_CODE_COMPANION_PASSWORD
 EOF
-chown root:"$CCC_USER" "$CONTAINER_CODE_COMPANION_ENV"
-chmod 640 "$CONTAINER_CODE_COMPANION_ENV"
+  chown root:"$CCC_USER" "$CONTAINER_CODE_COMPANION_ENV"
+  chmod 640 "$CONTAINER_CODE_COMPANION_ENV"
 
-cat > /etc/systemd/system/container-code-companion.service <<EOF
+  cat > /etc/systemd/system/container-code-companion.service <<EOF
 [Unit]
 Description=Container Code Companion native web UI
 After=network-online.target
@@ -2389,29 +2393,30 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable container-code-companion.service
+  systemctl daemon-reload
+  systemctl enable container-code-companion.service
 
-# Write version file before restarting — restart kills this process tree when
-# run from the web terminal (PTY is a child of container-code-companion).
-# Prefer CCC_LATEST_COMMIT injected by ccc-self-update; fall back to the HEAD
-# of the just-cloned source repo so bootstrapping via the old script still records.
-_write_commit="${CCC_LATEST_COMMIT:-}"
-if [[ -z "$_write_commit" && -d "$CONTAINER_CODE_COMPANION_SRC/.git" ]]; then
-  _write_commit=$(git -c "safe.directory=$CONTAINER_CODE_COMPANION_SRC" -C "$CONTAINER_CODE_COMPANION_SRC" rev-parse HEAD 2>/dev/null || echo "")
-fi
-if [[ -n "$_write_commit" ]]; then
-  mkdir -p /etc/ccc
-  printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
-    "$_write_commit" "${CCC_SELF_UPDATE_REF:-main}" "$(date '+%Y-%m-%d %H:%M:%S %z')" \
-    > "${CCC_VERSION_FILE:-/etc/ccc/version}"
-  echo "    Recorded installed commit: ${_write_commit:0:7}"
-fi
+  # Write version file before restarting — restart kills this process tree when
+  # run from the web terminal (PTY is a child of container-code-companion).
+  # Prefer CCC_LATEST_COMMIT injected by ccc-self-update; fall back to the HEAD
+  # of the just-cloned source repo so bootstrapping via the old script still records.
+  _write_commit="${CCC_LATEST_COMMIT:-}"
+  if [[ -z "$_write_commit" && -d "$CONTAINER_CODE_COMPANION_SRC/.git" ]]; then
+    _write_commit=$(git -c "safe.directory=$CONTAINER_CODE_COMPANION_SRC" -C "$CONTAINER_CODE_COMPANION_SRC" rev-parse HEAD 2>/dev/null || echo "")
+  fi
+  if [[ -n "$_write_commit" ]]; then
+    mkdir -p /etc/ccc
+    printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
+      "$_write_commit" "${CCC_SELF_UPDATE_REF:-main}" "$(date '+%Y-%m-%d %H:%M:%S %z')" \
+      > "${CCC_VERSION_FILE:-/etc/ccc/version}"
+    echo "    Recorded installed commit: ${_write_commit:0:7}"
+  fi
 
-echo "    Restarting Container Code Companion service..."
-# Detach from the current process group so the restart survives PTY teardown.
-setsid systemctl restart container-code-companion.service &
-disown $! 2>/dev/null || true
+  echo "    Restarting Container Code Companion service..."
+  # Detach from the current process group so the restart survives PTY teardown.
+  setsid systemctl restart container-code-companion.service &
+  disown $! 2>/dev/null || true
+fi
 
 _ccc_ui_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 if [[ -n "${_ccc_ui_ip:-}" ]]; then
