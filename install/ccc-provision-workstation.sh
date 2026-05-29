@@ -2133,9 +2133,24 @@ timeout 600 "$GO" build -C "$SRC/container-code-companion" -buildvcs=false -o "$
 chmod +x "$BIN"
 echo -e "  OK: $BIN"
 
-# [3/4] Sync web assets and management scripts
+# [3/4] Re-apply updateable provisioner sections (updates system scripts in /usr/local/bin)
 echo ""
-echo -e "${C}[3/4]${N} Syncing web assets..."
+echo -e "${C}[3/4]${N} Re-applying updateable provisioner sections..."
+PROVISIONER="$SRC/install/ccc-provision-workstation.sh"
+if [[ -f "$PROVISIONER" ]]; then
+  _updateable_tmp="$(mktemp /tmp/ccc-updateable.XXXXXX.sh)"
+  awk '/^# CCC_UPDATEABLE_START/{found=1; next} /^# CCC_UPDATEABLE_END/{found=0; next} found{print}' \
+    "$PROVISIONER" > "$_updateable_tmp"
+  CCC_LATEST_COMMIT="$COMMIT" bash "$_updateable_tmp"
+  rm -f "$_updateable_tmp"
+  echo -e "  OK: system scripts updated"
+else
+  echo "  Provisioner not found at $PROVISIONER; skipping."
+fi
+
+# [4/4] Sync web assets and management scripts
+echo ""
+echo -e "${C}[4/4]${N} Syncing web assets..."
 rsync -a --delete "$SRC/container-code-companion/web/" "$WEB/"
 echo -e "  OK: $WEB"
 
@@ -2148,9 +2163,9 @@ else
   echo "  ccc-sync-agent-configs not installed; skipping."
 fi
 
-# [4/4] Write version + restart
+# [5/5] Write version + restart
 echo ""
-echo -e "${C}[4/4]${N} Recording version and restarting service..."
+echo -e "${C}[5/5]${N} Recording version and restarting service..."
 mkdir -p /etc/ccc
 printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
   "$COMMIT" "$REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" > "$VERSION_FILE"

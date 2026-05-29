@@ -408,7 +408,7 @@ function renderAccounts() {
       <input id="account-password" type="password" placeholder="initial password">
       <input id="account-shell" type="text" value="/bin/bash" placeholder="/bin/bash">
       <button id="create-account-button" class="small-button">Create Account</button>
-      <button id="sync-all-agent-configs-button" class="small-button">Sync All Agent Configs</button>
+      <button id="sync-all-agent-configs-button" class="small-button">Sync All Account Configs</button>
     </div>
     <div class="account-list">
       ${accounts.map(account => `
@@ -420,7 +420,7 @@ function renderAccounts() {
           </div>
           <div class="action-row">
             <button class="small-button" data-account-setup-profile="${escapeAttribute(account.username)}">Setup CCC Profile</button>
-            <button class="small-button" data-account-sync-configs="${escapeAttribute(account.username)}">Sync Agent Configs</button>
+            <button class="small-button" data-account-sync-configs="${escapeAttribute(account.username)}">Sync Account Configs</button>
             <button class="small-button" data-account-password="${escapeAttribute(account.username)}">Password</button>
             <button class="small-button" data-account-shell="${escapeAttribute(account.username)}" data-current-shell="${escapeAttribute(account.shell)}">Shell</button>
             <button class="small-button" data-account-groups="${escapeAttribute(account.username)}" data-current-groups="${escapeAttribute(account.groups)}">Groups</button>
