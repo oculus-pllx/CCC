@@ -77,6 +77,13 @@ type SSHUserSession struct {
 	Count    int    `json:"count"`
 }
 
+type TmuxSession struct {
+	Name            string `json:"name"`
+	Windows         int    `json:"windows"`
+	AttachedClients int    `json:"attachedClients"`
+	IdleSeconds     int    `json:"idleSeconds"`
+}
+
 type AccountStatus struct {
 	Username     string            `json:"username"`
 	UID          string            `json:"uid"`
@@ -85,6 +92,7 @@ type AccountStatus struct {
 	Shell        string            `json:"shell"`
 	AgentConfigs []AgentConfigFile `json:"agentConfigs"`
 	Plugins      []PluginEntry     `json:"plugins"`
+	TmuxSessions []TmuxSession     `json:"tmuxSessions"`
 }
 
 type FileEntry struct {
@@ -261,13 +269,16 @@ type ProjectOperation struct {
 }
 
 type AccountOperation struct {
-	Operation string `json:"operation"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	Shell     string `json:"shell"`
-	Groups    string `json:"groups"`
-	Plugin    string `json:"plugin"`
-	Enabled   bool   `json:"enabled"`
+	Operation   string `json:"operation"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	Shell       string `json:"shell"`
+	Groups      string `json:"groups"`
+	Plugin      string `json:"plugin"`
+	Enabled     bool   `json:"enabled"`
+	SessionName string `json:"sessionName"`
+	NewName     string `json:"newName"`
+	Keys        string `json:"keys"`
 }
 
 func CollectManagementSnapshot() (ManagementSnapshot, error) {
