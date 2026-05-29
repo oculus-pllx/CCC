@@ -1106,8 +1106,10 @@ systemctl disable --now ccc-kit-manager 2>/dev/null || true
 rm -f /etc/systemd/system/ccc-kit-manager.service
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 rm -f /etc/systemd/system/ccc-dashboard.service
-if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; then
-  fuser -k 9090/tcp 2>/dev/null || true
+if [[ "${CCC_UPDATEABLE_ONLY:-0}" != "1" ]]; then
+  if command -v fuser >/dev/null 2>&1 && ss -ltn 2>/dev/null | grep -q ':9090 '; then
+    fuser -k 9090/tcp 2>/dev/null || true
+  fi
 fi
 systemctl daemon-reload 2>/dev/null || true
 rm -rf /usr/share/cockpit/ccc /usr/local/lib/ccc "$CCC_HOME/.ccc/kit-manager"
