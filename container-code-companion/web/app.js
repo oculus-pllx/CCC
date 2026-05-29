@@ -400,6 +400,56 @@ function renderNetwork() {
   `;
 }
 
+function renderTmuxSessions(account) {
+  const sessions = account.tmuxSessions || [];
+  const username = account.username;
+
+  const sessionRows = sessions.map(s => {
+    const dot = s.attachedClients > 0
+      ? '<span style="color:#6db86d">●</span>'
+      : '<span style="color:#555">○</span>';
+    const statusLabel = s.attachedClients > 0
+      ? '<span class="badge ok">attached</span>'
+      : `<span class="muted">idle ${idleLabel(s.idleSeconds)}</span>`;
+    const winLabel = `<span class="muted">${s.windows} ${s.windows === 1 ? 'window' : 'windows'}</span>`;
+    const name = escapeHTML(s.name);
+    const nameAttr = escapeAttribute(s.name);
+    return `
+      <div class="tmux-session-row">
+        <span class="tmux-session-info">${dot} <strong>${name}</strong> ${statusLabel} ${winLabel}</span>
+        <span class="tmux-session-actions">
+          <button class="small-button" data-tmux-attach="${escapeAttribute(username)}" data-tmux-session="${nameAttr}">Attach</button>
+          <button class="small-button" data-tmux-rename="${escapeAttribute(username)}" data-tmux-session="${nameAttr}">Rename</button>
+          <button class="small-button" data-tmux-sendkeys="${escapeAttribute(username)}" data-tmux-session="${nameAttr}">Send Keys</button>
+          <button class="small-button danger-button" data-tmux-kill="${escapeAttribute(username)}" data-tmux-session="${nameAttr}">Kill</button>
+        </span>
+      </div>`;
+  }).join('');
+
+  const emptyMsg = sessions.length === 0
+    ? '<p class="muted" style="font-size:0.85em;margin:4px 0">No tmux sessions</p>'
+    : '';
+
+  return `
+    <div class="tmux-sessions-block">
+      <div class="tmux-sessions-header">
+        <span class="label">Tmux Sessions</span>
+        <span class="tmux-sessions-footer-actions">
+          <button class="small-button" data-tmux-new="${escapeAttribute(username)}">+ New Session</button>
+          ${sessions.length > 0 ? `<button class="small-button danger-button" data-tmux-killall="${escapeAttribute(username)}">Kill All</button>` : ''}
+        </span>
+      </div>
+      ${emptyMsg}
+      ${sessionRows}
+    </div>`;
+}
+
+function idleLabel(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h`;
+}
+
 function renderAccounts() {
   const accounts = snapshot.accounts || [];
   return `
@@ -426,6 +476,7 @@ function renderAccounts() {
             <button class="small-button" data-account-groups="${escapeAttribute(account.username)}" data-current-groups="${escapeAttribute(account.groups)}">Groups</button>
             <button class="small-button danger-button" data-account-delete="${escapeAttribute(account.username)}">Delete</button>
           </div>
+          ${renderTmuxSessions(account)}
           <p class="section-description">First login checklist: run <code>claude</code>, <code>codex</code>, <code>gemini</code>, and optionally <code>gh auth login</code>.</p>
         </section>
       `).join('') || '<p>No user accounts found.</p>'}

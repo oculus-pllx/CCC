@@ -955,6 +955,14 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   color: var(--muted);
 }
 
+.tmux-sessions-block { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.tmux-sessions-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.tmux-sessions-footer-actions { display: flex; gap: 4px; }
+.tmux-session-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-subtle, #222); }
+.tmux-session-row:last-child { border-bottom: none; }
+.tmux-session-info { display: flex; align-items: center; gap: 6px; font-size: 0.88em; }
+.tmux-session-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
 .project-row {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;
