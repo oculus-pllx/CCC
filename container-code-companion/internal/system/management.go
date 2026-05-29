@@ -1933,6 +1933,52 @@ func collectAccounts() []AccountStatus {
 	return accounts
 }
 
+// parseTmuxOutput parses the output of:
+//
+//	tmux list-sessions -F "#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}"
+//
+// nowUnix is used to compute IdleSeconds; pass time.Now().Unix() in production.
+func parseTmuxOutput(output string, nowUnix int64) []TmuxSession {
+	var sessions []TmuxSession
+	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "|")
+		if len(parts) != 4 {
+			continue
+		}
+		windows, _ := strconv.Atoi(parts[1])
+		attached, _ := strconv.Atoi(parts[2])
+		activity, _ := strconv.ParseInt(parts[3], 10, 64)
+		idle := 0
+		if activity > 0 && nowUnix > activity {
+			idle = int(nowUnix - activity)
+		}
+		sessions = append(sessions, TmuxSession{
+			Name:            parts[0],
+			Windows:         windows,
+			AttachedClients: attached,
+			IdleSeconds:     idle,
+		})
+	}
+	return sessions
+}
+
+// ListTmuxSessions returns active tmux sessions for username.
+// Returns an empty slice (never an error) if tmux has no server running.
+func ListTmuxSessions(username string) []TmuxSession {
+	cmd := exec.Command("sudo", "-u", username,
+		"tmux", "list-sessions", "-F",
+		"#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}")
+	out, err := cmd.Output()
+	if err != nil {
+		// tmux exits non-zero when no server is running — not an error for us
+		return []TmuxSession{}
+	}
+	return parseTmuxOutput(string(out), time.Now().Unix())
+}
+
 var knownPlugins = []struct{ name, shortName string }{
 	{"superpowers@claude-plugins-official", "Superpowers"},
 	{"frontend-design@claude-plugins-official", "Frontend Design"},

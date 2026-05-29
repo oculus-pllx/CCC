@@ -1021,3 +1021,48 @@ func (infiniteReader) Read(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
+
+func TestParseTmuxOutput(t *testing.T) {
+	input := "work|2|1|1748000000\nscratch|1|0|1747999500\n"
+	now := int64(1748000300)
+	got := parseTmuxOutput(input, now)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(got))
+	}
+	if got[0].Name != "work" {
+		t.Errorf("got[0].Name = %q, want %q", got[0].Name, "work")
+	}
+	if got[0].Windows != 2 {
+		t.Errorf("got[0].Windows = %d, want 2", got[0].Windows)
+	}
+	if got[0].AttachedClients != 1 {
+		t.Errorf("got[0].AttachedClients = %d, want 1", got[0].AttachedClients)
+	}
+	if got[0].IdleSeconds != 300 {
+		t.Errorf("got[0].IdleSeconds = %d, want 300", got[0].IdleSeconds)
+	}
+	if got[1].Name != "scratch" {
+		t.Errorf("got[1].Name = %q, want %q", got[1].Name, "scratch")
+	}
+	if got[1].AttachedClients != 0 {
+		t.Errorf("got[1].AttachedClients = %d, want 0", got[1].AttachedClients)
+	}
+	if got[1].IdleSeconds != 800 {
+		t.Errorf("got[1].IdleSeconds = %d, want 800", got[1].IdleSeconds)
+	}
+}
+
+func TestParseTmuxOutputEmpty(t *testing.T) {
+	got := parseTmuxOutput("", time.Now().Unix())
+	if len(got) != 0 {
+		t.Fatalf("expected 0 sessions, got %d", len(got))
+	}
+}
+
+func TestParseTmuxOutputMalformedLineSkipped(t *testing.T) {
+	input := "work|2|1|1748000000\nbadline\nscratch|1|0|1747999500\n"
+	got := parseTmuxOutput(input, time.Now().Unix())
+	if len(got) != 2 {
+		t.Fatalf("expected 2 sessions (bad line skipped), got %d", len(got))
+	}
+}
