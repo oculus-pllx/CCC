@@ -653,7 +653,8 @@ func setupCCCProfileCommand(username string) string {
 	githubConfig := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + githubKeyPath + "\n  IdentitiesOnly yes\n"
 	shellEnvBlock := "\n# CCC shell environment\nexport EDITOR=nano\nexport LANG=en_US.UTF-8\nexport TZ=America/New_York\nexport PATH=\"$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH\"\n"
 	shellProjectsBlock := "\n# CCC shell projects login\n[[ \"$PWD\" == \"$HOME\" ]] && cd ~/projects 2>/dev/null || true\n"
-	providerInstallCommand := "sudo -u " + shellQuote(username) + " env HOME=" + shellQuote(home) + " PATH=" + shellQuote(home+"/.local/bin:/usr/local/bin:/usr/bin:/bin") + ` npm install -g --prefix ` + shellQuote(home+"/.local") + " @anthropic-ai/claude-code @openai/codex @google/gemini-cli"
+	claudeInstallCommand := "sudo -u " + shellQuote(username) + " env HOME=" + shellQuote(home) + " PATH=" + shellQuote(home+"/.local/bin:/usr/local/bin:/usr/bin:/bin") + " bash -c 'curl -fsSL https://claude.ai/install.sh | bash'"
+	otherProviderInstallCommand := "sudo -u " + shellQuote(username) + " env HOME=" + shellQuote(home) + " PATH=" + shellQuote(home+"/.local/bin:/usr/local/bin:/usr/bin:/bin") + ` npm install -g --prefix ` + shellQuote(home+"/.local") + " @openai/codex @google/gemini-cli"
 	providerValidation := []string{
 		"sudo test -x " + shellQuote(home+"/.local/bin/claude"),
 		"sudo test -x " + shellQuote(home+"/.local/bin/codex"),
@@ -681,7 +682,8 @@ func setupCCCProfileCommand(username string) string {
 		"printf %s " + shellQuote(shellProjectsBlock) + " | sudo tee -a " + shellQuote(home+"/.bashrc") + " >/dev/null",
 		"sudo chown -R " + shellQuote(username+":"+username) + " " + shellQuote(home+"/.claude") + " " + shellQuote(home+"/.codex") + " " + shellQuote(home+"/.gemini") + " " + shellQuote(home+"/.ssh") + " " + shellQuote(home+"/.local"),
 		"sudo chown " + shellQuote(username+":"+username) + " " + shellQuote(home+"/.bashrc"),
-		providerInstallCommand,
+		claudeInstallCommand,
+		otherProviderInstallCommand,
 		strings.Join(providerValidation, " && "),
 		sharedProjectPermissionRepairCommand(projectsRoot, group),
 	}
@@ -1750,7 +1752,7 @@ func toolSpecs() []toolSpec {
 		{Name: "uv", Label: "uv", Command: "uv", Version: "uv --version", Install: "curl -LsSf https://astral.sh/uv/install.sh | sh", UpdateCheck: "uv self update --dry-run 2>/dev/null || echo 'No update detected.'", Description: "Fast Python package and project manager"},
 		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", UpdateCheck: "npm outdated -g playwright --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Browser automation/test dependencies"},
 		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "codex --version", Install: "ccc-install-codex", UpdateCheck: "npm outdated -g --prefix \"$HOME/.local\" @openai/codex --depth=0 2>/dev/null || echo 'No update detected.'", Description: "OpenAI Codex CLI"},
-		{Name: "claude", Label: "Claude Code", Command: "claude", Version: "claude --version", Install: "npm install -g --prefix \"$HOME/.local\" @anthropic-ai/claude-code", UpdateCheck: "npm outdated -g --prefix \"$HOME/.local\" @anthropic-ai/claude-code --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Anthropic Claude Code CLI"},
+		{Name: "claude", Label: "Claude Code", Command: "claude", Version: "claude --version", Install: "curl -fsSL https://claude.ai/install.sh | bash", UpdateCheck: "claude update --check 2>/dev/null || echo 'No update detected.'", Description: "Anthropic Claude Code CLI"},
 		{Name: "gemini", Label: "Gemini CLI", Command: "gemini", Version: "gemini --version", Install: "npm install -g --prefix \"$HOME/.local\" @google/gemini-cli", UpdateCheck: "npm outdated -g --prefix \"$HOME/.local\" @google/gemini-cli --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Google Gemini command-line agent"},
 		{Name: "gh", Label: "GitHub CLI", Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", UpdateCheck: aptUpdateCheck("gh"), Description: "GitHub auth and repo operations"},
 		{Name: "bubblewrap", Label: "Bubblewrap", Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", UpdateCheck: aptUpdateCheck("bubblewrap"), Description: "Codex sandbox prerequisite"},
