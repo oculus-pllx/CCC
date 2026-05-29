@@ -1929,6 +1929,7 @@ func collectAccounts() []AccountStatus {
 			Shell:        fields[6],
 			AgentConfigs: collectAgentConfigs(home),
 			Plugins:      collectPluginStatus(home),
+			TmuxSessions: ListTmuxSessions(fields[0]),
 		})
 	}
 	return accounts
