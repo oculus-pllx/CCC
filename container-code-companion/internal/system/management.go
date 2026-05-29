@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"io"
 	"net/url"
 	"os"
@@ -1973,7 +1974,10 @@ func ListTmuxSessions(username string) []TmuxSession {
 		"#{session_name}|#{session_windows}|#{session_attached}|#{session_activity}")
 	out, err := cmd.Output()
 	if err != nil {
-		// tmux exits non-zero when no server is running — not an error for us
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			log.Printf("ListTmuxSessions(%s): unexpected error: %v", username, err)
+		}
 		return []TmuxSession{}
 	}
 	return parseTmuxOutput(string(out), time.Now().Unix())

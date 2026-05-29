@@ -1066,3 +1066,15 @@ func TestParseTmuxOutputMalformedLineSkipped(t *testing.T) {
 		t.Fatalf("expected 2 sessions (bad line skipped), got %d", len(got))
 	}
 }
+
+func TestListTmuxSessionsNoServer(t *testing.T) {
+	// A nonexistent user causes tmux/sudo to exit non-zero.
+	// ListTmuxSessions must return a non-nil empty slice, never panic.
+	got := ListTmuxSessions("nonexistent-user-xyz-ccc-test")
+	if got == nil {
+		t.Fatal("expected non-nil slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected 0 sessions, got %d", len(got))
+	}
+}
