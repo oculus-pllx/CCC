@@ -649,6 +649,32 @@ func RunAccountOperation(operation AccountOperation) (CommandResult, error) {
 		return RunShellCommand("sudo python3 -c "+shellQuote(py), workstationHome())
 	case "delete":
 		return RunShellCommand("sudo userdel -r "+shellQuote(operation.Username), workstationHome())
+	case "tmux-new":
+		if !safeProjectName(operation.SessionName) {
+			return CommandResult{}, errors.New("valid session name is required")
+		}
+		home := "/home/" + operation.Username
+		return RunShellCommand("sudo -u "+shellQuote(operation.Username)+" env HOME="+shellQuote(home)+" tmux new-session -d -s "+shellQuote(operation.SessionName), workstationHome())
+	case "tmux-kill":
+		if operation.SessionName == "" {
+			return CommandResult{}, errors.New("session name is required")
+		}
+		return RunShellCommand("sudo -u "+shellQuote(operation.Username)+" tmux kill-session -t "+shellQuote(operation.SessionName), workstationHome())
+	case "tmux-kill-all":
+		return RunShellCommand("sudo -u "+shellQuote(operation.Username)+" tmux kill-server", workstationHome())
+	case "tmux-rename":
+		if operation.SessionName == "" || operation.NewName == "" {
+			return CommandResult{}, errors.New("session name and new name are required")
+		}
+		if !safeProjectName(operation.NewName) {
+			return CommandResult{}, errors.New("invalid new session name")
+		}
+		return RunShellCommand("sudo -u "+shellQuote(operation.Username)+" tmux rename-session -t "+shellQuote(operation.SessionName)+" "+shellQuote(operation.NewName), workstationHome())
+	case "tmux-send-keys":
+		if operation.SessionName == "" || operation.Keys == "" {
+			return CommandResult{}, errors.New("session name and keys are required")
+		}
+		return RunShellCommand("sudo -u "+shellQuote(operation.Username)+" tmux send-keys -t "+shellQuote(operation.SessionName)+" "+shellQuote(operation.Keys)+" Enter", workstationHome())
 	default:
 		return CommandResult{}, fmt.Errorf("account operation %q is not allowed", operation.Operation)
 	}
