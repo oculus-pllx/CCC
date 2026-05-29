@@ -519,6 +519,38 @@ CLAUDESTATUSLINE
   fi
 }
 
+write_tmux_config() {
+  cat > "$CCC_HOME/.tmux.conf" << 'TMUXCONF'
+set -g mouse on
+set -g default-terminal "screen-256color"
+set -g history-limit 10000
+set -g base-index 1
+setw -g pane-base-index 1
+set -g renumber-windows on
+
+# Status bar
+set -g status-style bg=colour235,fg=colour136
+set -g status-left "#[bold]#S #[default]"
+set -g status-right "#[fg=colour136]%H:%M %d-%b#[default]"
+set -g status-interval 30
+
+# Easier splits: | and -
+bind | split-window -h -c "#{pane_current_path}"
+bind - split-window -v -c "#{pane_current_path}"
+
+# New window keeps current path
+bind c new-window -c "#{pane_current_path}"
+
+# Quick pane navigation with Alt+arrow (no prefix)
+bind -n M-Left  select-pane -L
+bind -n M-Right select-pane -R
+bind -n M-Up    select-pane -U
+bind -n M-Down  select-pane -D
+TMUXCONF
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
+  ok "tmux config written"
+}
+
 install_claude_plugins() {
   local cache="$CCC_HOME/.claude/plugins/cache/claude-plugins-official"
   mkdir -p "$cache"
@@ -616,6 +648,7 @@ mirror_provider_profile ".claude" "Claude"
 mirror_provider_profile ".codex" "Codex"
 mirror_provider_profile ".gemini" "Gemini"
 write_claude_baseline
+write_tmux_config
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
 
@@ -1002,36 +1035,6 @@ BASHRC
 
 chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.bashrc"
 
-# tmux config
-sudo -u "$CCC_USER" tee "$CCC_HOME/.tmux.conf" > /dev/null << 'TMUXCONF'
-set -g mouse on
-set -g default-terminal "screen-256color"
-set -g history-limit 10000
-set -g base-index 1
-setw -g pane-base-index 1
-set -g renumber-windows on
-
-# Status bar
-set -g status-style bg=colour235,fg=colour136
-set -g status-left "#[bold]#S #[default]"
-set -g status-right "#[fg=colour136]%H:%M %d-%b#[default]"
-set -g status-interval 30
-
-# Easier splits: | and -
-bind | split-window -h -c "#{pane_current_path}"
-bind - split-window -v -c "#{pane_current_path}"
-
-# New window keeps current path
-bind c new-window -c "#{pane_current_path}"
-
-# Quick pane navigation with Alt+arrow (no prefix)
-bind -n M-Left  select-pane -L
-bind -n M-Right select-pane -R
-bind -n M-Up    select-pane -U
-bind -n M-Down  select-pane -D
-TMUXCONF
-chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
-
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 # Patch stale script name written by older provisioners without changing the active installer mode.
@@ -1324,6 +1327,38 @@ CLAUDESTATUSLINE
   fi
 }
 
+write_tmux_config() {
+  cat > "$CCC_HOME/.tmux.conf" << 'TMUXCONF'
+set -g mouse on
+set -g default-terminal "screen-256color"
+set -g history-limit 10000
+set -g base-index 1
+setw -g pane-base-index 1
+set -g renumber-windows on
+
+# Status bar
+set -g status-style bg=colour235,fg=colour136
+set -g status-left "#[bold]#S #[default]"
+set -g status-right "#[fg=colour136]%H:%M %d-%b#[default]"
+set -g status-interval 30
+
+# Easier splits: | and -
+bind | split-window -h -c "#{pane_current_path}"
+bind - split-window -v -c "#{pane_current_path}"
+
+# New window keeps current path
+bind c new-window -c "#{pane_current_path}"
+
+# Quick pane navigation with Alt+arrow (no prefix)
+bind -n M-Left  select-pane -L
+bind -n M-Right select-pane -R
+bind -n M-Up    select-pane -U
+bind -n M-Down  select-pane -D
+TMUXCONF
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
+  ok "tmux config written"
+}
+
 install_claude_plugins() {
   local cache="$CCC_HOME/.claude/plugins/cache/claude-plugins-official"
   mkdir -p "$cache"
@@ -1421,6 +1456,7 @@ mirror_provider_profile ".claude" "Claude"
 mirror_provider_profile ".codex" "Codex"
 mirror_provider_profile ".gemini" "Gemini"
 write_claude_baseline
+write_tmux_config
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
 
