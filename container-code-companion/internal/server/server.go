@@ -37,8 +37,10 @@ type Config struct {
 	ControlService   func(service string, operation string) (system.CommandResult, error)
 	FileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
-	AccountOperation func(operation system.AccountOperation) (system.CommandResult, error)
-	NetworkActivity  func() (system.NetworkActivity, error)
+	AccountOperation    func(operation system.AccountOperation) (system.CommandResult, error)
+	WriteClaudeSettings func(username, home string, patch map[string]any) (system.CommandResult, error)
+	ListAccounts        func() []system.AccountStatus
+	NetworkActivity     func() (system.NetworkActivity, error)
 	ListNotes        func() ([]system.Note, error)
 	SaveNote         func(note system.Note) (system.Note, error)
 	DeleteNote       func(id string) error
@@ -70,8 +72,10 @@ type Server struct {
 	controlService   func(service string, operation string) (system.CommandResult, error)
 	fileOperation    func(operation system.FileOperation) (system.CommandResult, error)
 	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
-	accountOperation func(operation system.AccountOperation) (system.CommandResult, error)
-	networkActivity  func() (system.NetworkActivity, error)
+	accountOperation    func(operation system.AccountOperation) (system.CommandResult, error)
+	writeClaudeSettings func(username, home string, patch map[string]any) (system.CommandResult, error)
+	listAccounts        func() []system.AccountStatus
+	networkActivity     func() (system.NetworkActivity, error)
 	listNotes        func() ([]system.Note, error)
 	saveNote         func(note system.Note) (system.Note, error)
 	deleteNote       func(id string) error
@@ -104,8 +108,10 @@ func New(config Config) *Server {
 		controlService:   config.ControlService,
 		fileOperation:    config.FileOperation,
 		projectOperation: config.ProjectOperation,
-		accountOperation: config.AccountOperation,
-		networkActivity:  config.NetworkActivity,
+		accountOperation:    config.AccountOperation,
+		writeClaudeSettings: config.WriteClaudeSettings,
+		listAccounts:        config.ListAccounts,
+		networkActivity:     config.NetworkActivity,
 		listNotes:        config.ListNotes,
 		saveNote:         config.SaveNote,
 		deleteNote:       config.DeleteNote,
@@ -160,6 +166,12 @@ func New(config Config) *Server {
 	}
 	if s.accountOperation == nil {
 		s.accountOperation = system.RunAccountOperation
+	}
+	if s.writeClaudeSettings == nil {
+		s.writeClaudeSettings = system.WriteClaudeSettings
+	}
+	if s.listAccounts == nil {
+		s.listAccounts = system.ListAccounts
 	}
 	if s.networkActivity == nil {
 		s.networkActivity = system.CollectNetworkActivity
@@ -217,6 +229,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/service", s.requireSession(http.HandlerFunc(s.handleService)))
 	s.mux.Handle("/api/project", s.requireSession(http.HandlerFunc(s.handleProject)))
 	s.mux.Handle("/api/account", s.requireSession(http.HandlerFunc(s.handleAccount)))
+	s.mux.Handle("/api/claude-settings", s.requireSession(http.HandlerFunc(s.handleClaudeSettings)))
 	s.mux.Handle("/api/github", s.requireSession(http.HandlerFunc(s.handleGitHub)))
 	s.mux.Handle("/api/network-activity", s.requireSession(http.HandlerFunc(s.handleNetworkActivity)))
 	s.mux.Handle("/api/notes", s.requireSession(http.HandlerFunc(s.handleNotes)))
@@ -584,6 +597,47 @@ func (s *Server) handleAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleClaudeSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		username := strings.TrimSpace(r.URL.Query().Get("username"))
+		if username == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "username is required"})
+			return
+		}
+		settings, _ := system.ReadClaudeSettings("/home/" + username)
+		writeJSON(w, http.StatusOK, map[string]any{"settings": settings})
+	case http.MethodPost:
+		var body struct {
+			Username    string         `json:"username"`
+			Settings    map[string]any `json:"settings"`
+			AllAccounts bool           `json:"allAccounts"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+		if body.AllAccounts {
+			accounts := s.listAccounts()
+			var lines []string
+			for _, acc := range accounts {
+				result, _ := s.writeClaudeSettings(acc.Username, acc.Home, body.Settings)
+				lines = append(lines, result.Output)
+			}
+			writeJSON(w, http.StatusOK, system.CommandResult{Output: strings.Join(lines, "\n")})
+			return
+		}
+		result, err := s.writeClaudeSettings(body.Username, "/home/"+body.Username, body.Settings)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleNetworkActivity(w http.ResponseWriter, r *http.Request) {

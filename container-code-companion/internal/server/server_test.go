@@ -1087,3 +1087,98 @@ func TestProtectedFileDownloadZipRequiresAtLeastOnePath(t *testing.T) {
 		t.Fatalf("expected 400, got %d", res.Code)
 	}
 }
+
+func TestClaudeSettingsRejectsGetWithoutUsername(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/claude-settings", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", res.Code, res.Body.String())
+	}
+}
+
+func TestClaudeSettingsPostCallsWriterAndReturnOutput(t *testing.T) {
+	var capturedUsername, capturedHome string
+	var capturedPatch map[string]any
+
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		WriteClaudeSettings: func(username, home string, patch map[string]any) (system.CommandResult, error) {
+			capturedUsername = username
+			capturedHome = home
+			capturedPatch = patch
+			return system.CommandResult{Output: "settings updated"}, nil
+		},
+		ListAccounts: func() []system.AccountStatus {
+			return []system.AccountStatus{{Username: "prime", Home: "/home/prime"}}
+		},
+	})
+
+	body := `{"username":"prime","settings":{"autoCompactEnabled":true}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/claude-settings", strings.NewReader(body))
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if capturedUsername != "prime" {
+		t.Errorf("username = %q, want prime", capturedUsername)
+	}
+	if capturedHome != "/home/prime" {
+		t.Errorf("home = %q, want /home/prime", capturedHome)
+	}
+	if capturedPatch["autoCompactEnabled"] != true {
+		t.Errorf("patch[autoCompactEnabled] = %v, want true", capturedPatch["autoCompactEnabled"])
+	}
+	var result map[string]any
+	json.Unmarshal(res.Body.Bytes(), &result)
+	if result["output"] != "settings updated" {
+		t.Errorf("output = %v, want 'settings updated'", result["output"])
+	}
+}
+
+func TestClaudeSettingsPostAllAccountsCallsWriterForEach(t *testing.T) {
+	var written []string
+	srv := New(Config{
+		SessionToken: "test-token",
+		Username:     "oculus",
+		Password:     "secret",
+		WebDir:       "../../web",
+		WriteClaudeSettings: func(username, home string, patch map[string]any) (system.CommandResult, error) {
+			written = append(written, username)
+			return system.CommandResult{Output: "ok " + username}, nil
+		},
+		ListAccounts: func() []system.AccountStatus {
+			return []system.AccountStatus{
+				{Username: "prime", Home: "/home/prime"},
+				{Username: "work", Home: "/home/work"},
+			}
+		},
+	})
+
+	body := `{"username":"prime","settings":{"autoCompactEnabled":true},"allAccounts":true}`
+	req := httptest.NewRequest(http.MethodPost, "/api/claude-settings", strings.NewReader(body))
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+	if len(written) != 2 {
+		t.Errorf("expected 2 write calls, got %d: %v", len(written), written)
+	}
+	if written[0] != "prime" || written[1] != "work" {
+		t.Errorf("unexpected order: %v", written)
+	}
+}
