@@ -255,7 +255,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
-- **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, view and manage tmux sessions per user, and delete users
+- **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, view and manage tmux sessions per user, manage Claude Code settings (auto-compact, thinking, danger-prompt, compact window) per account or across all accounts, and delete users
 - **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
 - **GitHub** — manage the shared machine key at `/etc/ccc/ssh/github_ed25519`, copy its public key, test GitHub SSH access, configure work identities, and explicitly promote an existing user key when needed
