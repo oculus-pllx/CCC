@@ -400,6 +400,33 @@ function renderNetwork() {
   `;
 }
 
+function renderClaudeSettings(account) {
+  const cs = account.claudeSettings || {};
+  const username = account.username;
+
+  function boolToggle(key, label) {
+    const val = cs[key];
+    const enabled = val === true;
+    const cls = enabled ? 'plugin-toggle enabled' : 'plugin-toggle disabled';
+    const text = (enabled ? '● ' : '○ ') + label;
+    return `<button class="${cls}" data-claude-toggle="${escapeAttribute(username)}" data-claude-key="${escapeAttribute(key)}" data-claude-val="${enabled}">${text}</button>`;
+  }
+
+  const windowVal = typeof cs.autoCompactWindow === 'number' ? cs.autoCompactWindow : '';
+  const windowInput = `<label class="muted" style="font-size:0.82em;display:flex;align-items:center;gap:4px">compact&nbsp;at<input type="number" class="claude-window-input" data-claude-number="${escapeAttribute(username)}" value="${escapeAttribute(String(windowVal))}" min="100000" max="1000000" step="10000" placeholder="default" style="width:90px;margin:0 2px">&nbsp;tokens</label>`;
+
+  return `
+    <div class="user-plugin-row" style="margin-top:4px">
+      <span class="muted" style="font-size:0.82em;margin-right:6px">Claude:</span>
+      ${boolToggle('autoCompactEnabled', 'Auto-compact')}
+      ${boolToggle('alwaysThinkingEnabled', 'Always thinking')}
+      ${boolToggle('skipDangerousModePermissionPrompt', 'Skip danger prompt')}
+      ${windowInput}
+      <button class="small-button" data-claude-apply-all="${escapeAttribute(username)}" title="Copy these settings to all accounts">Apply to all</button>
+    </div>
+  `;
+}
+
 function renderTmuxSessions(account) {
   const sessions = account.tmuxSessions || [];
   const username = account.username;
@@ -477,6 +504,7 @@ function renderAccounts() {
             <button class="small-button danger-button" data-account-delete="${escapeAttribute(account.username)}">Delete</button>
           </div>
           ${renderTmuxSessions(account)}
+          ${renderClaudeSettings(account)}
           <p class="section-description">First login checklist: run <code>claude</code>, <code>codex</code>, <code>gemini</code>, and optionally <code>gh auth login</code>.</p>
         </section>
       `).join('') || '<p>No user accounts found.</p>'}
@@ -1540,6 +1568,32 @@ function bindAccounts() {
       await runAccountOperation({ operation: 'tmux-send-keys', username, sessionName: session, keys });
     });
   });
+
+  // Claude settings bool toggles
+  document.querySelectorAll('[data-claude-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+      const username = button.dataset.claudeToggle;
+      const key = button.dataset.claudeKey;
+      const current = button.dataset.claudeVal === 'true';
+      setClaudeSetting(username, key, !current);
+    });
+  });
+
+  // Claude settings autoCompactWindow number input
+  document.querySelectorAll('.claude-window-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const username = input.dataset.claudeNumber;
+      const val = parseInt(input.value, 10);
+      if (!isNaN(val) && val >= 100000 && val <= 1000000) {
+        setClaudeSetting(username, 'autoCompactWindow', val);
+      }
+    });
+  });
+
+  // Apply to all accounts
+  document.querySelectorAll('[data-claude-apply-all]').forEach(button => {
+    button.addEventListener('click', () => applyClaudeSettingsToAll(button.dataset.claudeApplyAll));
+  });
 }
 
 async function setupCCCProfile(username) {
@@ -1599,6 +1653,37 @@ async function setAccountGroups(username, currentGroups) {
 async function deleteAccount(username) {
   if (!confirm(`Delete account ${username} and its home directory?`)) return;
   await runAccountOperation({ operation: 'delete', username });
+}
+
+async function setClaudeSetting(username, key, value) {
+  showAccountOutput('Updating...');
+  try {
+    const result = await postJSON('/api/claude-settings', { username, settings: { [key]: value } });
+    await loadSnapshot();
+    renderSection('accounts');
+    showAccountOutput(result.output || 'Setting updated');
+  } catch (error) {
+    showAccountOutput(error.message);
+  }
+}
+
+async function applyClaudeSettingsToAll(sourceUsername) {
+  if (!confirm(`Apply ${sourceUsername}'s Claude settings to all accounts?`)) return;
+  showAccountOutput('Applying to all accounts...');
+  const sourceAccount = (snapshot.accounts || []).find(a => a.username === sourceUsername);
+  const cs = sourceAccount?.claudeSettings || {};
+  const settings = {};
+  for (const key of ['autoCompactEnabled', 'autoCompactWindow', 'alwaysThinkingEnabled', 'skipDangerousModePermissionPrompt']) {
+    if (key in cs) settings[key] = cs[key];
+  }
+  try {
+    const result = await postJSON('/api/claude-settings', { username: sourceUsername, settings, allAccounts: true });
+    await loadSnapshot();
+    renderSection('accounts');
+    showAccountOutput(result.output || 'Applied to all accounts');
+  } catch (error) {
+    showAccountOutput(error.message);
+  }
 }
 
 async function runAccountOperation(payload) {
