@@ -86,14 +86,15 @@ type TmuxSession struct {
 }
 
 type AccountStatus struct {
-	Username     string            `json:"username"`
-	UID          string            `json:"uid"`
-	Groups       string            `json:"groups"`
-	Home         string            `json:"home"`
-	Shell        string            `json:"shell"`
-	AgentConfigs []AgentConfigFile `json:"agentConfigs"`
-	Plugins      []PluginEntry     `json:"plugins"`
-	TmuxSessions []TmuxSession     `json:"tmuxSessions"`
+	Username       string            `json:"username"`
+	UID            string            `json:"uid"`
+	Groups         string            `json:"groups"`
+	Home           string            `json:"home"`
+	Shell          string            `json:"shell"`
+	AgentConfigs   []AgentConfigFile `json:"agentConfigs"`
+	Plugins        []PluginEntry     `json:"plugins"`
+	TmuxSessions   []TmuxSession     `json:"tmuxSessions"`
+	ClaudeSettings map[string]any    `json:"claudeSettings"`
 }
 
 type FileEntry struct {
@@ -1947,18 +1948,62 @@ func collectAccounts() []AccountStatus {
 			continue
 		}
 		home := fields[5]
+		claudeSettings, _ := ReadClaudeSettings(home)
 		accounts = append(accounts, AccountStatus{
-			Username:     fields[0],
-			UID:          fields[2],
-			Groups:       strings.TrimSpace(runText("id", "-nG", fields[0])),
-			Home:         home,
-			Shell:        fields[6],
-			AgentConfigs: collectAgentConfigs(home),
-			Plugins:      collectPluginStatus(home),
-			TmuxSessions: ListTmuxSessions(fields[0]),
+			Username:       fields[0],
+			UID:            fields[2],
+			Groups:         strings.TrimSpace(runText("id", "-nG", fields[0])),
+			Home:           home,
+			Shell:          fields[6],
+			AgentConfigs:   collectAgentConfigs(home),
+			Plugins:        collectPluginStatus(home),
+			TmuxSessions:   ListTmuxSessions(fields[0]),
+			ClaudeSettings: claudeSettings,
 		})
 	}
 	return accounts
+}
+
+// ReadClaudeSettings reads ~/.claude/settings.json for the given home directory.
+// Returns an empty map (not an error) if the file is missing or unparseable.
+func ReadClaudeSettings(home string) (map[string]any, error) {
+	path := filepath.Join(home, ".claude", "settings.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return map[string]any{}, nil
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return map[string]any{}, nil
+	}
+	return settings, nil
+}
+
+// claudeSettingsMergePy is the Python snippet used by WriteClaudeSettings.
+// It does a shallow merge (patch keys win) and never wipes unrelated keys.
+// FileNotFoundError creates a fresh file; ValueError handles corrupt JSON.
+const claudeSettingsMergePy = "import json,sys\npath=sys.argv[1]\npatch=json.loads(sys.argv[2])\ntry:\n data=json.load(open(path))\nexcept (FileNotFoundError,ValueError):\n data={}\ndata.update(patch)\nopen(path,'w').write(json.dumps(data,indent=2)+'\\n')"
+
+// WriteClaudeSettings merges patch into home/.claude/settings.json for the
+// given username. Uses sudo python3 because the file is owned by that user.
+func WriteClaudeSettings(username, home string, patch map[string]any) (CommandResult, error) {
+	if !safeProjectName(username) {
+		return CommandResult{}, errors.New("valid username is required")
+	}
+	patchJSON, err := json.Marshal(patch)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("marshal patch: %w", err)
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	cmd := "sudo python3 -c " + shellQuote(claudeSettingsMergePy) +
+		" " + shellQuote(settingsPath) +
+		" " + shellQuote(string(patchJSON))
+	return RunShellCommand(cmd, workstationHome())
+}
+
+// ListAccounts returns all managed user accounts (UID >= 1000 with a login shell).
+func ListAccounts() []AccountStatus {
+	return collectAccounts()
 }
 
 // parseTmuxOutput parses the output of:

@@ -1087,3 +1087,102 @@ func TestListTmuxSessionsNoServer(t *testing.T) {
 		t.Fatalf("expected 0 sessions, got %d", len(got))
 	}
 }
+
+func TestReadClaudeSettingsMissingFileReturnsEmptyMap(t *testing.T) {
+	settings, err := ReadClaudeSettings(t.TempDir())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(settings) != 0 {
+		t.Fatalf("expected empty map, got %v", settings)
+	}
+}
+
+func TestReadClaudeSettingsValidFile(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	if err := os.MkdirAll(claudeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"autoCompactEnabled":true,"theme":"dark"}`
+	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	settings, err := ReadClaudeSettings(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if settings["autoCompactEnabled"] != true {
+		t.Errorf("autoCompactEnabled = %v, want true", settings["autoCompactEnabled"])
+	}
+	if settings["theme"] != "dark" {
+		t.Errorf("theme = %v, want dark", settings["theme"])
+	}
+}
+
+func TestReadClaudeSettingsCorruptFileReturnsEmptyMap(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0o755)
+	os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte("not json {{{"), 0o644)
+	settings, err := ReadClaudeSettings(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(settings) != 0 {
+		t.Fatalf("expected empty map for corrupt file, got %v", settings)
+	}
+}
+
+func TestWriteClaudeSettingsPythonScriptMergesWithoutWipingOtherKeys(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0o755)
+	settingsPath := filepath.Join(claudeDir, "settings.json")
+
+	initial := `{"autoCompactEnabled":true,"theme":"dark","alwaysThinkingEnabled":true}`
+	os.WriteFile(settingsPath, []byte(initial), 0o644)
+
+	patch := `{"autoCompactEnabled":false,"autoCompactWindow":150000}`
+	py := "import json,sys\npath=sys.argv[1]\npatch=json.loads(sys.argv[2])\ntry:\n data=json.load(open(path))\nexcept (FileNotFoundError,ValueError):\n data={}\ndata.update(patch)\nopen(path,'w').write(json.dumps(data,indent=2)+'\\n')"
+	cmd := exec.Command("python3", "-c", py, settingsPath, patch)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("python3: %v: %s", err, out)
+	}
+
+	result, err := ReadClaudeSettings(dir)
+	if err != nil {
+		t.Fatalf("read after write: %v", err)
+	}
+	if result["autoCompactEnabled"] != false {
+		t.Errorf("autoCompactEnabled = %v, want false", result["autoCompactEnabled"])
+	}
+	if result["autoCompactWindow"] != float64(150000) {
+		t.Errorf("autoCompactWindow = %v, want 150000", result["autoCompactWindow"])
+	}
+	if result["theme"] != "dark" {
+		t.Errorf("theme = %v, want dark (must not be wiped)", result["theme"])
+	}
+	if result["alwaysThinkingEnabled"] != true {
+		t.Errorf("alwaysThinkingEnabled = %v, want true (must not be wiped)", result["alwaysThinkingEnabled"])
+	}
+}
+
+func TestWriteClaudeSettingsPythonScriptHandlesMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	claudeDir := filepath.Join(dir, ".claude")
+	os.MkdirAll(claudeDir, 0o755)
+	settingsPath := filepath.Join(claudeDir, "settings.json")
+
+	patch := `{"autoCompactEnabled":true}`
+	py := "import json,sys\npath=sys.argv[1]\npatch=json.loads(sys.argv[2])\ntry:\n data=json.load(open(path))\nexcept (FileNotFoundError,ValueError):\n data={}\ndata.update(patch)\nopen(path,'w').write(json.dumps(data,indent=2)+'\\n')"
+	cmd := exec.Command("python3", "-c", py, settingsPath, patch)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("python3: %v: %s", err, out)
+	}
+
+	result, _ := ReadClaudeSettings(dir)
+	if result["autoCompactEnabled"] != true {
+		t.Errorf("autoCompactEnabled = %v, want true", result["autoCompactEnabled"])
+	}
+}
