@@ -1991,12 +1991,20 @@ function bindFileBrowser() {
   document.getElementById('file-copy-button')?.addEventListener('click', copyCurrentFile);
   document.getElementById('file-chmod-button')?.addEventListener('click', chmodCurrentFile);
   document.getElementById('file-delete-button')?.addEventListener('click', deleteCurrentFile);
-  document.getElementById('file-upload-input')?.addEventListener('change', uploadCurrentDirectory);
+  document.getElementById('file-upload-input')?.addEventListener('change', (e) => {
+    document.getElementById('file-upload-details')?.removeAttribute('open');
+    uploadCurrentDirectory(e);
+  });
   const multiInput = document.getElementById('file-upload-multi-input');
-  if (multiInput) multiInput.addEventListener('change', () => uploadBatch(multiInput));
+  if (multiInput) multiInput.addEventListener('change', () => {
+    document.getElementById('file-upload-details')?.removeAttribute('open');
+    uploadBatch(multiInput);
+  });
   const folderInput = document.getElementById('file-upload-folder-input');
-  if (folderInput) folderInput.addEventListener('change', () => uploadBatch(folderInput));
-  document.getElementById('file-download-button')?.addEventListener('click', downloadCurrentFile);
+  if (folderInput) folderInput.addEventListener('change', () => {
+    document.getElementById('file-upload-details')?.removeAttribute('open');
+    uploadBatch(folderInput);
+  });
   const dlSelected = document.getElementById('file-selection-download');
   if (dlSelected) dlSelected.addEventListener('click', () => {
     const paths = [...document.querySelectorAll('.file-select-checkbox:checked')]
@@ -2006,6 +2014,12 @@ function bindFileBrowser() {
   const clearBtn = document.getElementById('file-selection-clear');
   if (clearBtn) clearBtn.addEventListener('click', () => {
     document.querySelectorAll('.file-select-checkbox').forEach(cb => cb.checked = false);
+    updateSelectionBar();
+  });
+  document.getElementById('file-select-all')?.addEventListener('change', (e) => {
+    document.querySelectorAll('.file-select-checkbox').forEach(cb => {
+      cb.checked = e.target.checked;
+    });
     updateSelectionBar();
   });
   loadFiles(filePath);
