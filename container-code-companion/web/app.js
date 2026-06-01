@@ -2183,6 +2183,15 @@ function updateSelectionBar() {
   updateSelectAll();
 }
 
+function updateSelectAll() {
+  const all = document.querySelectorAll('.file-select-checkbox');
+  const checked = document.querySelectorAll('.file-select-checkbox:checked');
+  const selectAll = document.getElementById('file-select-all');
+  if (!selectAll || all.length === 0) return;
+  selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+  selectAll.checked = all.length > 0 && checked.length === all.length;
+}
+
 async function uploadBatch(input) {
   if (batchUploadInProgress) return;
   batchUploadInProgress = true;
