@@ -2036,21 +2036,29 @@ async function loadFiles(path) {
     const entries = data.entries || [];
     if (count) count.textContent = `${entries.length} item${entries.length === 1 ? '' : 's'}`;
     list.innerHTML = entries.map(renderFileEntry).join('') || '<p class="file-empty">No files found.</p>';
-    list.querySelectorAll('.file-entry').forEach(button => {
-      button.addEventListener('click', () => {
-        if (button.dataset.type === 'dir') {
-          filePath = button.dataset.path;
+    list.querySelectorAll('.file-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.file-select-checkbox, .file-row-download')) return;
+        if (row.dataset.type === 'dir') {
+          filePath = row.dataset.path;
           loadFiles(filePath);
         } else {
-          selectFileEntry(button);
+          selectFileEntry(row);
         }
       });
     });
     list.querySelectorAll('.file-select-checkbox').forEach(cb => {
       cb.addEventListener('change', updateSelectionBar);
     });
-    list.querySelectorAll('.file-download-dir').forEach(btn => {
-      btn.addEventListener('click', () => downloadZip([btn.dataset.path]));
+    list.querySelectorAll('.file-row-download').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (btn.dataset.type === 'dir') {
+          downloadZip([btn.dataset.path]);
+        } else {
+          window.location.href = `/api/file-download?path=${encodeURIComponent(btn.dataset.path)}`;
+        }
+      });
     });
     updateSelectionBar();
   } catch (error) {
