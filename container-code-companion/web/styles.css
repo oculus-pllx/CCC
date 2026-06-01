@@ -1411,6 +1411,29 @@ td {
   border-radius: 2px;
 }
 
+#file-selection-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+#file-selection-bar.active {
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+  color: var(--text);
+}
+
+#file-selection-download:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .file-empty {
   margin: 0;
   padding: 14px;
