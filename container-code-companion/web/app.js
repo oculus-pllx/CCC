@@ -531,13 +531,17 @@ function renderFiles() {
       <div class="file-toolbar file-action-toolbar">
         <button id="file-new-file-button" class="small-button">New File</button>
         <button id="file-new-folder-button" class="small-button">New Folder</button>
-        <label class="small-button file-upload-label" for="file-upload-input">Upload</label>
-        <input id="file-upload-input" type="file" hidden>
-        <label class="small-button file-upload-label" for="file-upload-multi-input">Upload Files</label>
-        <input id="file-upload-multi-input" type="file" multiple hidden>
-        <label class="small-button file-upload-label" for="file-upload-folder-input">Upload Folder</label>
-        <input id="file-upload-folder-input" type="file" webkitdirectory hidden>
-        <button id="file-download-button" class="small-button">Download</button>
+        <details class="file-upload-details" id="file-upload-details">
+          <summary class="small-button">Upload &#x25be;</summary>
+          <div class="file-upload-dropdown">
+            <label for="file-upload-input">Single file</label>
+            <input id="file-upload-input" type="file" hidden>
+            <label for="file-upload-multi-input">Multiple files</label>
+            <input id="file-upload-multi-input" type="file" multiple hidden>
+            <label for="file-upload-folder-input">Folder</label>
+            <input id="file-upload-folder-input" type="file" webkitdirectory hidden>
+          </div>
+        </details>
         <button id="file-copy-button" class="small-button">Copy</button>
         <button id="file-rename-button" class="small-button">Rename</button>
         <button id="file-chmod-button" class="small-button">chmod</button>
@@ -551,14 +555,16 @@ function renderFiles() {
           <span id="file-count" class="muted">Loading...</span>
         </div>
         <div class="file-table-header" aria-hidden="true">
+          <input type="checkbox" id="file-select-all">
           <span>Type</span>
           <span>Name</span>
           <span>Size</span>
           <span>Modified</span>
+          <span></span>
         </div>
-        <div id="file-selection-bar" hidden>
-          <span id="file-selection-count">0 items selected</span>
-          <button id="file-selection-download" class="small-button">Download Selected</button>
+        <div id="file-selection-bar">
+          <span id="file-selection-count">No items selected</span>
+          <button id="file-selection-download" class="small-button" disabled>Download</button>
           <button id="file-selection-clear" class="small-button">Clear</button>
         </div>
         <div id="file-list" class="file-list">Loading...</div>
