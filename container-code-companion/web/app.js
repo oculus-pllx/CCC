@@ -2062,15 +2062,22 @@ async function loadFiles(path) {
 function renderFileEntry(entry) {
   const isDir = entry.type === 'dir';
   return `
-    <div class="file-entry-row">
+    <div class="file-row ${isDir ? 'directory' : 'regular-file'}"
+         data-path="${escapeAttribute(entry.path)}"
+         data-type="${escapeAttribute(entry.type)}"
+         data-name="${escapeAttribute(entry.name)}"
+         data-size="${escapeAttribute(formatBytes(entry.size))}"
+         data-mtime="${escapeAttribute(entry.mtime || '')}"
+         data-mode="${escapeAttribute(entry.mode || '')}">
       <input type="checkbox" class="file-select-checkbox" data-path="${escapeAttribute(entry.path)}">
-      <button class="file-entry ${isDir ? 'directory' : 'regular-file'}" data-path="${escapeAttribute(entry.path)}" data-type="${escapeAttribute(entry.type)}" data-name="${escapeAttribute(entry.name)}" data-size="${escapeAttribute(formatBytes(entry.size))}" data-mtime="${escapeAttribute(entry.mtime || '')}" data-mode="${escapeAttribute(entry.mode || '')}">
-        <span class="file-entry-icon">${isDir ? 'DIR' : 'FILE'}</span>
-        <strong>${escapeHTML(entry.name)}</strong>
-        <small>${isDir ? '-' : escapeHTML(formatBytes(entry.size))}</small>
-        <small>${escapeHTML(entry.mtime || '')}</small>
-      </button>
-      ${isDir ? `<button type="button" class="icon-button file-download-dir" data-path="${escapeAttribute(entry.path)}" title="Download as zip">&#11015;</button>` : ''}
+      <span class="file-entry-icon">${isDir ? 'DIR' : 'FILE'}</span>
+      <strong>${escapeHTML(entry.name)}</strong>
+      <small>${isDir ? '&mdash;' : escapeHTML(formatBytes(entry.size))}</small>
+      <small>${escapeHTML(entry.mtime || '')}</small>
+      <button type="button" class="file-row-download"
+              data-path="${escapeAttribute(entry.path)}"
+              data-type="${escapeAttribute(entry.type)}"
+              title="${isDir ? 'Download as zip' : 'Download'}">&#11015;</button>
     </div>
   `;
 }
