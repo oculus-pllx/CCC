@@ -1434,6 +1434,45 @@ td {
   cursor: default;
 }
 
+.file-upload-details {
+  position: relative;
+}
+
+.file-upload-details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.file-upload-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.file-upload-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  background: var(--topbar);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-width: 150px;
+  padding: 4px 0;
+}
+
+.file-upload-dropdown label {
+  display: block;
+  padding: 6px 14px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.file-upload-dropdown label:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
 .file-empty {
   margin: 0;
   padding: 14px;
