@@ -2090,14 +2090,14 @@ function renderFileEntry(entry) {
   `;
 }
 
-function selectFileEntry(button) {
-  selectedFilePath = button.dataset.path;
+function selectFileEntry(row) {
+  selectedFilePath = row.dataset.path;
   currentFile = selectedFilePath;
-  document.querySelectorAll('.file-entry').forEach(entry => {
-    entry.classList.toggle('selected', entry === button);
+  document.querySelectorAll('.file-row').forEach(entry => {
+    entry.classList.toggle('selected', entry === row);
   });
   document.getElementById('current-file').value = selectedFilePath;
-  updateSelectedFileDetail(button);
+  updateSelectedFileDetail(row);
   openFile(selectedFilePath);
 }
 
