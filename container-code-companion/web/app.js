@@ -2174,14 +2174,13 @@ function updateSelectionBar() {
   const checkboxes = document.querySelectorAll('.file-select-checkbox:checked');
   const bar = document.getElementById('file-selection-bar');
   const count = document.getElementById('file-selection-count');
+  const dlBtn = document.getElementById('file-selection-download');
   if (!bar || !count) return;
   const n = checkboxes.length;
-  if (n === 0) {
-    bar.hidden = true;
-  } else {
-    count.textContent = `${n} item${n === 1 ? '' : 's'} selected`;
-    bar.hidden = false;
-  }
+  count.textContent = n === 0 ? 'No items selected' : `${n} item${n === 1 ? '' : 's'} selected`;
+  bar.classList.toggle('active', n > 0);
+  if (dlBtn) dlBtn.disabled = n === 0;
+  updateSelectAll();
 }
 
 async function uploadBatch(input) {
