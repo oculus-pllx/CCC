@@ -1039,6 +1039,8 @@ BASHRC
 chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.bashrc"
 
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
+# When run standalone via self-update, step() may not be defined — provide a no-op fallback.
+command -v step >/dev/null 2>&1 || step() { echo ">>> $2"; }
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 # Patch stale script name written by older provisioners without changing the active installer mode.
 if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT="oculus-commander.sh"' /etc/ccc/config; then
