@@ -17,7 +17,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-boo
 bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-install-linux.sh)
 ```
 
-**Step-by-step guides:** [First Setup](docs/guides/first-setup.md) · [Work Identities](docs/guides/work-identities.md) · [Projects](docs/guides/projects.md) · [Updates](docs/guides/updates.md)
+**Step-by-step guides:** [First Setup](docs/guides/first-setup.md) · [Work Identities](docs/guides/work-identities.md) · [Projects](docs/guides/projects.md) · [Updates](docs/guides/updates.md) · [SSH Key Management](docs/guides/ssh-key-management.md)
 
 ---
 
@@ -252,7 +252,8 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
 - **Files** — browse directories, open/edit text files, create/rename/delete files and folders, single-file upload and download, multi-file upload, folder upload (preserves directory structure), directory download as zip, and multi-item checkbox selection download as zip
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
-- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories
+- **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories. Each project can have its own SSH key pair for test machine access — generate, deploy, and connect without touching user `~/.ssh` directories.
+- **SSH Key Management** — per-project SSH keys stored at `/etc/ccc/project-keys/<name>/` (isolated from user home dirs), a system-wide SSH Key Inventory audit panel that flags any key outside CCC control, one-click deploy to a test machine via password prompt, and one-click SSH Connect that opens the terminal pre-connected. When a test host is configured, CCC automatically injects a machine-local deployment block into project agent configs (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) so AI agents know the target machine — without touching the shared `oculus-configs` repo.
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
 - **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, view and manage tmux sessions per user, manage Claude Code settings (auto-compact, thinking, danger-prompt, compact window) per account or across all accounts, and delete users
@@ -504,6 +505,7 @@ Step-by-step workflows for common tasks:
 - [Work Identities](docs/guides/work-identities.md) — add a second/third OAuth user, shared GitHub key for all accounts, switching between identities
 - [Projects](docs/guides/projects.md) — create a project, clone a repo, shared workspace migration, permission repair
 - [Updates](docs/guides/updates.md) — manual update, opt-in auto-update with configurable schedule, OS updates, agent config sync
+- [SSH Key Management](docs/guides/ssh-key-management.md) — per-project SSH keys, test machine deploy, SSH connect, key audit and cleanup
 
 ---
 

@@ -144,6 +144,36 @@ For heavier editing, use **code-server** at `http://<container-ip>:8080` — ful
 
 ---
 
+## Per-Project SSH Keys
+
+Each project can have its own SSH key pair for passwordless access to a test or production machine. Keys are stored at `/etc/ccc/project-keys/<project-name>/`, completely separate from user `~/.ssh` directories.
+
+Click **SSH ▾** on any project card to expand the SSH panel.
+
+**Configure a test host:**
+1. Enter the machine IP or hostname in the **Test machine** field
+2. Click **Save** — this persists the target and injects a deployment block into the project's `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` so AI agents automatically know the target
+
+**Generate a key:**
+- Click **Generate Key** — creates an ed25519 key pair at `/etc/ccc/project-keys/<name>/id_ed25519`
+- Returns an error if a key already exists (delete it first)
+
+**Deploy the key to the test machine (one-time):**
+1. Click **Deploy to Test Machine**
+2. Enter the root password for the test machine in the modal
+3. CCC runs `ssh-copy-id` to add the public key to the machine's `authorized_keys`
+4. After deploy, passwordless SSH is available for this project
+
+**Connect to the test machine:**
+- Click **SSH Connect** — switches to the Terminal tab and sends the SSH command pre-filled:
+  ```
+  ssh -i /etc/ccc/project-keys/<name>/id_ed25519 root@<host>
+  ```
+
+> See [SSH Key Management](ssh-key-management.md) for the full guide including the system-wide key audit panel.
+
+---
+
 ## Troubleshooting
 
 **"Permission denied" when writing to a project**
