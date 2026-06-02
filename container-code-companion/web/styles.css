@@ -984,6 +984,71 @@ h2 { font-size: 18px; margin: 0 0 16px; }
   color: var(--muted);
 }
 
+/* SSH Key Inventory */
+.ssh-key-inventory {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ssh-inventory-header {
+  padding: 0.6rem 1rem;
+  background: var(--panel2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  user-select: none;
+}
+
+.ssh-inventory-header:hover {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.ssh-inventory-summary {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.ssh-inventory-body {
+  padding: 0.5rem;
+}
+
+.ssh-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+.ssh-key-table th,
+.ssh-key-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.ssh-key-table th {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.ssh-key-row.rogue td:first-child {
+  color: #fbbf24;
+}
+
+.rogue-badge {
+  font-size: 0.8em;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
 .service-list {
   display: grid;
   gap: 10px;

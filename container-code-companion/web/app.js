@@ -779,6 +779,7 @@ function renderTerminal() {
 function renderProjects() {
   const projectRoot = snapshot.projectRoot || {};
   return `
+    <div id="ssh-key-inventory-placeholder"></div>
     <div class="project-root-health">
       <h3>Shared Workspace</h3>
       <dl class="facts">
@@ -2725,6 +2726,13 @@ function openAgentConfig(path) {
 }
 
 function bindProjects() {
+  loadSSHKeyInventory().then(keys => {
+    const placeholder = document.getElementById('ssh-key-inventory-placeholder');
+    if (placeholder) {
+      placeholder.outerHTML = renderSSHKeyInventory(keys);
+      bindSSHKeyInventory();
+    }
+  });
   document.getElementById('create-project-button').addEventListener('click', createProject);
   document.getElementById('add-existing-project-button').addEventListener('click', addExistingProject);
   document.getElementById('clone-project-button')?.addEventListener('click', cloneProject);
@@ -3250,6 +3258,92 @@ function directoryName(path) {
   const parts = String(path || '/').split('/').filter(Boolean);
   parts.pop();
   return `/${parts.join('/')}`;
+}
+
+async function loadSSHKeyInventory() {
+  try {
+    const resp = await fetch('/api/ssh-key-operation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'list-keys' }),
+    });
+    if (!resp.ok) return [];
+    return await resp.json();
+  } catch {
+    return [];
+  }
+}
+
+function renderSSHKeyInventory(keys) {
+  const rogueKeys = keys.filter(k =>
+    !k.path.startsWith('/etc/ccc/project-keys/') &&
+    k.path !== '/etc/ccc/ssh/github_ed25519'
+  );
+  const rogueCount = rogueKeys.length;
+  const summary = `${keys.length} key${keys.length !== 1 ? 's' : ''} · ${rogueCount > 0 ? `⚠ ${rogueCount} outside CCC control` : 'all managed'}`;
+
+  const rows = keys.map(k => {
+    const isRogue = !k.path.startsWith('/etc/ccc/project-keys/') && k.path !== '/etc/ccc/ssh/github_ed25519';
+    return `<tr class="ssh-key-row${isRogue ? ' rogue' : ''}">
+      <td class="key-path">${escapeHTML(k.path)}${isRogue ? ' <span class="rogue-badge">⚠ unmanaged</span>' : ''}</td>
+      <td>${escapeHTML(k.owner)}</td>
+      <td>${escapeHTML(k.keyType || '—')}</td>
+      <td>${escapeHTML(k.mtime || '—')}</td>
+      <td><button class="small-button delete-key-btn" data-path="${escapeAttribute(k.path)}">Delete</button></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="ssh-key-inventory" id="ssh-key-inventory">
+    <div class="ssh-inventory-header" id="ssh-inventory-toggle">
+      <span class="toggle-arrow">▾</span> SSH Key Inventory
+      <span class="ssh-inventory-summary">${summary}</span>
+    </div>
+    <div class="ssh-inventory-body" id="ssh-inventory-body">
+      <table class="ssh-key-table">
+        <thead><tr><th>Path</th><th>Owner</th><th>Type</th><th>Modified</th><th></th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5">No SSH keys found.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function bindSSHKeyInventory() {
+  const toggle = document.getElementById('ssh-inventory-toggle');
+  const body = document.getElementById('ssh-inventory-body');
+  if (toggle && body) {
+    toggle.addEventListener('click', () => {
+      const collapsed = body.style.display === 'none';
+      body.style.display = collapsed ? '' : 'none';
+      toggle.querySelector('.toggle-arrow').textContent = collapsed ? '▾' : '▸';
+    });
+  }
+
+  document.querySelectorAll('.delete-key-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const path = btn.dataset.path;
+      if (!confirm(`Delete SSH key at ${path}?\n\nThis cannot be undone.`)) return;
+      const resp = await fetch('/api/ssh-key-operation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-key', keyPath: path }),
+      });
+      if (resp.ok) {
+        await refreshSSHKeyInventory();
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        alert(`Delete failed: ${data.error || resp.statusText}`);
+      }
+    });
+  });
+}
+
+async function refreshSSHKeyInventory() {
+  const keys = await loadSSHKeyInventory();
+  const container = document.getElementById('ssh-key-inventory');
+  if (container) {
+    container.outerHTML = renderSSHKeyInventory(keys);
+    bindSSHKeyInventory();
+  }
 }
 
 function escapeHTML(value) {
