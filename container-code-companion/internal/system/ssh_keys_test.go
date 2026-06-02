@@ -215,6 +215,24 @@ func TestListAllSSHKeys_ReturnsFilesFromConfiguredDirs(t *testing.T) {
 	}
 }
 
+func TestCollectProjectsIncludesSSHFields(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+
+	// Save a test host for a project named "CCC" (matches the test project dir)
+	if err := SaveProjectTestHost("CCC", "10.0.0.1"); err != nil {
+		t.Fatalf("SaveProjectTestHost: %v", err)
+	}
+
+	cfg, err := GetProjectSSHConfig("CCC")
+	if err != nil {
+		t.Fatalf("GetProjectSSHConfig: %v", err)
+	}
+	if cfg.TestHost != "10.0.0.1" {
+		t.Fatalf("TestHost = %q, want 10.0.0.1", cfg.TestHost)
+	}
+}
+
 func TestWriteProjectDeploymentConfigs_CreatesBlock(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)

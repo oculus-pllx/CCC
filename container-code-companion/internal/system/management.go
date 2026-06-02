@@ -180,12 +180,14 @@ func StartUpdateStatusPoller(interval time.Duration) {
 }
 
 type ProjectStatus struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	GitRepo   bool   `json:"gitRepo"`
-	GitBranch string `json:"gitBranch"`
-	GitRemote string `json:"gitRemote"`
-	GitStatus string `json:"gitStatus"`
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	GitRepo      bool   `json:"gitRepo"`
+	GitBranch    string `json:"gitBranch"`
+	GitRemote    string `json:"gitRemote"`
+	GitStatus    string `json:"gitStatus"`
+	SSHKeyExists bool   `json:"sshKeyExists"`
+	TestHost     string `json:"testHost"`
 }
 
 type ProjectRootStatus struct {
@@ -2115,13 +2117,16 @@ func collectProjects(root string) []ProjectStatus {
 			continue
 		}
 		gitRepo := isGitWorktree(path)
+		sshCfg, _ := GetProjectSSHConfig(entry.Name())
 		projects = append(projects, ProjectStatus{
-			Name:      entry.Name(),
-			Path:      path,
-			GitRepo:   gitRepo,
-			GitBranch: gitText(path, "branch", "--show-current"),
-			GitRemote: sanitizeGitRemote(gitText(path, "remote", "get-url", "origin")),
-			GitStatus: gitText(path, "status", "--short", "--branch"),
+			Name:         entry.Name(),
+			Path:         path,
+			GitRepo:      gitRepo,
+			GitBranch:    gitText(path, "branch", "--show-current"),
+			GitRemote:    sanitizeGitRemote(gitText(path, "remote", "get-url", "origin")),
+			GitStatus:    gitText(path, "status", "--short", "--branch"),
+			SSHKeyExists: sshCfg.KeyExists,
+			TestHost:     sshCfg.TestHost,
 		})
 	}
 	sort.Slice(projects, func(i, j int) bool { return projects[i].Name < projects[j].Name })
