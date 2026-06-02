@@ -129,14 +129,16 @@ Permission repair:
 The **Files** tab in the web UI browses `/srv/ccc/projects` (and any accessible home directories). Click a file to open an inline editor. You can create, rename, and delete files and folders from the browser.
 
 **Uploading files:**
-- **Upload** — pick a single file; lands in the current directory
-- **Upload Files** — pick one or more files at once; all land flat in the current directory
-- **Upload Folder** — pick a folder from your local machine; the entire directory tree is recreated at the destination (folder structure is preserved)
+
+Click **Upload ▾** to open the upload menu:
+- **Single file** — pick one file; lands in the current directory
+- **Multiple files** — pick several files at once; all land flat in the current directory
+- **Folder** — pick a folder from your local machine; the entire directory tree is recreated at the destination
 
 **Downloading files and directories:**
-- Click the download icon on any file row to download that file
+- Click **⬇** on any file row to download that file directly
 - Click **⬇** on any directory row to download the entire directory as a zip
-- Check one or more rows and click **Download Selected** to zip and download any mix of files and directories
+- Check one or more rows and click **Download** in the selection bar to zip and download any mix of files and directories
 
 For heavier editing, use **code-server** at `http://<container-ip>:8080` — full VS Code Web with extensions for Python, Go, Rust, TypeScript, and more.
 
