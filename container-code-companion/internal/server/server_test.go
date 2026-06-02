@@ -882,7 +882,60 @@ func newTestServer() *Server {
 		NetworkActivity: func() (system.NetworkActivity, error) {
 			return system.NetworkActivity{Interfaces: []system.NetworkInterfaceActivity{{Name: "eth0", RXBytes: 1000, TXBytes: 500}}}, nil
 		},
+		SSHKeyOperation: func(operation system.SSHKeyOperation) (any, error) {
+			switch operation.Action {
+			case "list-keys":
+				return []system.SSHKeyEntry{}, nil
+			default:
+				return nil, fmt.Errorf("unknown action: %q", operation.Action)
+			}
+		},
 	})
+}
+
+func TestSSHKeyOperationRequiresSession(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/ssh-key-operation", strings.NewReader(`{"action":"list-keys"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", res.Code)
+	}
+}
+
+func TestSSHKeyOperationListKeysReturnsArray(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/ssh-key-operation", strings.NewReader(`{"action":"list-keys"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", res.Code, res.Body.String())
+	}
+	var result []any
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+}
+
+func TestSSHKeyOperationRejectsBadAction(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/ssh-key-operation", strings.NewReader(`{"action":"bad-action"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+
+	srv.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", res.Code, res.Body.String())
+	}
 }
 
 func findCookie(cookies []*http.Cookie, name string) *http.Cookie {

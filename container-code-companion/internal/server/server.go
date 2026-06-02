@@ -49,6 +49,7 @@ type Config struct {
 	ToolStatuses     func() []system.ToolStatus
 	ToolOperation    func(operation system.ToolOperation) (system.CommandResult, error)
 	DriveOperation   func(operation system.DriveOperation) (system.CommandResult, error)
+	SSHKeyOperation  func(operation system.SSHKeyOperation) (any, error)
 	SecureCookies    bool // set true when serving behind HTTPS
 }
 
@@ -84,6 +85,7 @@ type Server struct {
 	toolStatuses     func() []system.ToolStatus
 	toolOperation    func(operation system.ToolOperation) (system.CommandResult, error)
 	driveOperation   func(operation system.DriveOperation) (system.CommandResult, error)
+	sshKeyOperation  func(operation system.SSHKeyOperation) (any, error)
 	secureCookies    bool
 }
 
@@ -120,6 +122,7 @@ func New(config Config) *Server {
 		toolStatuses:     config.ToolStatuses,
 		toolOperation:    config.ToolOperation,
 		driveOperation:   config.DriveOperation,
+		sshKeyOperation:  config.SSHKeyOperation,
 		secureCookies:    config.SecureCookies,
 	}
 	if s.overview == nil {
@@ -200,6 +203,9 @@ func New(config Config) *Server {
 	if s.driveOperation == nil {
 		s.driveOperation = system.RunDriveOperation
 	}
+	if s.sshKeyOperation == nil {
+		s.sshKeyOperation = system.RunSSHKeyOperation
+	}
 	system.StartUpdateStatusPoller(4 * time.Hour)
 	s.routes()
 	return s
@@ -236,6 +242,7 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/time-settings", s.requireSession(http.HandlerFunc(s.handleTimeSettings)))
 	s.mux.Handle("/api/tools", s.requireSession(http.HandlerFunc(s.handleTools)))
 	s.mux.Handle("/api/drive", s.requireSession(http.HandlerFunc(s.handleDrive)))
+	s.mux.Handle("/api/ssh-key-operation", s.requireSession(http.HandlerFunc(s.handleSSHKeyOperation)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
 	s.mux.Handle("/", s.staticHandler())
 }
@@ -752,6 +759,24 @@ func (s *Server) handleDrive(w http.ResponseWriter, r *http.Request) {
 	result, err := s.driveOperation(body)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "output": result.Output})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleSSHKeyOperation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var op system.SSHKeyOperation
+	if err := json.NewDecoder(r.Body).Decode(&op); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	result, err := s.sshKeyOperation(op)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
