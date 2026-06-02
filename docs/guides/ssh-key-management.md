@@ -11,10 +11,12 @@ CCC keeps project SSH keys isolated from user home directories:
 ```
 /etc/ccc/project-keys/
   my-project/
-    id_ed25519        (private key, chmod 600)
+    id_ed25519        (private key, ccc group readable)
     id_ed25519.pub    (public key)
     host              (target machine IP or hostname)
 ```
+
+Keys are owned by the `ccc` group (`0640`) so **any user in the `ccc` group can use them directly** — no sudo, no copies, no agent required. The directory tree is `root:ccc 0750`.
 
 The shared GitHub machine key stays at `/etc/ccc/ssh/github_ed25519` as before — this feature is separate and does not affect it.
 
@@ -150,5 +152,13 @@ apt install sshpass
 - Delete the existing key from the SSH panel first, then generate a new one
 
 **Agent configs not updated after saving test host**
-- The deployment block is written to `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` inside the project directory at `/srv/ccc/projects/<name>/` and `~/projects/<name>/`
-- If those files don't exist yet, re-save the test host after creating them
+- The deployment block is written to `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` inside the project directory at `/srv/ccc/projects/<name>/`
+- If none of those files exist, CCC creates `CLAUDE.md` automatically on the next Save
+
+**"Permission denied" using a key as a non-oculus user**
+- All keys are created with `ccc` group read access (`0640`) — any user in the `ccc` group can use them
+- If a key was generated before this was fixed, do a CCC self-update — permissions are repaired automatically at service startup
+- Verify with: `ls -la /etc/ccc/project-keys/<name>/` — group should be `ccc`
+
+**`/etc/ccc/project-keys` does not exist**
+- Run a CCC self-update — the directory is created automatically during every update
