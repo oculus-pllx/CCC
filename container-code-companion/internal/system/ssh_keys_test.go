@@ -1,9 +1,11 @@
 package system
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -142,5 +144,129 @@ func TestGenerateProjectKey_ErrorsIfKeyAlreadyExists(t *testing.T) {
 	}
 	if _, err := GenerateProjectKey("dup"); err == nil {
 		t.Fatal("expected error when key already exists")
+	}
+}
+
+func TestDeleteSSHKey_ValidPath_DeletesBothFiles(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+
+	// Create a fake key pair
+	dir := filepath.Join(root, "someproject")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	privPath := filepath.Join(dir, "id_ed25519")
+	pubPath := privPath + ".pub"
+	if err := os.WriteFile(privPath, []byte("fake private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pubPath, []byte("fake public"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := DeleteSSHKey(privPath); err != nil {
+		t.Fatalf("DeleteSSHKey: %v", err)
+	}
+	if _, err := os.Stat(privPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("private key still exists after delete")
+	}
+	if _, err := os.Stat(pubPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("public key still exists after delete")
+	}
+}
+
+func TestDeleteSSHKey_InvalidPath_Rejected(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+
+	if err := DeleteSSHKey("/etc/passwd"); err == nil {
+		t.Fatal("expected error for disallowed path")
+	}
+	if err := DeleteSSHKey("/tmp/id_ed25519"); err == nil {
+		t.Fatal("expected error for /tmp path")
+	}
+}
+
+func TestListAllSSHKeys_ReturnsFilesFromConfiguredDirs(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+
+	// Create a fake project key
+	dir := filepath.Join(root, "proj1")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	pubPath := filepath.Join(dir, "id_ed25519.pub")
+	if err := os.WriteFile(pubPath, []byte("fake pub"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	keys := ListAllSSHKeys()
+	var found bool
+	for _, k := range keys {
+		if k.Path == pubPath {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected %q in ListAllSSHKeys result, got: %v", pubPath, keys)
+	}
+}
+
+func TestWriteProjectDeploymentConfigs_CreatesBlock(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+
+	// Create a minimal CLAUDE.md
+	claudeMD := filepath.Join(root, "CLAUDE.md")
+	if err := os.WriteFile(claudeMD, []byte("# My Project\n\nExisting content.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := WriteProjectDeploymentConfigs("myproject", "192.168.1.10", []string{claudeMD})
+	if err != nil {
+		t.Fatalf("WriteProjectDeploymentConfigs: %v", err)
+	}
+
+	data, _ := os.ReadFile(claudeMD)
+	content := string(data)
+	if !strings.Contains(content, "<!-- CCC:DEPLOYMENT:START -->") {
+		t.Fatal("expected deployment start marker in output")
+	}
+	if !strings.Contains(content, "192.168.1.10") {
+		t.Fatal("expected test host in output")
+	}
+	if !strings.Contains(content, "Existing content.") {
+		t.Fatal("existing content was erased")
+	}
+}
+
+func TestWriteProjectDeploymentConfigs_ReplacesExistingBlock(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+
+	claudeMD := filepath.Join(root, "CLAUDE.md")
+	initial := "# Project\n\n<!-- CCC:DEPLOYMENT:START -->\nold block\n<!-- CCC:DEPLOYMENT:END -->\n"
+	if err := os.WriteFile(claudeMD, []byte(initial), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := WriteProjectDeploymentConfigs("myproject", "10.0.0.5", []string{claudeMD}); err != nil {
+		t.Fatalf("WriteProjectDeploymentConfigs: %v", err)
+	}
+
+	data, _ := os.ReadFile(claudeMD)
+	content := string(data)
+	if strings.Contains(content, "old block") {
+		t.Fatal("old block was not replaced")
+	}
+	if !strings.Contains(content, "10.0.0.5") {
+		t.Fatal("new host not in output")
+	}
+	// Should only have one deployment block
+	if strings.Count(content, "<!-- CCC:DEPLOYMENT:START -->") != 1 {
+		t.Fatal("expected exactly one deployment block")
 	}
 }
