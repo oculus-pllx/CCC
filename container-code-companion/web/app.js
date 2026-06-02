@@ -2368,6 +2368,18 @@ function bindTerminal() {
     sendTerminalInput(`${input.value}\n`);
     input.value = '';
   });
+  if (!bindTerminal._visibilityBound) {
+    bindTerminal._visibilityBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      const tab = activeTerminalTab();
+      if (!tab?.terminal) return;
+      requestAnimationFrame(() => {
+        resizeTerminal();
+        tab.terminal.refresh(0, tab.terminal.rows - 1);
+      });
+    });
+  }
   connectTerminal();
 }
 
