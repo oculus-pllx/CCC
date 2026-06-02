@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/oculus-pllx/ccc/container-code-companion/internal/server"
+	"github.com/oculus-pllx/ccc/container-code-companion/internal/system"
 )
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 		log.Printf("generated login password for this process")
 	}
 
+	system.FixAllProjectKeyPerms()
 	srv := server.New(server.Config{SessionToken: token, Username: username, Password: password})
 	log.Printf("Container Code Companion listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {

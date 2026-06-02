@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -83,6 +85,55 @@ func isAllowedKeyPath(path string) bool {
 	return true
 }
 
+// cccGroupGID returns the GID of the shared ccc group, or -1 if not found.
+func cccGroupGID() int {
+	groupName := strings.TrimSpace(os.Getenv("CCC_SHARED_GROUP"))
+	if groupName == "" {
+		groupName = "ccc"
+	}
+	g, err := user.LookupGroup(groupName)
+	if err != nil {
+		return -1
+	}
+	gid, _ := strconv.Atoi(g.Gid)
+	return gid
+}
+
+// fixProjectKeyPerms ensures a project key directory and its files are
+// accessible to any member of the ccc group. Called after creation and
+// at startup for existing dirs.
+func fixProjectKeyPerms(dir string) {
+	gid := cccGroupGID()
+	_ = os.Chmod(dir, 0o750)
+	if gid >= 0 {
+		_ = os.Lchown(dir, -1, gid)
+	}
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		p := filepath.Join(dir, e.Name())
+		mode := os.FileMode(0o644)
+		if e.Name() == "id_ed25519" {
+			mode = 0o640
+		}
+		_ = os.Chmod(p, mode)
+		if gid >= 0 {
+			_ = os.Lchown(p, -1, gid)
+		}
+	}
+}
+
+// FixAllProjectKeyPerms repairs permissions on every existing project key dir.
+// Called at server startup so keys created before this fix are corrected.
+func FixAllProjectKeyPerms() {
+	root := projectKeysRoot()
+	dirs, _ := os.ReadDir(root)
+	for _, d := range dirs {
+		if d.IsDir() {
+			fixProjectKeyPerms(filepath.Join(root, d.Name()))
+		}
+	}
+}
+
 func projectKeyDir(projectName string) (string, error) {
 	if projectName == "" {
 		return "", errors.New("project name is required")
@@ -131,6 +182,7 @@ func SaveProjectTestHost(projectName, host string) error {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("create project key dir: %w", err)
 	}
+	fixProjectKeyPerms(dir)
 	return os.WriteFile(filepath.Join(dir, "host"), []byte(host+"\n"), 0o644)
 }
 
@@ -152,6 +204,7 @@ func GenerateProjectKey(projectName string) (ProjectSSHConfig, error) {
 	if out, err := exec.Command("ssh-keygen", "-t", "ed25519", "-f", privPath, "-N", "", "-C", comment).CombinedOutput(); err != nil {
 		return ProjectSSHConfig{}, fmt.Errorf("ssh-keygen: %w: %s", err, out)
 	}
+	fixProjectKeyPerms(dir)
 	return GetProjectSSHConfig(projectName)
 }
 
