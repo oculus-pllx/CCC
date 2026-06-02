@@ -418,6 +418,17 @@ func refreshDeploymentConfigs(projectName string) error {
 		}
 	}
 
+	// If no config files exist yet, create CLAUDE.md in the primary project dir.
+	if len(configFiles) == 0 {
+		primary := filepath.Join(cccProjectsRoot(), projectName)
+		if info, err := os.Stat(primary); err == nil && info.IsDir() {
+			claudeMD := filepath.Join(primary, "CLAUDE.md")
+			if err := os.WriteFile(claudeMD, []byte(""), 0o644); err == nil {
+				configFiles = append(configFiles, claudeMD)
+			}
+		}
+	}
+
 	if len(configFiles) == 0 {
 		return nil
 	}
