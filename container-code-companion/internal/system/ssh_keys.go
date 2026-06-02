@@ -40,6 +40,13 @@ func projectKeysRoot() string {
 	return "/etc/ccc/project-keys"
 }
 
+func cccProjectsRoot() string {
+	if v := strings.TrimSpace(os.Getenv("CCC_PROJECTS_ROOT")); v != "" {
+		return filepath.Clean(v)
+	}
+	return "/srv/ccc/projects"
+}
+
 // isAllowedKeyPath returns true only if path is within a user ~/.ssh dir,
 // /root/.ssh, or the CCC project keys root. Prevents deletion of arbitrary files.
 func isAllowedKeyPath(path string) bool {
@@ -354,15 +361,19 @@ func RunSSHKeyOperation(op SSHKeyOperation) (any, error) {
 		if err := SaveProjectTestHost(op.ProjectName, op.TestHost); err != nil {
 			return nil, err
 		}
-		refreshDeploymentConfigs(op.ProjectName)
-		return map[string]any{"ok": true}, nil
+		warn := refreshDeploymentConfigs(op.ProjectName)
+		result := map[string]any{"ok": true}
+		if warn != nil {
+			result["deploymentConfigWarning"] = warn.Error()
+		}
+		return result, nil
 
 	case "generate-key":
 		cfg, err := GenerateProjectKey(op.ProjectName)
 		if err != nil {
 			return nil, err
 		}
-		refreshDeploymentConfigs(op.ProjectName)
+		_ = refreshDeploymentConfigs(op.ProjectName) // best-effort; primary result is the key config
 		return cfg, nil
 
 	case "delete-key":
@@ -385,18 +396,15 @@ func RunSSHKeyOperation(op SSHKeyOperation) (any, error) {
 
 // refreshDeploymentConfigs injects the deployment block into agent config files
 // for a project. Called automatically after save-test-host and generate-key.
-// Silently skips if the project has no test host configured.
-func refreshDeploymentConfigs(projectName string) {
+// Returns nil if the project has no test host configured or no config files found.
+func refreshDeploymentConfigs(projectName string) error {
 	cfg, err := GetProjectSSHConfig(projectName)
 	if err != nil || cfg.TestHost == "" {
-		return
+		return nil
 	}
 
-	// Look for agent config files in the project directory.
-	// The project directory is expected to be at the standard CCC project path.
-	// We scan for known config file names in the project root.
 	projectDirCandidates := []string{
-		filepath.Join("/srv/ccc/projects", projectName),
+		filepath.Join(cccProjectsRoot(), projectName),
 		filepath.Join("/home/prime/projects", projectName),
 	}
 
@@ -411,8 +419,8 @@ func refreshDeploymentConfigs(projectName string) {
 	}
 
 	if len(configFiles) == 0 {
-		return
+		return nil
 	}
 
-	_ = WriteProjectDeploymentConfigs(projectName, cfg.TestHost, configFiles)
+	return WriteProjectDeploymentConfigs(projectName, cfg.TestHost, configFiles)
 }
