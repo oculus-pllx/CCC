@@ -814,20 +814,49 @@ function renderProjects() {
     </div>
     <div class="project-list">
       ${(snapshot.projects || []).map(project => `
-        <section class="project-row">
-          <div>
-            <strong>${escapeHTML(project.name)}</strong>
-            <p>${escapeHTML(project.path)}</p>
-            <span>${escapeHTML(project.gitBranch || 'not a git repo')}</span>
+        <div class="project-row-wrap">
+          <section class="project-row">
+            <div>
+              <strong>${escapeHTML(project.name)}</strong>
+              <p>${escapeHTML(project.path)}</p>
+              <span>${escapeHTML(project.gitBranch || 'not a git repo')}</span>
+            </div>
+            <div class="action-row">
+              <button class="small-button" data-project-browse="${escapeAttribute(project.path)}">Files</button>
+              <button class="small-button" data-project-open="${escapeAttribute(project.path)}">VS Code</button>
+              ${project.gitRepo ? `<button class="small-button" data-project-pull="${escapeAttribute(project.name)}">Pull Latest</button>` : ''}
+              <button class="small-button" data-project-rename="${escapeAttribute(project.name)}">Rename</button>
+              <button class="small-button danger-button" data-project-delete="${escapeAttribute(project.name)}">Delete</button>
+              <button class="small-button ssh-toggle-btn${project.sshKeyExists ? ' ssh-has-key' : ''}" data-project="${escapeAttribute(project.name)}">SSH &#9662;</button>
+            </div>
+          </section>
+          <div class="project-ssh-panel" id="ssh-panel-${escapeAttribute(project.name)}" hidden>
+            <div class="ssh-panel-inner">
+              <div class="ssh-status-row">
+                Key: <span class="${project.sshKeyExists ? 'key-exists' : 'key-missing'}">&#9679;</span>
+                <span class="ssh-fingerprint" id="ssh-fp-${escapeAttribute(project.name)}">${escapeHTML(project.sshKeyExists ? '(loading...)' : 'no key')}</span>
+              </div>
+              <div class="ssh-host-row">
+                Test machine:
+                <input class="ssh-host-input" type="text"
+                       id="ssh-host-${escapeAttribute(project.name)}"
+                       value="${escapeAttribute(project.testHost || '')}"
+                       placeholder="IP or hostname">
+                <button class="small-button ssh-save-host-btn" data-project="${escapeAttribute(project.name)}">Save</button>
+              </div>
+              <div class="ssh-actions-row">
+                <button class="small-button ssh-generate-btn" data-project="${escapeAttribute(project.name)}">Generate Key</button>
+                <button class="small-button ssh-delete-key-btn" data-project="${escapeAttribute(project.name)}"${!project.sshKeyExists ? ' disabled' : ''}>Delete Key</button>
+                <button class="small-button ssh-copy-key-btn" data-project="${escapeAttribute(project.name)}"${!project.sshKeyExists ? ' disabled' : ''}>Copy Public Key</button>
+              </div>
+              <div class="ssh-actions-row">
+                <button class="small-button ssh-deploy-btn" data-project="${escapeAttribute(project.name)}"${(!project.sshKeyExists || !project.testHost) ? ' disabled' : ''}>Deploy to Test Machine</button>
+                <button class="small-button ssh-connect-btn" data-project="${escapeAttribute(project.name)}"${(!project.sshKeyExists || !project.testHost) ? ' disabled' : ''}>SSH Connect</button>
+              </div>
+              <div class="ssh-panel-output" id="ssh-output-${escapeAttribute(project.name)}" hidden></div>
+            </div>
           </div>
-          <div class="action-row">
-            <button class="small-button" data-project-browse="${escapeAttribute(project.path)}">Files</button>
-            <button class="small-button" data-project-open="${escapeAttribute(project.path)}">VS Code</button>
-            ${project.gitRepo ? `<button class="small-button" data-project-pull="${escapeAttribute(project.name)}">Pull Latest</button>` : ''}
-            <button class="small-button" data-project-rename="${escapeAttribute(project.name)}">Rename</button>
-            <button class="small-button danger-button" data-project-delete="${escapeAttribute(project.name)}">Delete</button>
-          </div>
-        </section>
+        </div>
       `).join('') || '<p>No projects yet.</p>'}
     </div>
     <pre id="project-output" class="output" hidden></pre>
@@ -1206,6 +1235,7 @@ function bindSectionActions(section) {
   }
   if (section === 'projects') {
     bindProjects();
+    bindProjectSSHPanels();
   }
   if (section === 'configs') {
     bindConfigs();
@@ -3344,6 +3374,226 @@ async function refreshSSHKeyInventory() {
     container.outerHTML = renderSSHKeyInventory(keys);
     bindSSHKeyInventory();
   }
+}
+
+// ── Per-project SSH panel ─────────────────────────────────────────────────
+
+function bindProjectSSHPanels() {
+  document.querySelectorAll('.ssh-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.dataset.project;
+      const panel = document.getElementById(`ssh-panel-${name}`);
+      if (!panel) return;
+      const isOpen = !panel.hidden;
+      panel.hidden = isOpen;
+      btn.textContent = isOpen ? 'SSH ▾' : 'SSH ▴';
+      if (!isOpen) {
+        await refreshSSHPanel(name);
+      }
+    });
+  });
+
+  document.querySelectorAll('.ssh-save-host-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.dataset.project;
+      const hostInput = document.getElementById(`ssh-host-${name}`);
+      const host = hostInput ? hostInput.value.trim() : '';
+      showSSHOutput(name, 'Saving...');
+      const resp = await fetch('/api/ssh-key-operation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-test-host', projectName: name, testHost: host }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        showSSHOutput(name, data.deploymentConfigWarning
+          ? `Saved. Note: ${data.deploymentConfigWarning}`
+          : 'Test host saved.');
+        await refreshSSHPanel(name);
+      } else {
+        showSSHOutput(name, `Error: ${data.error || resp.statusText}`);
+      }
+    });
+  });
+
+  document.querySelectorAll('.ssh-generate-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.dataset.project;
+      showSSHOutput(name, 'Generating key...');
+      const resp = await fetch('/api/ssh-key-operation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate-key', projectName: name }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        showSSHOutput(name, `Key generated. Fingerprint: ${data.fingerprint || '(none)'}`);
+        await refreshSSHPanel(name);
+      } else {
+        showSSHOutput(name, `Error: ${data.error || resp.statusText}`);
+      }
+    });
+  });
+
+  document.querySelectorAll('.ssh-delete-key-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.dataset.project;
+      if (!confirm(`Delete SSH key for project "${name}"? This cannot be undone.`)) return;
+      const keyPath = `/etc/ccc/project-keys/${name}/id_ed25519`;
+      showSSHOutput(name, 'Deleting...');
+      const resp = await fetch('/api/ssh-key-operation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-key', keyPath }),
+      });
+      if (resp.ok) {
+        showSSHOutput(name, 'Key deleted.');
+        await refreshSSHPanel(name);
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        showSSHOutput(name, `Error: ${data.error || resp.statusText}`);
+      }
+    });
+  });
+
+  document.querySelectorAll('.ssh-copy-key-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.dataset.project;
+      const resp = await fetch('/api/ssh-key-operation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-project-config', projectName: name }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data.publicKey) {
+        await navigator.clipboard.writeText(data.publicKey);
+        showSSHOutput(name, 'Public key copied to clipboard.');
+      } else {
+        showSSHOutput(name, 'No public key available.');
+      }
+    });
+  });
+
+  document.querySelectorAll('.ssh-deploy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openDeployModal(btn.dataset.project);
+    });
+  });
+
+  document.querySelectorAll('.ssh-connect-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.dataset.project;
+      const resp = await fetch('/api/ssh-key-operation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-project-config', projectName: name }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (data.testHost && data.keyExists) {
+        const keyPath = `/etc/ccc/project-keys/${name}/id_ed25519`;
+        activateTerminalWithCommand(`ssh -i ${keyPath} root@${data.testHost}`);
+      } else {
+        showSSHOutput(name, 'No key or test host configured.');
+      }
+    });
+  });
+}
+
+async function refreshSSHPanel(projectName) {
+  const resp = await fetch('/api/ssh-key-operation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get-project-config', projectName }),
+  });
+  const cfg = await resp.json().catch(() => ({}));
+
+  const fp = document.getElementById(`ssh-fp-${projectName}`);
+  if (fp) fp.textContent = cfg.fingerprint || (cfg.keyExists ? '(no fingerprint)' : 'no key');
+
+  const statusDot = fp?.previousElementSibling;
+  if (statusDot) {
+    statusDot.className = cfg.keyExists ? 'key-exists' : 'key-missing';
+  }
+
+  const deleteBtn = document.querySelector(`.ssh-delete-key-btn[data-project="${projectName}"]`);
+  const copyBtn = document.querySelector(`.ssh-copy-key-btn[data-project="${projectName}"]`);
+  const deployBtn = document.querySelector(`.ssh-deploy-btn[data-project="${projectName}"]`);
+  const connectBtn = document.querySelector(`.ssh-connect-btn[data-project="${projectName}"]`);
+  const hostInput = document.getElementById(`ssh-host-${projectName}`);
+  const toggleBtn = document.querySelector(`.ssh-toggle-btn[data-project="${projectName}"]`);
+
+  if (deleteBtn) deleteBtn.disabled = !cfg.keyExists;
+  if (copyBtn) copyBtn.disabled = !cfg.keyExists;
+  if (deployBtn) deployBtn.disabled = !(cfg.keyExists && cfg.testHost);
+  if (connectBtn) connectBtn.disabled = !(cfg.keyExists && cfg.testHost);
+  if (hostInput && cfg.testHost) hostInput.value = cfg.testHost;
+  if (toggleBtn) toggleBtn.classList.toggle('ssh-has-key', !!cfg.keyExists);
+}
+
+function showSSHOutput(projectName, message) {
+  const output = document.getElementById(`ssh-output-${projectName}`);
+  if (!output) return;
+  output.textContent = message;
+  output.hidden = false;
+}
+
+function openDeployModal(projectName) {
+  const modal = document.getElementById('ssh-deploy-modal');
+  const desc = document.getElementById('ssh-deploy-modal-desc');
+  const pwInput = document.getElementById('ssh-deploy-password');
+  const errEl = document.getElementById('ssh-deploy-modal-error');
+  const submitBtn = document.getElementById('ssh-deploy-modal-submit');
+  const cancelBtn = document.getElementById('ssh-deploy-modal-cancel');
+  if (!modal) return;
+
+  desc.textContent = `Deploy SSH public key for project "${projectName}" to its test machine.`;
+  pwInput.value = '';
+  errEl.hidden = true;
+  modal.hidden = false;
+  pwInput.focus();
+
+  const cleanup = () => {
+    modal.hidden = true;
+    submitBtn.removeEventListener('click', onSubmit);
+    cancelBtn.removeEventListener('click', cleanup);
+    pwInput.removeEventListener('keydown', onEnter);
+  };
+
+  const onSubmit = async () => {
+    const password = pwInput.value;
+    if (!password) { errEl.textContent = 'Password required.'; errEl.hidden = false; return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Deploying...';
+    errEl.hidden = true;
+
+    const resp = await fetch('/api/ssh-key-operation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deploy-key', projectName, password }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Deploy Key';
+
+    if (resp.ok) {
+      cleanup();
+      showSSHOutput(projectName, `Deployed successfully.\n${data.output || ''}`);
+    } else {
+      errEl.textContent = data.error || 'Deploy failed.';
+      errEl.hidden = false;
+    }
+  };
+
+  const onEnter = (e) => { if (e.key === 'Enter') onSubmit(); };
+
+  submitBtn.addEventListener('click', onSubmit);
+  cancelBtn.addEventListener('click', cleanup);
+  pwInput.addEventListener('keydown', onEnter);
+}
+
+function activateTerminalWithCommand(cmd) {
+  selectSection('terminal');
+  setTimeout(() => sendTerminalInput(cmd + '\n'), 300);
 }
 
 function escapeHTML(value) {

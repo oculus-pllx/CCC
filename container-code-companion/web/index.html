@@ -111,6 +111,19 @@
       <div id="terminal-container" class="panel" hidden></div>
     </section>
     </main>
+    <div id="ssh-deploy-modal" class="modal-backdrop" hidden>
+      <div class="modal-box">
+        <h3>Deploy SSH Key</h3>
+        <p id="ssh-deploy-modal-desc"></p>
+        <label for="ssh-deploy-password">Root password for test machine</label>
+        <input id="ssh-deploy-password" type="password" autocomplete="off">
+        <p id="ssh-deploy-modal-error" class="error-text" hidden></p>
+        <div class="modal-actions">
+          <button id="ssh-deploy-modal-cancel" class="small-button">Cancel</button>
+          <button id="ssh-deploy-modal-submit" class="small-button">Deploy Key</button>
+        </div>
+      </div>
+    </div>
   </div>
   <footer class="app-footer">
     <a class="footer-brand" href="https://pllx.group" target="_blank" rel="noopener">

@@ -1996,3 +1996,139 @@ td {
   animation: pulse-dot 2.4s ease-in-out infinite;
   flex-shrink: 0;
 }
+
+/* ── Per-project SSH panel ──────────────────────────────────────────────── */
+
+.project-row-wrap {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.project-row-wrap .project-row {
+  border: none;
+  border-radius: 0;
+}
+
+.project-ssh-panel {
+  padding: 0.75rem 1rem;
+  background: var(--panel2);
+  border-top: 1px solid var(--border);
+}
+
+.ssh-panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ssh-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9em;
+}
+
+.key-exists { color: #4caf50; }
+.key-missing { color: #f44336; }
+
+.ssh-host-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9em;
+  flex-wrap: wrap;
+}
+
+.ssh-host-input {
+  background: var(--topbar);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+  width: 200px;
+  font-family: inherit;
+}
+
+.ssh-actions-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ssh-panel-output {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  padding: 0.5rem;
+  background: var(--panel);
+  border-radius: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  color: var(--text-dim);
+}
+
+.ssh-toggle-btn.ssh-has-key {
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+/* ── Deploy SSH Key modal ───────────────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-box {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-width: 340px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-family: inherit;
+}
+
+.modal-box h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.modal-box p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9em;
+}
+
+.modal-box label {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.modal-box input[type="password"] {
+  background: var(--topbar);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 1em;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
