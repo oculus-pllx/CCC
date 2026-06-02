@@ -28,6 +28,9 @@ fi
 
 write_ccc_config() {
   mkdir -p /etc/ccc
+  mkdir -p /etc/ccc/project-keys
+  chown root:"${CCC_SHARED_GROUP:-ccc}" /etc/ccc/project-keys
+  chmod 0770 /etc/ccc/project-keys
   cat > /etc/ccc/config <<EOF
 CCC_INSTALL_MODE="$CCC_INSTALL_MODE"
 CCC_USER="$CCC_USER"
@@ -2169,6 +2172,9 @@ fi
 echo ""
 echo -e "${C}[5/5]${N} Recording version and restarting service..."
 mkdir -p /etc/ccc
+mkdir -p /etc/ccc/project-keys
+chown root:"${CCC_SHARED_GROUP:-ccc}" /etc/ccc/project-keys
+chmod 0770 /etc/ccc/project-keys
 printf 'CCC_INSTALLED_COMMIT="%s"\nCCC_INSTALLED_REF="%s"\nCCC_INSTALLED_DATE="%s"\n' \
   "$COMMIT" "$REF" "$(date '+%Y-%m-%d %H:%M:%S %z')" > "$VERSION_FILE"
 echo -e "  Recorded: ${C}${COMMIT:0:7}${N}"
