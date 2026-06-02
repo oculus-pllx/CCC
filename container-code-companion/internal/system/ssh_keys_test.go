@@ -2,6 +2,7 @@ package system
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -99,7 +100,7 @@ func TestSaveProjectTestHost_RejectsEmptyName(t *testing.T) {
 }
 
 func TestGenerateProjectKey_CreatesKeyPair(t *testing.T) {
-	if _, err := os.Stat("/usr/bin/ssh-keygen"); err != nil {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
 		t.Skip("ssh-keygen not available")
 	}
 	root := t.TempDir()
@@ -130,7 +131,7 @@ func TestGenerateProjectKey_CreatesKeyPair(t *testing.T) {
 }
 
 func TestGenerateProjectKey_ErrorsIfKeyAlreadyExists(t *testing.T) {
-	if _, err := os.Stat("/usr/bin/ssh-keygen"); err != nil {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
 		t.Skip("ssh-keygen not available")
 	}
 	root := t.TempDir()

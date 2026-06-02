@@ -136,7 +136,7 @@ func GenerateProjectKey(projectName string) (ProjectSSHConfig, error) {
 	}
 	privPath := filepath.Join(dir, "id_ed25519")
 	if _, err := os.Stat(privPath); err == nil {
-		return ProjectSSHConfig{}, fmt.Errorf("key already exists at %s — delete it first", privPath)
+		return ProjectSSHConfig{}, fmt.Errorf("key already exists at %s; delete it first", privPath)
 	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return ProjectSSHConfig{}, fmt.Errorf("create project key dir: %w", err)
