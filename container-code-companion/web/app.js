@@ -3500,12 +3500,22 @@ function bindProjectSSHPanels() {
 }
 
 async function refreshSSHPanel(projectName) {
-  const resp = await fetch('/api/ssh-key-operation', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'get-project-config', projectName }),
-  });
-  const cfg = await resp.json().catch(() => ({}));
+  let cfg = {};
+  try {
+    const resp = await fetch('/api/ssh-key-operation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-project-config', projectName }),
+    });
+    if (resp.ok) {
+      cfg = await resp.json().catch(() => ({}));
+    } else {
+      showSSHOutput(projectName, 'Failed to load SSH config.');
+    }
+  } catch {
+    showSSHOutput(projectName, 'Network error loading SSH config.');
+    return;
+  }
 
   const fp = document.getElementById(`ssh-fp-${projectName}`);
   if (fp) fp.textContent = cfg.fingerprint || (cfg.keyExists ? '(no fingerprint)' : 'no key');
@@ -3515,12 +3525,13 @@ async function refreshSSHPanel(projectName) {
     statusDot.className = cfg.keyExists ? 'key-exists' : 'key-missing';
   }
 
-  const deleteBtn = document.querySelector(`.ssh-delete-key-btn[data-project="${projectName}"]`);
-  const copyBtn = document.querySelector(`.ssh-copy-key-btn[data-project="${projectName}"]`);
-  const deployBtn = document.querySelector(`.ssh-deploy-btn[data-project="${projectName}"]`);
-  const connectBtn = document.querySelector(`.ssh-connect-btn[data-project="${projectName}"]`);
+  const escaped = CSS.escape(projectName);
+  const deleteBtn = document.querySelector(`.ssh-delete-key-btn[data-project="${escaped}"]`);
+  const copyBtn = document.querySelector(`.ssh-copy-key-btn[data-project="${escaped}"]`);
+  const deployBtn = document.querySelector(`.ssh-deploy-btn[data-project="${escaped}"]`);
+  const connectBtn = document.querySelector(`.ssh-connect-btn[data-project="${escaped}"]`);
   const hostInput = document.getElementById(`ssh-host-${projectName}`);
-  const toggleBtn = document.querySelector(`.ssh-toggle-btn[data-project="${projectName}"]`);
+  const toggleBtn = document.querySelector(`.ssh-toggle-btn[data-project="${escaped}"]`);
 
   if (deleteBtn) deleteBtn.disabled = !cfg.keyExists;
   if (copyBtn) copyBtn.disabled = !cfg.keyExists;
