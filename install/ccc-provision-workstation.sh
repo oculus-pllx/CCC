@@ -1089,6 +1089,17 @@ if [[ ! -f /etc/ccc/.perms-model-v1 ]]; then
   mkdir -p /etc/ccc
   touch /etc/ccc/.perms-model-v1
 fi
+# Ensure the running service unit carries UMask=0002 so files the app writes are
+# group-writable. The full unit heredoc is gated behind CCC_UPDATEABLE_ONLY!=1
+# (to avoid regenerating the session token), so deliver this one directive here —
+# this block DOES run under ccc-self-update. Idempotent; daemon-reload so the
+# self-update restart picks it up.
+_ccc_unit=/etc/systemd/system/container-code-companion.service
+if [[ -f "$_ccc_unit" ]] && ! grep -q '^UMask=' "$_ccc_unit"; then
+  sed -i '/^\[Service\]/a UMask=0002' "$_ccc_unit"
+  systemctl daemon-reload 2>/dev/null || true
+  echo "    Injected UMask=0002 into container-code-companion.service"
+fi
 # Patch stale script name written by older provisioners without changing the active installer mode.
 if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT="oculus-commander.sh"' /etc/ccc/config; then
   sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="ccc-bootstrap.sh"|' /etc/ccc/config
