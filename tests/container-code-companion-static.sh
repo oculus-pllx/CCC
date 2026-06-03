@@ -85,6 +85,8 @@ require_file_contains install/ccc-provision-workstation.sh '# Start in projects 
 require_file_contains install/ccc-provision-workstation.sh 'UMask=0002'
 require_file_contains install/ccc-provision-workstation.sh '/usr/local/ccc-npm'
 require_file_contains install/ccc-provision-workstation.sh 'prefix=$CCC_NPM_PREFIX'
+require_file_contains install/ccc-provision-workstation.sh 'export NPM_CONFIG_PREFIX=/usr/local/ccc-npm'
+require_file_contains install/ccc-provision-workstation.sh 'npm resolves prefix to shared dir'
 require_file_contains install/ccc-provision-workstation.sh '/etc/ccc/.perms-model-v1'
 require_file_contains install/ccc-provision-workstation.sh '── Shared Permissions'
 bash -n install/ccc-provision-workstation.sh

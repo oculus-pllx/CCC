@@ -1057,8 +1057,25 @@ cat > /etc/npmrc <<EOF
 prefix=$CCC_NPM_PREFIX
 EOF
 chmod 0644 /etc/npmrc
+# npm does NOT read /etc/npmrc — its global config is <node-prefix>/etc/npmrc
+# (e.g. /usr/etc/npmrc for a NodeSource /usr install). Write the prefix into the
+# path npm actually resolves so non-login npm invocations honor the shared prefix.
+if command -v npm >/dev/null 2>&1; then
+  _npm_globalcfg="$(npm config get globalconfig 2>/dev/null)"
+  if [[ -n "$_npm_globalcfg" && "$_npm_globalcfg" != "undefined" ]]; then
+    mkdir -p "$(dirname "$_npm_globalcfg")"
+    if [[ -f "$_npm_globalcfg" ]] && grep -q '^prefix=' "$_npm_globalcfg"; then
+      sed -i "s|^prefix=.*|prefix=$CCC_NPM_PREFIX|" "$_npm_globalcfg"
+    else
+      echo "prefix=$CCC_NPM_PREFIX" >> "$_npm_globalcfg"
+    fi
+    chmod 0644 "$_npm_globalcfg"
+  fi
+fi
 cat > /etc/profile.d/ccc-npm-path.sh <<'NPMPATHEOF'
-# Shared CCC npm global prefix on PATH for all users
+# Shared CCC npm global prefix for all users (login shells, incl. the web terminal).
+# NPM_CONFIG_PREFIX is the reliable cross-user knob — npm ignores /etc/npmrc.
+export NPM_CONFIG_PREFIX=/usr/local/ccc-npm
 case ":$PATH:" in
   *:/usr/local/ccc-npm/bin:*) ;;
   *) export PATH="/usr/local/ccc-npm/bin:$PATH" ;;
@@ -1932,6 +1949,12 @@ fi
 if [[ -d /usr/local/ccc-npm ]]; then
   nperm=$(stat -c '%a %G' /usr/local/ccc-npm)
   [[ "$nperm" == "2775 ccc" ]] && ok "npm prefix $nperm" || fail "npm prefix is '$nperm' (want '2775 ccc') — sudo ccc-self-update"
+  # Perms on the dir aren't enough: npm must actually RESOLVE the global prefix
+  # here, else installs land in a root-owned tree and non-root users hit EACCES.
+  if command -v npm >/dev/null 2>&1; then
+    nresolved=$(npm prefix -g 2>/dev/null)
+    [[ "$nresolved" == "/usr/local/ccc-npm" ]] && ok "npm resolves prefix to shared dir" || fail "npm resolves prefix to '${nresolved:-?}' (want /usr/local/ccc-npm) — sudo ccc-self-update"
+  fi
 else
   fail "shared npm prefix /usr/local/ccc-npm missing — run: sudo ccc-self-update"
 fi
