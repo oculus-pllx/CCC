@@ -123,9 +123,13 @@ func TestGenerateProjectKey_CreatesKeyPair(t *testing.T) {
 	if _, err := os.Stat(pubPath); err != nil {
 		t.Fatalf("public key not created: %v", err)
 	}
+	// Private project keys are group-readable (0640) by design so every ccc
+	// group member can use the shared per-project key; fixProjectKeyPerms
+	// enforces this. See commit "make project SSH keys accessible to all ccc
+	// group members".
 	info, _ := os.Stat(privPath)
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("private key perm = %o, want 0600", info.Mode().Perm())
+	if info.Mode().Perm() != 0o640 {
+		t.Fatalf("private key perm = %o, want 0640", info.Mode().Perm())
 	}
 	if cfg.PublicKey == "" {
 		t.Fatal("expected non-empty PublicKey")
