@@ -1031,6 +1031,27 @@ func (infiniteReader) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func TestRunProjectOperationCreateIsGroupWritable(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("CCC_SHARED_PROJECTS", tmp)
+
+	_, err := RunProjectOperation(ProjectOperation{Operation: "create", Name: "demo"})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(tmp, "demo"))
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm()&0o070 != 0o070 {
+		t.Errorf("project dir not group-rwx: mode=%v", info.Mode())
+	}
+	if info.Mode()&os.ModeSetgid == 0 {
+		t.Errorf("project dir missing setgid bit: mode=%v", info.Mode())
+	}
+}
+
 func TestParseTmuxOutput(t *testing.T) {
 	input := "work|2|1|1748000000\nscratch|1|0|1747999500\n"
 	now := int64(1748000300)

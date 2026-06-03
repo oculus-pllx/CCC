@@ -1476,9 +1476,10 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 			return CommandResult{}, errors.New("invalid project name")
 		}
 		path := filepath.Join(projectsRoot, operation.Name)
-		if err := os.Mkdir(path, 0o755); err != nil {
+		if err := os.Mkdir(path, 0o2775); err != nil {
 			return CommandResult{}, err
 		}
+		ensureSharedDirPerms(path)
 		if operation.Template != "" && operation.Template != "blank" {
 			templatePath := filepath.Join(workstationHome(), "Templates", operation.Template)
 			if err := copyDirectory(templatePath, path); err != nil {
@@ -1545,6 +1546,7 @@ func RunProjectOperation(operation ProjectOperation) (CommandResult, error) {
 			return result, errors.New("Git clone failed")
 		}
 		_, _ = RunShellCommand("git config core.sharedRepository group", target)
+		ensureSharedDirPerms(target)
 		return result, nil
 	case "pull":
 		projectPath, err := managedProjectPath(projectsRoot, operation.Name)
@@ -2232,6 +2234,22 @@ func sharedProjectsRoot() string {
 		return filepath.Clean(root)
 	}
 	return "/srv/ccc/projects"
+}
+
+// ensureSharedDirPerms makes dir part of the shared ccc workspace: setgid +
+// group-writable (2775) and owned by the ccc group, so any ccc member can work
+// in it. Best-effort — project creation must not fail if chmod/chown is denied.
+//
+// Ordering: chown before chmod, because chown(2) clears setuid/setgid bits on
+// some filesystems as a POSIX security measure.
+//
+// Note: os.Chmod treats its argument as os.FileMode, so the setgid bit must be
+// expressed as os.ModeSetgid (not 0o2000 which is the raw Unix position).
+func ensureSharedDirPerms(dir string) {
+	if gid := cccGroupGID(); gid >= 0 {
+		_ = os.Chown(dir, -1, gid)
+	}
+	_ = os.Chmod(dir, os.ModeSetgid|0o775)
 }
 
 func projectListingRoot() string {
