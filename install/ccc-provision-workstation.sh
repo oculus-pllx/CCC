@@ -203,9 +203,10 @@ command -v npm >/dev/null 2>&1 || {
 }
 echo "    Node $(node --version) / npm $(npm --version)"
 
-# ── Global npm: TypeScript runtime only ───────────────────────────────────────
-step 10 "Global npm packages"
-npm install -g typescript ts-node tsx
+# ── Global npm packages ───────────────────────────────────────────────────────
+# Installed into the shared, group-writable prefix (/usr/local/ccc-npm) by the
+# "Shared npm global prefix" step inside the updateable region below, so every
+# ccc user can run `npm install -g` / `npm update -g` without EACCES.
 
 # ── Go ────────────────────────────────────────────────────────────────────────
 step 11 "Go"
@@ -1042,6 +1043,52 @@ chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.bashrc"
 # When run standalone via self-update, step() may not be defined — provide a no-op fallback.
 command -v step >/dev/null 2>&1 || step() { echo ">>> $2"; }
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
+
+# ── Shared npm global prefix (group-writable) ────────────────────────────────
+# One shared, setgid, group-writable prefix so any ccc user can install/update
+# global npm packages. Replaces the old root-owned system prefix that caused
+# intermittent EACCES for non-root users.
+step 10 "Shared npm global prefix"
+CCC_NPM_PREFIX="/usr/local/ccc-npm"
+mkdir -p "$CCC_NPM_PREFIX"
+chown root:"${CCC_SHARED_GROUP:-ccc}" "$CCC_NPM_PREFIX"
+chmod 2775 "$CCC_NPM_PREFIX"
+cat > /etc/npmrc <<EOF
+prefix=$CCC_NPM_PREFIX
+EOF
+chmod 0644 /etc/npmrc
+cat > /etc/profile.d/ccc-npm-path.sh <<'NPMPATHEOF'
+# Shared CCC npm global prefix on PATH for all users
+case ":$PATH:" in
+  *:/usr/local/ccc-npm/bin:*) ;;
+  *) export PATH="/usr/local/ccc-npm/bin:$PATH" ;;
+esac
+NPMPATHEOF
+chmod 0644 /etc/profile.d/ccc-npm-path.sh
+if command -v npm >/dev/null 2>&1; then
+  npm install -g --prefix "$CCC_NPM_PREFIX" typescript ts-node tsx @openai/codex || true
+  # Keep the installed tree group-writable so any ccc user can update it later.
+  chgrp -R "${CCC_SHARED_GROUP:-ccc}" "$CCC_NPM_PREFIX" 2>/dev/null || true
+  chmod -R g+rwX "$CCC_NPM_PREFIX" 2>/dev/null || true
+  find "$CCC_NPM_PREFIX" -type d -exec chmod g+s {} + 2>/dev/null || true
+fi
+
+# ── Shared permission model enforcement ──────────────────────────────────────
+# Cheap, idempotent: keep the projects root setgid + ccc-owned so new project
+# subdirs inherit group ownership. A one-time recursive repair (gated by a
+# sentinel) fixes projects that predate this model on already-running machines.
+step 11 "Shared permission model"
+mkdir -p "$CCC_SHARED_PROJECTS"
+chown root:"${CCC_SHARED_GROUP:-ccc}" "$CCC_SHARED_PROJECTS"
+chmod 2775 "$CCC_SHARED_PROJECTS"
+if [[ ! -f /etc/ccc/.perms-model-v1 ]]; then
+  echo "    Repairing existing project permissions (one-time)..."
+  chgrp -R "${CCC_SHARED_GROUP:-ccc}" "$CCC_SHARED_PROJECTS" 2>/dev/null || true
+  chmod -R g+rwX "$CCC_SHARED_PROJECTS" 2>/dev/null || true
+  find "$CCC_SHARED_PROJECTS" -type d -exec chmod g+s {} + 2>/dev/null || true
+  mkdir -p /etc/ccc
+  touch /etc/ccc/.perms-model-v1
+fi
 # Patch stale script name written by older provisioners without changing the active installer mode.
 if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT="oculus-commander.sh"' /etc/ccc/config; then
   sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="ccc-bootstrap.sh"|' /etc/ccc/config
@@ -1706,9 +1753,11 @@ else
 fi
 
 echo ""
-echo -e "${C}[3/3]${N} Optional user-level app CLIs..."
-if [[ -x "$CCC_HOME/.local/bin/codex" ]]; then
-  sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" npm update -g --prefix "$CCC_HOME/.local" @openai/codex || true
+echo -e "${C}[3/3]${N} Shared app CLIs..."
+if [[ -x /usr/local/ccc-npm/bin/codex ]]; then
+  npm update -g --prefix /usr/local/ccc-npm @openai/codex || true
+  chgrp -R ccc /usr/local/ccc-npm 2>/dev/null || true
+  chmod -R g+rwX /usr/local/ccc-npm 2>/dev/null || true
 else
   echo "  Codex CLI not installed; skipping."
 fi
@@ -1859,6 +1908,26 @@ systemctl is-active --quiet "$CCC_CODE_SERVER_SERVICE" && ok "code-server runnin
 systemctl is-active --quiet container-code-companion.service && ok "Container Code Companion UI running" || fail "Container Code Companion UI not running — sudo systemctl start container-code-companion.service"
 echo ""
 
+echo -e "${C}── Shared Permissions ────────────────────────${N}"
+PROJ="${CCC_SHARED_PROJECTS:-/srv/ccc/projects}"
+if [[ -d "$PROJ" ]]; then
+  pperm=$(stat -c '%a %G' "$PROJ")
+  [[ "$pperm" == "2775 ccc" ]] && ok "projects root $pperm" || fail "projects root is '$pperm' (want '2775 ccc') — sudo chgrp ccc $PROJ && sudo chmod 2775 $PROJ"
+  bad=$(find "$PROJ" -maxdepth 1 -mindepth 1 -type d ! -perm -g+w 2>/dev/null | head -1)
+  [[ -z "$bad" ]] && ok "project dirs group-writable" || fail "not group-writable: $bad — repair in the app or 'sudo chmod -R g+rwX $PROJ'"
+else
+  warn "projects root $PROJ missing"
+fi
+if [[ -d /usr/local/ccc-npm ]]; then
+  nperm=$(stat -c '%a %G' /usr/local/ccc-npm)
+  [[ "$nperm" == "2775 ccc" ]] && ok "npm prefix $nperm" || fail "npm prefix is '$nperm' (want '2775 ccc') — sudo ccc-self-update"
+else
+  fail "shared npm prefix /usr/local/ccc-npm missing — run: sudo ccc-self-update"
+fi
+sumask=$(systemctl show -p UMask --value container-code-companion.service 2>/dev/null)
+[[ "$sumask" == "0002" ]] && ok "app service UMask 0002" || warn "app service UMask is '${sumask:-unset}' (want 0002) — sudo ccc-self-update"
+echo ""
+
 echo -e "${C}── Storage ───────────────────────────────────${N}"
 df -h / | awk 'NR==2 {
   used=$3; avail=$4; pct=$5
@@ -1928,16 +1997,17 @@ B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 export HOME="$CCC_HOME"
-export PATH="$CCC_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="/usr/local/ccc-npm/bin:$CCC_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 echo ""
 echo -e "${B}Installing OpenAI Codex CLI${N}"
 echo ""
 
-echo -e "${C}[1/2]${N} Installing @openai/codex..."
-mkdir -p "$CCC_HOME/.local"
-chown -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.local"
-sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" npm install -g --prefix "$CCC_HOME/.local" @openai/codex
+echo -e "${C}[1/2]${N} Installing @openai/codex into the shared prefix..."
+npm install -g --prefix /usr/local/ccc-npm @openai/codex
 STATUS=$?
+# Keep the shared prefix group-writable so any ccc user can update Codex later.
+chgrp -R ccc /usr/local/ccc-npm 2>/dev/null || true
+chmod -R g+rwX /usr/local/ccc-npm 2>/dev/null || true
 
 if [[ $STATUS -ne 0 ]]; then
   echo ""
@@ -1950,7 +2020,7 @@ echo ""
 echo -e "${C}[2/2]${N} Setup"
 echo ""
 echo -e "${G}${B}Codex installed.${N}"
-echo -e "  Binary: ${C}$CCC_HOME/.local/bin/codex${N}"
+echo -e "  Binary: ${C}/usr/local/ccc-npm/bin/codex${N}"
 echo ""
 echo -e "${Y}To use Codex you need an OpenAI API key:${N}"
 echo -e "  1. Get a key at ${C}https://platform.openai.com/api-keys${N}"
@@ -2391,6 +2461,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+UMask=0002
 User=$CCC_USER
 Group=$CCC_USER
 WorkingDirectory=$CONTAINER_CODE_COMPANION_ROOT
