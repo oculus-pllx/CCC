@@ -11,12 +11,14 @@ CCC keeps project SSH keys isolated from user home directories:
 ```
 /etc/ccc/project-keys/
   my-project/
-    id_ed25519        (private key, ccc group readable)
-    id_ed25519.pub    (public key)
+    id_ed25519        (private key, root:ccc 0640 — root-owned, ccc group readable)
+    id_ed25519.pub    (public key, root:ccc 0644)
     host              (target machine IP or hostname)
 ```
 
-Keys are owned by the `ccc` group (`0640`) so **any user in the `ccc` group can use them directly** — no sudo, no copies, no agent required. The directory tree is `root:ccc 0750`.
+Private keys are **root-owned and `ccc`-group-readable (`root:ccc 0640`)** so **any user in the `ccc` group can use them directly** — no sudo, no copies, no agent required. Modern OpenSSH accepts a `0640` key for the owner or any group member.
+
+**Why root-owned?** A group-readable key that an agent *owns* is one the agent can "tighten" back to `0600` — a common reflex that silently breaks shared access for everyone else. Because the keys are owned by `root`, a non-root agent gets `Operation not permitted` if it tries to `chmod`/`chown` them: the shared permissions are tamper-proof. New keys are made root-owned the moment they're generated (the app hands the privileged step to the `ccc-fix-key-perms` helper via sudo), and existing keys are re-hardened on every CCC self-update and at service startup. Project directories stay `:ccc 0750` (owned by the app user) so the app can still create and delete keys.
 
 The shared GitHub machine key stays at `/etc/ccc/ssh/github_ed25519` as before — this feature is separate and does not affect it.
 
@@ -156,9 +158,14 @@ apt install sshpass
 - If none of those files exist, CCC creates `CLAUDE.md` automatically on the next Save
 
 **"Permission denied" using a key as a non-oculus user**
-- All keys are created with `ccc` group read access (`0640`) — any user in the `ccc` group can use them
-- If a key was generated before this was fixed, do a CCC self-update — permissions are repaired automatically at service startup
-- Verify with: `ls -la /etc/ccc/project-keys/<name>/` — group should be `ccc`
+- All keys are `root:ccc 0640` — root-owned and `ccc`-group-readable, so any user in the `ccc` group can use them
+- If a key was generated before this was fixed, do a CCC self-update — ownership/permissions are re-hardened automatically at service startup and during every update
+- Verify with: `ls -la /etc/ccc/project-keys/<name>/` — the private key should be `root ccc` mode `640`
+- Repair on demand without a full update: `sudo ccc-fix-key-perms` (all projects) or `sudo ccc-fix-key-perms <name>`
+
+**A key keeps reverting to `0600` / loses group access**
+- This used to happen when an agent owned the key and ran `chmod 600` on it. Keys are now root-owned, so a non-root agent can no longer change them — run `sudo ccc-fix-key-perms` once and it stays fixed
+- `ccc-doctor` reports this under **Shared Permissions** ("project SSH keys root-owned 0640")
 
 **`/etc/ccc/project-keys` does not exist**
 - Run a CCC self-update — the directory is created automatically during every update
