@@ -81,7 +81,19 @@ require_file_contains install/ccc-provision-workstation.sh 'ccc-sync-agent-confi
 require_file_contains install/ccc-provision-workstation.sh '--all-users)'
 require_file_contains install/ccc-provision-workstation.sh '--user requires a username'
 require_file_contains install/ccc-provision-workstation.sh '# Start in projects dir on login'
+# Multi-user permission model (delivered inside the updateable region)
+require_file_contains install/ccc-provision-workstation.sh 'UMask=0002'
+require_file_contains install/ccc-provision-workstation.sh '/usr/local/ccc-npm'
+require_file_contains install/ccc-provision-workstation.sh 'prefix=$CCC_NPM_PREFIX'
+require_file_contains install/ccc-provision-workstation.sh '/etc/ccc/.perms-model-v1'
+require_file_contains install/ccc-provision-workstation.sh '── Shared Permissions'
 bash -n install/ccc-provision-workstation.sh
+
+# Multi-user permission model (Go app)
+require_file_contains container-code-companion/cmd/server/main.go 'syscall.Umask(0o002)'
+require_file_contains container-code-companion/cmd/server/main.go 'system.EnsureSharedProjectsRoot()'
+require_file_contains container-code-companion/internal/system/management.go 'func ensureSharedDirPerms'
+require_file_contains container-code-companion/internal/system/management.go 'func EnsureSharedProjectsRoot'
 
 legacy_product='agent-''workstation'
 if git grep -n "$legacy_product" -- . ':!container-code-companion/web/vendor/*'; then
