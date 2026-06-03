@@ -1117,6 +1117,51 @@ if [[ -f "$_ccc_unit" ]] && ! grep -q '^UMask=' "$_ccc_unit"; then
   systemctl daemon-reload 2>/dev/null || true
   echo "    Injected UMask=0002 into container-code-companion.service"
 fi
+# Project SSH keys are shared per-project keys, group-readable (0640, group ccc)
+# so every team member uses one key — modern OpenSSH accepts a 0640 key. The
+# catch: a group-read mode an agent OWNS is one the agent can revert. A
+# long-running agent session repeatedly chmod'd a project key back to 0600,
+# breaking shared access. Fix: make private keys root-owned, so a non-root agent
+# physically cannot chmod them (EPERM). ccc-fix-key-perms enforces this and the
+# app invokes it (via the CCC user's passwordless sudo) right after generating a
+# key. Installing + sweeping here, in the ungated block, delivers it to running
+# boxes via ccc-self-update.
+cat > /usr/local/bin/ccc-fix-key-perms << 'KEYPERMSCRIPT'
+#!/usr/bin/env bash
+# Enforce ownership/permissions on CCC project SSH keys so a non-root agent
+# cannot revert a shared key to owner-only.
+# Usage: ccc-fix-key-perms [project-name]   (no arg = sweep all projects)
+# Private key -> root:ccc 0640, public key -> root:ccc 0644, dir -> :ccc 0750.
+set -u
+KEYS_ROOT="/etc/ccc/project-keys"
+GROUP="${CCC_SHARED_GROUP:-ccc}"
+[ -d "$KEYS_ROOT" ] || exit 0
+
+fix_one() {
+  d="$1"
+  [ -d "$d" ] || return 0
+  case "$d" in "$KEYS_ROOT"/*) ;; *) return 0;; esac  # never escape the keys root
+  chgrp "$GROUP" "$d" 2>/dev/null || true
+  chmod 0750 "$d" 2>/dev/null || true
+  if [ -f "$d/id_ed25519" ]; then
+    chown root:"$GROUP" "$d/id_ed25519" 2>/dev/null || true
+    chmod 0640 "$d/id_ed25519" 2>/dev/null || true
+  fi
+  if [ -f "$d/id_ed25519.pub" ]; then
+    chown root:"$GROUP" "$d/id_ed25519.pub" 2>/dev/null || true
+    chmod 0644 "$d/id_ed25519.pub" 2>/dev/null || true
+  fi
+}
+
+if [ "$#" -ge 1 ] && [ -n "$1" ]; then
+  name="$(basename -- "$1")"          # basename strips any path traversal
+  fix_one "$KEYS_ROOT/$name"
+else
+  for d in "$KEYS_ROOT"/*/; do fix_one "$d"; done
+fi
+KEYPERMSCRIPT
+chmod 0755 /usr/local/bin/ccc-fix-key-perms
+/usr/local/bin/ccc-fix-key-perms || true
 # Patch stale script name written by older provisioners without changing the active installer mode.
 if [[ -f /etc/ccc/config ]] && grep -q '^CCC_SELF_UPDATE_SCRIPT="oculus-commander.sh"' /etc/ccc/config; then
   sed -i 's|^CCC_SELF_UPDATE_SCRIPT=.*|CCC_SELF_UPDATE_SCRIPT="ccc-bootstrap.sh"|' /etc/ccc/config
@@ -1960,6 +2005,18 @@ else
 fi
 sumask=$(systemctl show -p UMask --value container-code-companion.service 2>/dev/null)
 [[ "$sumask" == "0002" ]] && ok "app service UMask 0002" || warn "app service UMask is '${sumask:-unset}' (want 0002) — sudo ccc-self-update"
+# Project SSH keys must be root-owned 0640 so a non-root agent can't revert a
+# shared key to owner-only. A key that is NOT root-owned is agent-revertible.
+KEYSROOT="/etc/ccc/project-keys"
+if [[ -d "$KEYSROOT" ]]; then
+  badkey=$(find "$KEYSROOT" -mindepth 2 -name id_ed25519 \( ! -user root -o ! -perm 640 \) 2>/dev/null | head -1)
+  if [[ -z "$badkey" ]]; then
+    ok "project SSH keys root-owned 0640 (tamper-proof)"
+  else
+    kp=$(stat -c '%U:%G %a' "$badkey" 2>/dev/null)
+    fail "project key $badkey is '$kp' (want root:ccc 640) — sudo ccc-fix-key-perms"
+  fi
+fi
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"

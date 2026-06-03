@@ -1,0 +1,3 @@
+# Local Go build artifacts (real binary installs to /usr/local/bin/container-code-companion)
+/server
+/container-code-companion

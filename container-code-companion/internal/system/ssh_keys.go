@@ -102,6 +102,13 @@ func cccGroupGID() int {
 // fixProjectKeyPerms ensures a project key directory and its files are
 // accessible to any member of the ccc group. Called after creation and
 // at startup for existing dirs.
+//
+// Group-read (0640) is what lets every ccc member use the shared per-project
+// key; modern OpenSSH accepts a 0640 key (verified on this platform). But a
+// group-read mode an agent owns is one the agent can revert: a long-running
+// session repeatedly chmod'd a project key back to 0600, breaking shared
+// access. hardenProjectKeyOwnership makes the key root-owned so a non-root
+// agent physically cannot revert it (chmod by a non-owner fails with EPERM).
 func fixProjectKeyPerms(dir string) {
 	gid := cccGroupGID()
 	_ = os.Chmod(dir, 0o750)
@@ -120,6 +127,26 @@ func fixProjectKeyPerms(dir string) {
 			_ = os.Lchown(p, -1, gid)
 		}
 	}
+	hardenProjectKeyOwnership(dir)
+}
+
+// hardenProjectKeyOwnership makes a project's private key root-owned so that a
+// non-root agent cannot chmod it back to owner-only (which breaks shared ccc
+// access). The CCC app user has passwordless sudo (granted by the provisioner),
+// so the single privileged step is delegated to a small path-validating root
+// helper installed by the provisioner. Best-effort: if the helper or sudo is
+// unavailable (e.g. in tests, or a non-CCC host), the key stays group-readable
+// at 0640 — still usable, just revertible.
+func hardenProjectKeyOwnership(dir string) {
+	// Only act against the real key root; tests override CCC_PROJECT_KEYS_ROOT.
+	if projectKeysRoot() != "/etc/ccc/project-keys" {
+		return
+	}
+	const helper = "/usr/local/bin/ccc-fix-key-perms"
+	if _, err := os.Stat(helper); err != nil {
+		return
+	}
+	_ = exec.Command("sudo", "-n", helper, filepath.Base(dir)).Run()
 }
 
 // FixAllProjectKeyPerms repairs permissions on every existing project key dir.
@@ -330,6 +357,9 @@ func WriteProjectDeploymentConfigs(projectName, testHost string, configPaths []s
 - Development and GitHub pushes happen on **this machine only**.
 - Do **not** push to GitHub from the test machine.
 - Do **not** create new SSH keys.
+- Do **not** `+"`chmod`"+` or `+"`chown`"+` this key. It is intentionally root-owned and
+  group-readable (0640, group `+"`ccc`"+`) so every team member shares one key;
+  "tightening" it to 0600 breaks access for others and will be reverted.
 %s`, deploymentStartMarker, testHost, keyPath, keyPath, testHost, deploymentEndMarker)
 
 	var errs []string

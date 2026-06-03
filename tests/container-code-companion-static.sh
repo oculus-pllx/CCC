@@ -89,7 +89,14 @@ require_file_contains install/ccc-provision-workstation.sh 'export NPM_CONFIG_PR
 require_file_contains install/ccc-provision-workstation.sh 'npm resolves prefix to shared dir'
 require_file_contains install/ccc-provision-workstation.sh '/etc/ccc/.perms-model-v1'
 require_file_contains install/ccc-provision-workstation.sh '── Shared Permissions'
+# Project SSH keys: root-owned so a non-root agent can't revert a shared key.
+require_file_contains install/ccc-provision-workstation.sh '/usr/local/bin/ccc-fix-key-perms'
+require_file_contains install/ccc-provision-workstation.sh 'project SSH keys root-owned 0640'
 bash -n install/ccc-provision-workstation.sh
+
+# Project SSH key tamper-proofing (Go app)
+require_file_contains container-code-companion/internal/system/ssh_keys.go 'func hardenProjectKeyOwnership'
+require_file_contains container-code-companion/internal/system/ssh_keys.go 'ccc-fix-key-perms'
 
 # Multi-user permission model (Go app)
 require_file_contains container-code-companion/cmd/server/main.go 'syscall.Umask(0o002)'
@@ -332,7 +339,8 @@ require_file_contains container-code-companion/web/app.js 'type="file"'
 require_file_contains container-code-companion/web/app.js "uploadCurrentDirectory"
 require_file_contains container-code-companion/web/app.js "downloadCurrentFile"
 require_file_contains container-code-companion/web/app.js "file-upload-input"
-require_file_contains container-code-companion/web/app.js "file-download-button"
+require_file_contains container-code-companion/web/app.js "file-selection-download"
+require_file_contains container-code-companion/web/app.js "downloadZip"
 require_file_contains container-code-companion/web/app.js "file-copy-button"
 require_file_contains container-code-companion/web/app.js "file-chmod-button"
 require_file_contains container-code-companion/web/app.js "copyCurrentFile"
@@ -353,7 +361,7 @@ require_file_contains container-code-companion/web/app.js "renderFileEntry"
 require_file_contains container-code-companion/web/app.js "updateSelectedFileDetail"
 require_file_contains container-code-companion/web/styles.css ".file-manager"
 require_file_contains container-code-companion/web/styles.css ".file-breadcrumbs"
-require_file_contains container-code-companion/web/styles.css ".file-entry.selected"
+require_file_contains container-code-companion/web/styles.css ".file-row.selected"
 require_file_contains container-code-companion/web/styles.css ".file-table-header"
 require_file_contains container-code-companion/web/styles.css ".file-selected-detail"
 require_file_contains container-code-companion/web/app.js "notes: 'Notes'"
@@ -464,8 +472,8 @@ require_file_contains container-code-companion/internal/system/management.go "dr
 require_file_not_contains container-code-companion/web/app.js "section !== 'terminal') {"
 require_file_contains container-code-companion/web/app.js "username is required"
 require_file_contains container-code-companion/web/app.js "Setup CCC Profile"
-require_file_contains container-code-companion/web/app.js "Sync Agent Configs"
-require_file_contains container-code-companion/web/app.js "Sync All Agent Configs"
+require_file_contains container-code-companion/web/app.js "Sync Account Configs"
+require_file_contains container-code-companion/web/app.js "Sync All Account Configs"
 require_file_contains container-code-companion/web/app.js "showAccountOutput"
 require_file_contains container-code-companion/web/app.js "account updated"
 require_file_contains container-code-companion/web/app.js "setup-ccc-profile"
@@ -487,7 +495,8 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-apply"'
 require_file_contains container-code-companion/internal/system/management.go 'CCC shell projects login'
 require_file_contains container-code-companion/internal/system/management.go 'CCC shell environment'
-require_file_contains container-code-companion/internal/system/management.go '@anthropic-ai/claude-code @openai/codex @google/gemini-cli'
+require_file_contains container-code-companion/internal/system/management.go '@openai/codex @google/gemini-cli'
+require_file_contains container-code-companion/internal/system/management.go 'https://claude.ai/install.sh | bash'
 require_file_contains container-code-companion/internal/system/management.go 'Provider CLIs installed'
 require_file_contains container-code-companion/internal/system/management.go 'agentConfigSyncCommand'
 require_file_contains container-code-companion/internal/system/management.go 'allAgentConfigSyncCommand'
