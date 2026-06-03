@@ -2252,6 +2252,17 @@ func ensureSharedDirPerms(dir string) {
 	_ = os.Chmod(dir, os.ModeSetgid|0o775)
 }
 
+// EnsureSharedProjectsRoot guarantees the shared projects root exists and is
+// setgid + group-owned by ccc, so every subdirectory created inside it inherits
+// group ownership. Called once at server startup; best-effort.
+func EnsureSharedProjectsRoot() {
+	root := sharedProjectsRoot()
+	if err := os.MkdirAll(root, 0o775); err != nil {
+		return
+	}
+	ensureSharedDirPerms(root)
+}
+
 func projectListingRoot() string {
 	sharedRoot := sharedProjectsRoot()
 	if directoryHasEntries(sharedRoot) {

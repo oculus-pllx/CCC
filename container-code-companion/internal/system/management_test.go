@@ -1031,6 +1031,21 @@ func (infiniteReader) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func TestEnsureSharedProjectsRootSetgid(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "projects")
+	t.Setenv("CCC_SHARED_PROJECTS", tmp)
+
+	EnsureSharedProjectsRoot()
+
+	info, err := os.Stat(tmp)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode()&os.ModeSetgid == 0 || info.Mode().Perm()&0o070 != 0o070 {
+		t.Errorf("projects root not setgid+group-rwx: mode=%v", info.Mode())
+	}
+}
+
 func TestRunProjectOperationCreateIsGroupWritable(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("CCC_SHARED_PROJECTS", tmp)

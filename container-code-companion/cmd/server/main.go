@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"syscall"
 
 	"github.com/oculus-pllx/ccc/container-code-companion/internal/server"
 	"github.com/oculus-pllx/ccc/container-code-companion/internal/system"
@@ -25,6 +26,8 @@ func main() {
 		log.Printf("generated login password for this process")
 	}
 
+	syscall.Umask(0o002)
+	system.EnsureSharedProjectsRoot()
 	system.FixAllProjectKeyPerms()
 	srv := server.New(server.Config{SessionToken: token, Username: username, Password: password})
 	log.Printf("Container Code Companion listening on %s", addr)
