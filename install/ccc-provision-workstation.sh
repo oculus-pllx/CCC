@@ -552,6 +552,25 @@ bind -n M-Up    select-pane -U
 bind -n M-Down  select-pane -D
 TMUXCONF
   chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
+
+  # Machine-wide clipboard for ALL users (oculus, prime, terminus, future).
+  # tmux reads /etc/tmux.conf before every ~/.tmux.conf. ',*:clipboard'
+  # declares the Ms (OSC 52) capability for every terminal type, so copy-mode
+  # actually emits the escape over SSH instead of only filling the tmux buffer.
+  # Paste stays normal terminal paste (OSC 52 read is disabled everywhere).
+  if [[ "$(id -u)" -eq 0 ]]; then
+    cat > /etc/tmux.conf <<'ETCTMUX'
+# Managed by CCC provisioner (install/ccc-provision-workstation.sh).
+# Machine-wide tmux defaults for ALL users — loaded before each ~/.tmux.conf.
+# OSC 52 clipboard: lets "copy in tmux" travel over SSH to the client's native
+# clipboard (e.g. Windows). Paste is ordinary terminal paste (Ctrl+Shift+V).
+set -g set-clipboard on
+set -g allow-passthrough on
+set -ga terminal-features ',*:clipboard'
+ETCTMUX
+    chmod 0644 /etc/tmux.conf
+    ok "/etc/tmux.conf written (machine-wide OSC 52 clipboard)"
+  fi
   ok "tmux config written"
 }
 
@@ -1483,6 +1502,25 @@ bind -n M-Up    select-pane -U
 bind -n M-Down  select-pane -D
 TMUXCONF
   chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
+
+  # Machine-wide clipboard for ALL users (oculus, prime, terminus, future).
+  # tmux reads /etc/tmux.conf before every ~/.tmux.conf. ',*:clipboard'
+  # declares the Ms (OSC 52) capability for every terminal type, so copy-mode
+  # actually emits the escape over SSH instead of only filling the tmux buffer.
+  # Paste stays normal terminal paste (OSC 52 read is disabled everywhere).
+  if [[ "$(id -u)" -eq 0 ]]; then
+    cat > /etc/tmux.conf <<'ETCTMUX'
+# Managed by CCC provisioner (install/ccc-provision-workstation.sh).
+# Machine-wide tmux defaults for ALL users — loaded before each ~/.tmux.conf.
+# OSC 52 clipboard: lets "copy in tmux" travel over SSH to the client's native
+# clipboard (e.g. Windows). Paste is ordinary terminal paste (Ctrl+Shift+V).
+set -g set-clipboard on
+set -g allow-passthrough on
+set -ga terminal-features ',*:clipboard'
+ETCTMUX
+    chmod 0644 /etc/tmux.conf
+    ok "/etc/tmux.conf written (machine-wide OSC 52 clipboard)"
+  fi
   ok "tmux config written"
 }
 
