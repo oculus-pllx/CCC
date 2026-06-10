@@ -11,7 +11,7 @@ Each work identity is a separate Linux user. They get:
 - Their own `~/.gitconfig` and `~/.ssh/config`
 - Access to the same `/srv/ccc/projects` shared project workspace via `~/projects`
 - The same baseline Claude/Codex/Gemini configs and skills from `oculus-configs`
-- Their own copy of the Claude Code, Codex, and Gemini CLIs in `~/.local/bin`
+- Their own Claude Code install in `~/.local/bin` (per-account, self-updating); Codex and Gemini CLIs are shared from `/usr/local/ccc-npm`
 
 Provider credentials are **never copied** between users. What is shared: project files, the managed GitHub SSH key, and the baseline rules/skills config.
 
@@ -46,12 +46,12 @@ Still in **Accounts**, find the new user and click **Setup CCC Profile**. This:
 
 - Adds the user to the `ccc` group (shared project access)
 - Links `~/projects` → `/srv/ccc/projects`
-- Syncs Claude/Codex/Gemini configs and skills from `oculus-configs`
-- Mirrors non-auth UI options/plugins/add-ons from the primary user
-- Installs the Claude Code, Codex, and Gemini CLIs into `~/.local/bin`
+- Syncs Claude/Codex/Gemini configs and skills from `oculus-configs` (via `ccc-sync-agent-configs`)
+- Installs the user's own Claude Code CLI into `~/.local/bin` (Codex/Gemini are already shared system-wide)
 - Writes the CCC-managed `settings.json` and statusline script
-- Adds the shell login helper (new SSH sessions start in `~/projects`)
-- Validates all expected files exist
+- Validates the provider CLIs are reachable
+
+Shell environment (aliases, PATH, auto-cd to `~/projects` on login) is machine-wide via `/etc/profile.d/ccc-env.sh` and `/etc/ccc/ccc-shell.sh` — nothing is appended to the user's `.bashrc`.
 
 Wait for the output panel to confirm everything was created. If it reports missing binaries or config files, run **Sync Account Configs** for that user and check again.
 

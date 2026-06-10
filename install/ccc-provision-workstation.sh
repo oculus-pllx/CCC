@@ -209,7 +209,7 @@ echo "    Node $(node --version) / npm $(npm --version)"
 # ccc user can run `npm install -g` / `npm update -g` without EACCES.
 
 # ── Go ────────────────────────────────────────────────────────────────────────
-step 11 "Go"
+step 10 "Go"
 GO_VERSION=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1)
 curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
 rm -rf /usr/local/go
@@ -219,11 +219,11 @@ echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
 echo "    $(/usr/local/go/bin/go version | awk '{print $3}')"
 
 # ── Rust (system — build tooling) ─────────────────────────────────────────────
-step 12 "Rust (system)"
+step 11 "Rust (system)"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # ── Workstation user ─────────────────────────────────────────────────────────
-step 13 "Creating workstation user"
+step 12 "Creating workstation user"
 useradd -m -s /bin/bash -d "$CCC_HOME" "$CCC_USER" 2>/dev/null || true
 usermod -aG sudo "$CCC_USER"
 echo "$CCC_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$CCC_USER"
@@ -233,26 +233,26 @@ setup_shared_projects_root
 write_ccc_config
 
 # ── Rust for workstation user ────────────────────────────────────────────────
-step 14 "Rust (workstation user)"
+step 13 "Rust (workstation user)"
 sudo -u "$CCC_USER" env HOME="$CCC_HOME" bash -c '
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 '
 
 # ── Python testing & linting ecosystem ───────────────────────────────────────
-step 15 "Python ecosystem"
+step 14 "Python ecosystem"
 echo "    pip3 available — install packages per-project with: pip install --break-system-packages <pkg>"
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
-step 16 "Claude Code"
+step 15 "Claude Code"
 sudo -u "$CCC_USER" env HOME="$CCC_HOME" bash -c '
   curl -fsSL https://claude.ai/install.sh | bash
 '
 
-CLAUDE_BIN=$(find "$CCC_HOME" -name "claude" \( -type f -o -type l \) 2>/dev/null \
-  | grep -v node_modules | head -1 || true)
-if [[ -n "$CLAUDE_BIN" ]]; then
-  ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
-  echo "    Claude Code: $CLAUDE_BIN"
+# Claude Code is per-user (native installer, self-updating, lives in ~/.local).
+# No global symlink: a /usr/local/bin wrapper (updateable section) dispatches to
+# the invoking user's own install so every account runs its own binary.
+if [[ -x "$CCC_HOME/.local/bin/claude" ]]; then
+  echo "    Claude Code: $CCC_HOME/.local/bin/claude"
 else
   echo "[ERROR] Claude binary not found after install — provision failed."
   exit 1
@@ -261,529 +261,11 @@ fi
 # ── Playwright (headless browser testing) ────────────────────────────────────
 # Skipped at provision time — hangs in LXC due to Chromium download size/networking.
 # Install manually after provision: npx --yes playwright install --with-deps chromium
-step 17 "Playwright (skipped — install manually after provision)"
+step 16 "Playwright (skipped — install manually after provision)"
 echo "    Run after provision: npx --yes playwright install --with-deps chromium"
 
-# ── Claude Code settings.json ─────────────────────────────────────────────────
-step 18 "Claude Code settings.json"
-sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"
-
-sudo -u "$CCC_USER" tee "$CCC_HOME/.claude/settings.json" > /dev/null << 'SETTINGS'
-{
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "permissions": {
-    "allow": [
-      "Bash(*)",
-      "Read(*)",
-      "Write(*)",
-      "Edit(*)",
-      "MultiEdit(*)",
-      "WebFetch(*)",
-      "WebSearch(*)",
-      "TodoRead(*)",
-      "TodoWrite(*)",
-      "Grep(*)",
-      "Glob(*)",
-      "LS(*)",
-      "Task(*)",
-      "mcp__*"
-    ]
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
-    "MAX_THINKING_TOKENS": "31999"
-  },
-  "alwaysThinkingEnabled": true,
-  "enableRemoteControl": true,
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude/bin/statusline-command.sh"
-  },
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true
-  }
-}
-SETTINGS
-
-# ── Agent config sync command ────────────────────────────────────────────────
-cat > /usr/local/bin/ccc-sync-agent-configs << 'AGENTCONFIGSYNCSCRIPT'
-#!/bin/bash
-set -euo pipefail
-if [[ -n "${NO_COLOR:-}" ]]; then
-  B=''; G=''; C=''; Y=''; R=''; N=''
-else
-  B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
-fi
-[[ -r /etc/ccc/config ]] && source /etc/ccc/config
-CCC_USER="${CCC_USER:-claude-code}"
-CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
-OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"
-OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
-OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
-PRIMARY_CCC_USER="${CCC_USER:-claude-code}"
-PRIMARY_CCC_HOME="${CCC_HOME:-/home/$PRIMARY_CCC_USER}"
-PULL=1
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --no-pull) PULL=0; shift ;;
-    --user)
-      CCC_USER="${2:?--user requires a username}"
-      CCC_HOME="$(getent passwd "$CCC_USER" | cut -d: -f6)"
-      [[ -n "$CCC_HOME" ]] || { echo "Unknown user: $CCC_USER" >&2; exit 1; }
-      shift 2
-      ;;
-    --all-users)
-      getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1}' | while read -r user; do
-        sudo ccc-sync-agent-configs --user "$user"
-      done
-      exit 0
-      ;;
-    *) echo "Unknown option: $1" >&2; exit 2 ;;
-  esac
-done
-
-say()  { echo -e "  $*"; }
-ok()   { say "${G}✓${N} $*"; }
-warn2(){ say "${Y}!${N} $*"; }
-chown_if_root() { [[ "$(id -u)" -eq 0 ]] && chown "$@" || true; }
-
-run_as_user() {
-  if [[ "$(id -u)" -eq 0 && "$CCC_USER" != "root" ]]; then
-    sudo -u "$CCC_USER" env HOME="$CCC_HOME" GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
-  else
-    env GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' "$@"
-  fi
-}
-
-backup_file() {
-  local dest=$1
-  [[ -f "$dest" ]] || return 0
-  cp "$dest" "${dest}.bak.$(date +%Y%m%d%H%M%S)"
-}
-
-copy_managed_file() {
-  local src=$1 dest=$2 label=$3
-  if [[ ! -f "$src" ]]; then
-    warn2 "oculus-configs: $label not found, skipping"
-    return 0
-  fi
-  mkdir -p "$(dirname "$dest")"
-  backup_file "$dest"
-  cp "$src" "$dest"
-  chown_if_root "$CCC_USER:$CCC_USER" "$dest"
-  ok "$label synced"
-}
-
-copy_optional_dir() {
-  local src=$1 dest=$2 label=$3
-  mkdir -p "$dest"
-  if [[ ! -d "$src" ]]; then
-    warn2 "oculus-configs: $label not found, skipping"
-    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
-    return 0
-  fi
-  cp -a "$src"/. "$dest"/
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
-  ok "$label synced"
-}
-
-mirror_provider_profile() {
-  local provider_dir=$1 label=$2
-  local src="$PRIMARY_CCC_HOME/$provider_dir"
-  local dest="$CCC_HOME/$provider_dir"
-  if [[ "$PRIMARY_CCC_HOME" == "$CCC_HOME" ]]; then
-    return 0
-  fi
-  if [[ ! -d "$src" ]]; then
-    warn2 "provider profile: $label not found, skipping"
-    return 0
-  fi
-  mkdir -p "$dest"
-  rsync -a --delete \
-    --exclude=.git/ \
-    --exclude=.credentials.json \
-    --exclude=credentials.json \
-    --exclude=auth.json \
-    --exclude='auth*' \
-    --exclude='oauth*' \
-    --exclude='token*' \
-    --exclude=sessions/ \
-    --exclude=session-env/ \
-    --exclude=projects/ \
-    --exclude=/cache/ \
-    --exclude=plugins/cache/ \
-    --exclude=logs/ \
-    --exclude=backups/ \
-    --exclude=shell-snapshots/ \
-    --exclude=file-history/ \
-    --exclude='history*' \
-    --exclude='*.log' \
-    "$src"/ "$dest"/
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
-  ok "$label profile mirrored"
-}
-
-write_claude_baseline() {
-  mkdir -p "$CCC_HOME/.claude/bin"
-  if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]; then
-    cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
-{
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "permissions": {
-    "allow": [
-      "Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)",
-      "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)",
-      "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"
-    ]
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
-    "MAX_THINKING_TOKENS": "31999"
-  },
-  "alwaysThinkingEnabled": true,
-  "enableRemoteControl": true,
-  "statusLine": {"type": "command", "command": "~/.claude/bin/statusline-command.sh"},
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true
-  }
-}
-CLAUDESETTINGS
-    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
-    ok "Claude settings written"
-  elif command -v python3 >/dev/null 2>&1; then
-    python3 - "$CCC_HOME/.claude/settings.json" <<'MERGESETTINGS'
-import json, sys
-path = sys.argv[1]
-try:
-    data = json.loads(open(path).read())
-except Exception:
-    data = {}
-required = ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)", "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)", "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"]
-perms = data.setdefault("permissions", {})
-allows = list(perms.get("allow", []))
-for a in required:
-    if a not in allows:
-        allows.append(a)
-perms["allow"] = allows
-env = data.setdefault("env", {})
-for k, v in {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000", "MAX_THINKING_TOKENS": "31999"}.items():
-    env.setdefault(k, v)
-data.setdefault("alwaysThinkingEnabled", True)
-data.setdefault("enableRemoteControl", True)
-sl = data.get("statusLine", {})
-if not isinstance(sl, dict): sl = {"command": str(sl)}
-sl.setdefault("type", "command")
-sl.setdefault("command", "~/.claude/bin/statusline-command.sh")
-data["statusLine"] = sl
-ep = data.setdefault("enabledPlugins", {})
-for k in ["superpowers@claude-plugins-official", "frontend-design@claude-plugins-official", "skill-creator@claude-plugins-official"]:
-    ep.setdefault(k, True)
-data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")
-open(path, "w").write(json.dumps(data, indent=2) + "\n")
-MERGESETTINGS
-    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
-    ok "Claude settings merged"
-  fi
-  if [[ ! -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]]; then
-    cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
-#!/bin/bash
-set -euo pipefail
-INPUT=$(cat 2>/dev/null || echo '{}')
-if command -v jq &>/dev/null; then
-  MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
-  THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
-  CTX_USED=$(echo "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
-  CTX_MAX=$(echo "$INPUT" | jq -r '.context.max // 200000' 2>/dev/null)
-else
-  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=200000
-fi
-[[ -z "$MODEL" ]] && MODEL="claude"
-CTX_PCT=0
-[[ "$CTX_MAX" -gt 0 ]] && CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
-CTX_WARN=""
-[[ $CTX_PCT -ge 85 ]] && CTX_WARN="!!"
-[[ $CTX_PCT -ge 60 && $CTX_PCT -lt 85 ]] && CTX_WARN="!"
-THINK=""
-[[ "$THINKING" == "true" ]] && THINK=" | think"
-GIT_BRANCH=""
-git rev-parse --is-inside-work-tree &>/dev/null 2>&1 && GIT_BRANCH=" ($(git branch --show-current 2>/dev/null || echo detached))"
-DIR=$(pwd | sed "s|^$HOME|~|")
-TIME=$(date +"%I:%M%p" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
-echo "${USER}@$(hostname -s):${DIR}${GIT_BRANCH} [${MODEL}${THINK}] [ctx:${CTX_PCT}%${CTX_WARN}] ${TIME}"
-CLAUDESTATUSLINE
-    chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
-    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
-    ok "Claude statusline written"
-  fi
-}
-
-write_tmux_config() {
-  cat > "$CCC_HOME/.tmux.conf" << 'TMUXCONF'
-set -g mouse on
-set -g default-terminal "screen-256color"
-set -g history-limit 10000
-set -g base-index 1
-setw -g pane-base-index 1
-set -g renumber-windows on
-
-# Status bar
-set -g status-style bg=colour235,fg=colour136
-set -g status-left "#[bold]#S #[default]"
-set -g status-right "#[fg=colour136]%H:%M %d-%b#[default]"
-set -g status-interval 30
-
-# Easier splits: | and -
-bind | split-window -h -c "#{pane_current_path}"
-bind - split-window -v -c "#{pane_current_path}"
-
-# New window keeps current path
-bind c new-window -c "#{pane_current_path}"
-
-# Quick pane navigation with Alt+arrow (no prefix)
-bind -n M-Left  select-pane -L
-bind -n M-Right select-pane -R
-bind -n M-Up    select-pane -U
-bind -n M-Down  select-pane -D
-TMUXCONF
-  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.tmux.conf"
-
-  # Machine-wide clipboard for ALL users (oculus, prime, terminus, future).
-  # tmux reads /etc/tmux.conf before every ~/.tmux.conf. ',*:clipboard'
-  # declares the Ms (OSC 52) capability for every terminal type, so copy-mode
-  # actually emits the escape over SSH instead of only filling the tmux buffer.
-  # Paste stays normal terminal paste (OSC 52 read is disabled everywhere).
-  if [[ "$(id -u)" -eq 0 ]]; then
-    cat > /etc/tmux.conf <<'ETCTMUX'
-# Managed by CCC provisioner (install/ccc-provision-workstation.sh).
-# Machine-wide tmux defaults for ALL users — loaded before each ~/.tmux.conf.
-# OSC 52 clipboard: lets "copy in tmux" travel over SSH to the client's native
-# clipboard (e.g. Windows). Paste is ordinary terminal paste (Ctrl+Shift+V).
-set -g set-clipboard on
-set -g allow-passthrough on
-set -ga terminal-features ',*:clipboard'
-ETCTMUX
-    chmod 0644 /etc/tmux.conf
-    ok "/etc/tmux.conf written (machine-wide OSC 52 clipboard)"
-  fi
-  ok "tmux config written"
-}
-
-install_claude_plugins() {
-  local cache="$CCC_HOME/.claude/plugins/cache/claude-plugins-official"
-  mkdir -p "$cache"
-  if [[ ! -d "$cache/superpowers" ]] || [[ -z "$(ls -A "$cache/superpowers/5.1.0" 2>/dev/null)" ]]; then
-    rm -rf "$cache/superpowers"
-    git clone --quiet --depth 1 --branch v5.1.0 https://github.com/obra/superpowers "$cache/superpowers/5.1.0" 2>/dev/null \
-      && ok "superpowers plugin installed" \
-      || warn2 "superpowers plugin install failed (network?)"
-  fi
-  local need_cpo=0
-  [[ ! -d "$cache/frontend-design" ]] && need_cpo=1
-  [[ ! -d "$cache/skill-creator" ]] && need_cpo=1
-  if [[ $need_cpo -eq 1 ]]; then
-    local tmp
-    tmp=$(mktemp -d)
-    if git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/anthropics/claude-plugins-official "$tmp" 2>/dev/null; then
-      git -C "$tmp" sparse-checkout set plugins/frontend-design plugins/skill-creator 2>/dev/null
-      if [[ ! -d "$cache/frontend-design" && -d "$tmp/plugins/frontend-design" ]]; then
-        mkdir -p "$cache/frontend-design"
-        cp -r "$tmp/plugins/frontend-design" "$cache/frontend-design/unknown"
-        ok "frontend-design plugin installed"
-      fi
-      if [[ ! -d "$cache/skill-creator" && -d "$tmp/plugins/skill-creator" ]]; then
-        mkdir -p "$cache/skill-creator"
-        cp -r "$tmp/plugins/skill-creator" "$cache/skill-creator/unknown"
-        ok "skill-creator plugin installed"
-      fi
-    else
-      warn2 "anthropics plugin clone failed (network?)"
-    fi
-    rm -rf "$tmp"
-  fi
-  command -v python3 >/dev/null 2>&1 || return 0
-  python3 - "$CCC_HOME" <<'REGISTRYGEN'
-import json, os, sys, glob
-from datetime import datetime, timezone
-home = sys.argv[1]
-cache = home + "/.claude/plugins/cache"
-plugins = {}
-now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-for mkt_path in sorted(glob.glob(cache + "/*")):
-    if not os.path.isdir(mkt_path): continue
-    mkt = os.path.basename(mkt_path)
-    for plugin_path in sorted(glob.glob(mkt_path + "/*")):
-        if not os.path.isdir(plugin_path): continue
-        plugin = os.path.basename(plugin_path)
-        try: vdirs = sorted(d for d in os.listdir(plugin_path) if os.path.isdir(os.path.join(plugin_path, d)))
-        except OSError: continue
-        version = vdirs[0] if vdirs else "unknown"
-        install_path = os.path.join(plugin_path, version) if vdirs else plugin_path
-        plugins[plugin + "@" + mkt] = [{"scope": "user", "installPath": install_path, "version": version, "installedAt": now, "lastUpdated": now}]
-open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {k: True for k in plugins}}, indent=2) + "\n")
-known_file = home + "/.claude/plugins/known_marketplaces.json"
-try:
-    with open(known_file) as f: known = json.load(f)
-except Exception: known = {}
-for k in list(known):
-    loc = known[k].get("installLocation", "")
-    if loc and not loc.startswith(home + "/"): known[k]["installLocation"] = home + "/.claude/plugins/marketplaces/" + k
-if "claude-plugins-official" not in known:
-    known["claude-plugins-official"] = {"source": {"source": "github", "repo": "anthropics/claude-plugins-official"}, "installLocation": home + "/.claude/plugins/marketplaces/claude-plugins-official", "lastUpdated": now}
-for k in known: os.makedirs(known[k].get("installLocation", ""), exist_ok=True)
-open(known_file, "w").write(json.dumps(known, indent=2) + "\n")
-REGISTRYGEN
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/plugins"
-  ok "plugin registry updated"
-}
-
-echo ""
-echo -e "${B}Agent Config Sync${N}"
-echo -e "  Source: ${C}${OCULUS_CONFIGS_REPO}${N} (${OCULUS_CONFIGS_REF})"
-echo ""
-
-mkdir -p "$CCC_HOME/projects" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
-chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude" "$CCC_HOME/.codex" "$CCC_HOME/.gemini" "$CCC_HOME/Templates"
-
-if [[ ! -d "$OCULUS_CONFIGS_DIR/.git" ]]; then
-  rm -rf "$OCULUS_CONFIGS_DIR"
-  git clone --depth 1 --branch "$OCULUS_CONFIGS_REF" "$OCULUS_CONFIGS_REPO" "$OCULUS_CONFIGS_DIR"
-  chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  git config --system safe.directory "*" 2>/dev/null || true
-  ok "oculus-configs cloned"
-elif [[ "$PULL" -eq 1 ]]; then
-  chown_if_root -R root:root "$OCULUS_CONFIGS_DIR"
-  git config --system safe.directory "*" 2>/dev/null || true
-  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch --depth 1 origin "$OCULUS_CONFIGS_REF"
-  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q "$OCULUS_CONFIGS_REF" 2>/dev/null || git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" checkout -q -B "$OCULUS_CONFIGS_REF"
-  git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" reset --hard "origin/$OCULUS_CONFIGS_REF" >/dev/null
-  ok "oculus-configs updated"
-else
-  ok "oculus-configs checkout present"
-fi
-
-mirror_provider_profile ".claude" "Claude"
-mirror_provider_profile ".codex" "Codex"
-mirror_provider_profile ".gemini" "Gemini"
-write_claude_baseline
-write_tmux_config
-copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
-
-if [[ -f "$OCULUS_CONFIGS_DIR/claude/mcp.json" ]]; then
-  cp "$OCULUS_CONFIGS_DIR/claude/mcp.json" "$CCC_HOME/.claude/mcp.template.json"
-  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/mcp.template.json"
-  ok "Claude MCP template synced"
-  if [[ ! -f "$CCC_HOME/.claude/mcp.json" ]]; then
-    cp "$CCC_HOME/.claude/mcp.template.json" "$CCC_HOME/.claude/mcp.json"
-    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/mcp.json"
-    ok "Claude MCP config initialized"
-  else
-    warn2 "Claude MCP config exists, left untouched"
-  fi
-else
-  warn2 "oculus-configs: claude/mcp.json not found, skipping"
-fi
-
-copy_optional_dir "$OCULUS_CONFIGS_DIR/templates" "$CCC_HOME/Templates" "project templates"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins" "Claude default plugins"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/skills" "$CCC_HOME/.claude/skills" "Claude default skills"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/commands" "$CCC_HOME/.claude/commands" "Claude default commands"
-copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS.md" "Codex AGENTS.md"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins" "Codex default plugins"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills" "Codex skills"
-copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md" "Gemini GEMINI.md"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills" "Gemini skills"
-
-install_claude_plugins
-echo ""
-echo -e "${G}${B}Agent config sync complete.${N}"
-echo ""
-AGENTCONFIGSYNCSCRIPT
-chmod +x /usr/local/bin/ccc-sync-agent-configs
-
-# ── oculus-configs ────────────────────────────────────────────────────────────
-step 19 "oculus-configs agent config"
-/usr/local/bin/ccc-sync-agent-configs
-
-# ── Statusline ────────────────────────────────────────────────────────────────
-step 20 "Statusline"
-[[ -r /etc/ccc/config ]] && source /etc/ccc/config
-CCC_USER="${CCC_USER:-claude-code}"
-CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
-if ! id "$CCC_USER" &>/dev/null; then
-  echo "[ERROR] Statusline user '$CCC_USER' does not exist. Check /etc/ccc/config." >&2
-  exit 1
-fi
-sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"
-cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'STATUSLINE'
-#!/bin/bash
-# CCC Statusline — Claude Code session prompt line
-# Receives JSON session context from Claude Code on stdin
-#
-# Output: user@host:path (branch) [model | think] [ctx:N%] HH:MMam
-#
-# To replace with your own:
-#   cp ~/my-statusline.sh ~/.claude/bin/statusline-command.sh
-#
-# Usage in Claude Code: claude statusline-command
-
-set -euo pipefail
-
-INPUT=$(cat 2>/dev/null || echo '{}')
-
-if command -v jq &>/dev/null; then
-  MODEL=$(echo "$INPUT"   | jq -r '.model.id    // ""'     2>/dev/null \
-    | sed 's/claude-//;s/-[0-9]\{8\}.*//')
-  THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
-  CTX_USED=$(echo "$INPUT" | jq -r '.context.used  // 0'        2>/dev/null)
-  CTX_MAX=$(echo "$INPUT"  | jq -r '.context.max   // 200000'   2>/dev/null)
-else
-  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=200000
-fi
-
-[[ -z "$MODEL" ]] && MODEL="claude"
-
-# Context %
-CTX_PCT=0
-[[ "$CTX_MAX" -gt 0 ]] && CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
-
-# Warning indicator
-CTX_WARN=""
-[[ $CTX_PCT -ge 85 ]] && CTX_WARN="!!"
-[[ $CTX_PCT -ge 60 && $CTX_PCT -lt 85 ]] && CTX_WARN="!"
-
-# Thinking
-THINK=""
-[[ "$THINKING" == "true" ]] && THINK=" | think"
-
-# Git branch
-GIT_BRANCH=""
-if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
-  _b=$(git branch --show-current 2>/dev/null || echo "detached")
-  GIT_BRANCH=" (${_b})"
-fi
-
-# Shorten cwd
-DIR=$(pwd | sed "s|^$HOME|~|")
-
-# Time (no leading zero)
-TIME=$(date +"%I:%M%p" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
-
-echo "${USER}@$(hostname -s):${DIR}${GIT_BRANCH} [${MODEL}${THINK}] [ctx:${CTX_PCT}%${CTX_WARN}] ${TIME}"
-STATUSLINE
-
-chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
-chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
-echo "    Statusline: ~/.claude/bin/statusline-command.sh"
-
 # ── code-server (web VS Code) ─────────────────────────────────────────────────
-step 21 "code-server (web VS Code)"
+step 17 "code-server (web VS Code)"
 curl -fsSL https://code-server.dev/install.sh | sh
 echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
@@ -830,7 +312,7 @@ sudo ccc-migrate-shared-workspace --apply
 
 Use Container Code Companion → Accounts → Setup CCC Profile for each additional Linux user. Each user keeps separate Claude, Codex, Gemini, Git, and SSH config state while sharing `/srv/ccc/projects`.
 
-Setup CCC Profile syncs config and skills into that user's home, installs provider CLIs into `~/.local/bin`, and repairs shared project permissions. Sign out and back in after setup so the new `ccc` group membership is active.
+Setup CCC Profile syncs config and skills into that user's home, installs a per-user Claude Code CLI into `~/.local/bin` (Codex and Gemini CLIs are shared from `/usr/local/ccc-npm`), and repairs shared project permissions. Sign out and back in after setup so the new `ccc` group membership is active.
 
 First-login checklist for each work identity:
 
@@ -882,7 +364,7 @@ ccc                # full help
 ## SSH Access
 
 ```bash
-ssh claude-code@<this-container-ip>
+ssh <your-username>@<this-container-ip>
 ```
 WELCOMEMD
 
@@ -916,7 +398,7 @@ systemctl enable "$CCC_CODE_SERVER_SERVICE"
 echo "    code-server service enabled (config injected next step)"
 
 # ── SSH hardening ─────────────────────────────────────────────────────────────
-step 22 "SSH hardening"
+step 18 "SSH hardening"
 if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
   sed -i "s/^#*PermitRootLogin.*/PermitRootLogin no/"               /etc/ssh/sshd_config
   sed -i "s/^#*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
@@ -930,134 +412,6 @@ else
   echo "    Existing host SSH policy left unchanged."
 fi
 
-# ── Shell environment ─────────────────────────────────────────────────────────
-step 23 "Shell environment & aliases"
-cat >> "$CCC_HOME/.bashrc" << 'BASHRC'
-
-# ── Container Code Companion ─────────────────────────────────────────────────────
-export EDITOR=nano
-export LANG=en_US.UTF-8
-export TZ=America/New_York
-export PATH="$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH"
-
-# direnv hook
-command -v direnv &>/dev/null && eval "$(direnv hook bash)"
-
-# Aliases — navigation
-alias ll="ls -lah --color=auto"
-alias cls="clear"
-alias ..="cd .."
-alias ...="cd ../.."
-alias grep="grep --color=auto"
-
-# Aliases — git
-alias gs="git status"
-alias gl="git log --oneline -20"
-alias gd="git diff"
-alias ga="git add -A"
-alias gc="git commit -m"
-alias gp="git push"
-
-# bat/fd have different binary names on Ubuntu vs Debian
-command -v batcat &>/dev/null && alias bat='batcat'
-command -v bat    &>/dev/null && alias cat='bat'
-command -v fdfind &>/dev/null && alias fd='fdfind'
-
-# Aliases — dev
-alias pytest="python3 -m pytest"
-alias py="python3"
-alias serve="http-server -p 8000"
-
-# ── ccc help ─────────────────────────────────────────────────────────────────
-ccc() {
-  local C='\033[0;36m' B='\033[1m' G='\033[0;32m' Y='\033[1;33m' N='\033[0m'
-  echo ""
-  echo -e "${B}╔══════════════════════════════════════════════════════════════════╗${N}"
-  echo -e "${B}║                    Container Code Companion Help                    ║${N}"
-  echo -e "${B}╚══════════════════════════════════════════════════════════════════╝${N}"
-  echo ""
-  echo -e "  ${B}AGENT CLIS${N}"
-  echo -e "    ${C}claude${N}                   Start Claude Code session"
-  echo -e "    ${C}codex${N}                    Start Codex CLI (after ccc-install-codex)"
-  echo -e "    ${C}gemini${N}                   Start Gemini CLI (if installed)"
-  echo -e "    ${C}claude --version${N}          Check version"
-  echo -e "    ${C}ccc-install-playwright${N}    Install Playwright + headless Chromium"
-  echo -e "    ${C}ccc-install-codex${N}         Install OpenAI Codex CLI"
-  echo -e "    ${C}ccc-install-jcodemunch${N}    Install jCodeMunch MCP (95% token reduction)"
-  echo ""
-  echo -e "  ${B}PLUGINS${N}"
-  echo -e "    ${C}/plugin${N}                   Manage plugins inside a running Claude Code session"
-  echo ""
-  echo -e "  ${B}MAINTENANCE${N}"
-  echo -e "    ${C}ccc-onboarding${N}            First-login wizard (git identity, SSH key, GitHub)"
-  echo -e "    ${C}ccc-setup${N}                 Same wizard, safe to re-run"
-  echo -e "    ${C}ccc-update-status${N}         Show installed vs GitHub provisioner version"
-  echo -e "    ${C}ccc-self-update${N}           Update Container Code Companion tooling from GitHub"
-  echo -e "    ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs from oculus-configs"
-  echo -e "    ${C}ccc-update${N}                Update Container Code Companion tooling + app CLIs"
-  echo -e "    ${C}ccc-os-update${N}             OS package update (apt)"
-  echo -e "    ${C}ccc-doctor${N}                System health check (network, runtimes, services)"
-  echo ""
-  echo -e "  ${B}SERVICES${N}"
-  echo -e "    ${C}sudo systemctl status  code-server@claude-code${N}   Web VS Code status"
-  echo -e "    ${C}sudo systemctl restart code-server@claude-code${N}   Restart web VS Code"
-  echo -e "    ${C}sudo systemctl start   redis-server${N}              Start local Redis"
-  echo -e "    ${C}sudo journalctl -u code-server@claude-code -f${N}    Tail logs"
-  echo ""
-  echo -e "  ${B}TESTING${N}"
-  echo -e "    ${C}pytest${N}                    Python tests"
-  echo -e "    ${C}pytest --cov=. -v${N}         With coverage"
-  echo -e "    ${C}npx vitest${N}                Vite-native JS/TS tests"
-  echo -e "    ${C}npx jest${N}                  Jest tests"
-  echo -e "    ${C}npx playwright test${N}        Headless browser tests"
-  echo -e "    ${C}http :3000/api/health${N}      HTTP test with httpie"
-  echo -e "    ${C}nodemon app.js${N}             Watch + auto-restart"
-  echo -e "    ${C}entr sh -c 'pytest' <<< *.py${N}   Re-run tests on file change"
-  echo ""
-  echo -e "  ${B}DEV TOOLS${N}"
-  echo -e "    ${C}rg <pattern>${N}              ripgrep search"
-  echo -e "    ${C}fd <name>${N}                 find files (alias → fdfind/fd)"
-  echo -e "    ${C}fzf${N}                       fuzzy finder  (pipe with |)"
-  echo -e "    ${C}bat <file>${N}                syntax-highlighted cat"
-  echo -e "    ${C}jq '.field' file.json${N}      JSON processor"
-  echo -e "    ${C}yq '.field' file.yaml${N}      YAML processor (mikefarah binary)"
-  echo -e "    ${C}direnv allow${N}               Load .envrc in current dir"
-  echo -e "    ${C}pm2 start app.js${N}           Start Node process with pm2"
-  echo -e "    ${C}pm2 list${N}                   Show managed processes"
-  echo -e "    ${C}serve${N}                      http-server on port 8000"
-  echo ""
-  echo -e "  ${B}STATUSLINE${N}"
-  echo -e "    Location: ${C}~/.claude/bin/statusline-command.sh${N}"
-  echo -e "    Replace:  ${C}cp ~/my-statusline.sh ~/.claude/bin/statusline-command.sh${N}"
-  echo -e "    Test:     ${C}echo '{\"model\":{\"id\":\"claude-sonnet-4\"}}' | ~/.claude/bin/statusline-command.sh${N}"
-  echo ""
-  echo -e "  ${B}SHORTCUTS${N}"
-  echo -e "    ${C}gs${N}  git status    ${C}gl${N}  git log     ${C}gd${N}  git diff"
-  echo -e "    ${C}ga${N}  git add -A    ${C}gc${N}  git commit  ${C}gp${N}  git push"
-  echo -e "    ${C}ll${N}  ls -lah       ${C}py${N}  python3     ${C}ccc${N} this screen"
-  echo ""
-}
-
-# Start in projects dir on login
-[[ "$PWD" == "$HOME" ]] && cd ~/projects 2>/dev/null || true
-
-# First interactive login onboarding
-if [[ $- == *i* && ! -f "$HOME/.ccc-onboarded" && -z "${CCC_ONBOARDING_SHOWN:-}" ]]; then
-  export CCC_ONBOARDING_SHOWN=1
-  echo ""
-  echo "Container Code Companion first-login onboarding is ready."
-  read -rp "Run it now? [Y/n] " _ccc_run_onboarding
-  if [[ -z "$_ccc_run_onboarding" || "$_ccc_run_onboarding" =~ ^[Yy]$ ]]; then
-    ccc-onboarding
-  else
-    touch "$HOME/.ccc-onboarded"
-    echo "Skipped. Run ccc-onboarding later if needed."
-  fi
-fi
-BASHRC
-
-chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.bashrc"
-
 # CCC_UPDATEABLE_START — sections below re-run by ccc-self-update
 # When run standalone via self-update, step() may not be defined — provide a no-op fallback.
 command -v step >/dev/null 2>&1 || step() { echo ">>> $2"; }
@@ -1067,7 +421,7 @@ command -v step >/dev/null 2>&1 || step() { echo ">>> $2"; }
 # One shared, setgid, group-writable prefix so any ccc user can install/update
 # global npm packages. Replaces the old root-owned system prefix that caused
 # intermittent EACCES for non-root users.
-step 10 "Shared npm global prefix"
+step 19 "Shared npm global prefix"
 CCC_NPM_PREFIX="/usr/local/ccc-npm"
 mkdir -p "$CCC_NPM_PREFIX"
 chown root:"${CCC_SHARED_GROUP:-ccc}" "$CCC_NPM_PREFIX"
@@ -1102,18 +456,112 @@ esac
 NPMPATHEOF
 chmod 0644 /etc/profile.d/ccc-npm-path.sh
 if command -v npm >/dev/null 2>&1; then
-  npm install -g --prefix "$CCC_NPM_PREFIX" typescript ts-node tsx @openai/codex || true
+  npm install -g --prefix "$CCC_NPM_PREFIX" typescript ts-node tsx @openai/codex @google/gemini-cli || true
   # Keep the installed tree group-writable so any ccc user can update it later.
   chgrp -R "${CCC_SHARED_GROUP:-ccc}" "$CCC_NPM_PREFIX" 2>/dev/null || true
   chmod -R g+rwX "$CCC_NPM_PREFIX" 2>/dev/null || true
   find "$CCC_NPM_PREFIX" -type d -exec chmod g+s {} + 2>/dev/null || true
 fi
 
+# Claude Code must NOT live in the shared npm prefix — it is per-user (native
+# installer in ~/.local, self-updating). Purge any npm-installed copy that would
+# shadow the per-user binaries on PATH.
+rm -rf "$CCC_NPM_PREFIX/lib/node_modules/@anthropic-ai/claude-code" 2>/dev/null || true
+rm -f "$CCC_NPM_PREFIX/bin/claude" 2>/dev/null || true
+
+# ── Per-user Claude Code dispatch wrapper ─────────────────────────────────────
+# Replaces the old global symlink that pointed every account at the primary
+# user's binary (unreadable to others). Each account keeps its own native
+# install in ~/.local/bin; this wrapper covers non-login contexts where that
+# directory is not yet on PATH.
+rm -f /usr/local/bin/claude
+cat > /usr/local/bin/claude <<'CLAUDEWRAP'
+#!/bin/bash
+# CCC: Claude Code is installed per-user via the native installer.
+if [[ -x "$HOME/.local/bin/claude" ]]; then
+  exec "$HOME/.local/bin/claude" "$@"
+fi
+echo "Claude Code is not installed for $(id -un)." >&2
+echo "Install it with:  curl -fsSL https://claude.ai/install.sh | bash" >&2
+exit 127
+CLAUDEWRAP
+chmod 0755 /usr/local/bin/claude
+
+# ── Machine-wide shell environment ───────────────────────────────────────────
+# One shared person, many accounts: env, aliases, and the ccc() helper are
+# machine-wide instead of appended per-user to ~/.bashrc.
+step 20 "Shell environment (machine-wide)"
+cat > /etc/profile.d/ccc-env.sh <<'CCCENV'
+# CCC shared environment (login shells).
+export EDITOR=vim
+export VISUAL=vim
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+CCCENV
+chmod 0644 /etc/profile.d/ccc-env.sh
+
+mkdir -p /etc/ccc
+cat > /etc/ccc/ccc-shell.sh <<'CCCSHELL'
+# CCC interactive shell helpers — sourced from /etc/bash.bashrc for every user.
+[[ $- == *i* ]] || return 0
+
+alias ll='ls -alF'
+alias gs='git status'
+alias gl='git log --oneline -15'
+alias gd='git diff'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+command -v batcat >/dev/null 2>&1 && alias bat='batcat'
+command -v fdfind >/dev/null 2>&1 && alias fd='fdfind'
+alias py='python3'
+alias serve='python3 -m http.server'
+
+ccc() {
+  cat <<'CCCHELP'
+CCC commands:
+  ccc-update                 Update CCC app + Claude/Codex/Gemini CLIs + Node.js
+  ccc-os-update              OS package updates (apt)
+  ccc-setup                  First-login wizard (git identity, GitHub key info)
+  ccc-doctor                 Health check
+  ccc-sync-agent-configs     Re-sync agent configs from oculus-configs
+  ccc-install-playwright     Install Playwright + Chromium
+  ccc-install-codex          Install/update Codex CLI (shared prefix)
+  ccc-update-status          Check if a CCC update is available
+CCCHELP
+}
+
+# Land in the shared projects workspace on new interactive logins.
+if [[ -z "${CCC_NO_AUTOCD:-}" && $(id -u) -ge 1000 && "$PWD" == "$HOME" && -d "$HOME/projects" ]]; then
+  cd "$HOME/projects" || true
+fi
+
+# First-login onboarding nudge.
+if [[ $(id -u) -ge 1000 && ! -f "$HOME/.ccc-onboarded" && -x /usr/local/bin/ccc-setup ]]; then
+  echo
+  echo "  Welcome! Run 'ccc-setup' to configure your git identity."
+  echo
+fi
+CCCSHELL
+chmod 0644 /etc/ccc/ccc-shell.sh
+
+if ! grep -q "ccc-shell.sh" /etc/bash.bashrc 2>/dev/null; then
+  cat >> /etc/bash.bashrc <<'BASHHOOK'
+
+# CCC shared shell helpers (aliases, ccc() help, login behavior)
+[ -f /etc/ccc/ccc-shell.sh ] && . /etc/ccc/ccc-shell.sh
+BASHHOOK
+fi
+
 # ── Shared permission model enforcement ──────────────────────────────────────
 # Cheap, idempotent: keep the projects root setgid + ccc-owned so new project
 # subdirs inherit group ownership. A one-time recursive repair (gated by a
 # sentinel) fixes projects that predate this model on already-running machines.
-step 11 "Shared permission model"
+step 21 "Shared permission model"
 mkdir -p "$CCC_SHARED_PROJECTS"
 chown root:"${CCC_SHARED_GROUP:-ccc}" "$CCC_SHARED_PROJECTS"
 chmod 2775 "$CCC_SHARED_PROJECTS"
@@ -1203,46 +651,6 @@ if ! id "$CCC_USER" &>/dev/null; then
   exit 1
 fi
 
-CLAUDE_SETTINGS="$CCC_HOME/.claude/settings.json"
-if [[ -f "$CLAUDE_SETTINGS" ]] && command -v python3 >/dev/null 2>&1; then
-  python3 - "$CLAUDE_SETTINGS" <<'PY'
-import json
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-try:
-    data = json.loads(path.read_text())
-except Exception:
-    raise SystemExit(0)
-
-changed = False
-if data.get("$schema") != "https://json.schemastore.org/claude-code-settings.json":
-    data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"
-    changed = True
-
-status_line = data.get("statusLine")
-if isinstance(status_line, str):
-    data["statusLine"] = {"type": "command", "command": status_line}
-    changed = True
-elif isinstance(status_line, dict):
-    if status_line.get("type") != "command":
-        data["statusLine"]["type"] = "command"
-        changed = True
-    if not status_line.get("command"):
-        data["statusLine"]["command"] = "~/.claude/bin/statusline-command.sh"
-        changed = True
-ep = data.setdefault("enabledPlugins", {})
-for k in ["superpowers@claude-plugins-official", "frontend-design@claude-plugins-official", "skill-creator@claude-plugins-official"]:
-    if k not in ep:
-        ep[k] = True
-        changed = True
-
-if changed:
-    path.write_text(json.dumps(data, indent=2) + "\n")
-PY
-  chown "$CCC_USER:$CCC_USER" "$CLAUDE_SETTINGS"
-fi
 
 # Remove retired Cockpit kit and standalone dashboard helpers before Cockpit claims 9090.
 rm -f /usr/local/bin/ccc-kit
@@ -1273,8 +681,6 @@ CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
 OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculus-configs.git}"
 OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
 OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
-PRIMARY_CCC_USER="${CCC_USER:-claude-code}"
-PRIMARY_CCC_HOME="${CCC_HOME:-/home/$PRIMARY_CCC_USER}"
 PULL=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -1287,7 +693,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --all-users)
       getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1}' | while read -r user; do
-        sudo ccc-sync-agent-configs --user "$user"
+        sudo NO_COLOR="${NO_COLOR:-}" ccc-sync-agent-configs --user "$user"
       done
       exit 0
       ;;
@@ -1340,42 +746,6 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
-mirror_provider_profile() {
-  local provider_dir=$1 label=$2
-  local src="$PRIMARY_CCC_HOME/$provider_dir"
-  local dest="$CCC_HOME/$provider_dir"
-  if [[ "$PRIMARY_CCC_HOME" == "$CCC_HOME" ]]; then
-    return 0
-  fi
-  if [[ ! -d "$src" ]]; then
-    warn2 "provider profile: $label not found, skipping"
-    return 0
-  fi
-  mkdir -p "$dest"
-  rsync -a --delete \
-    --exclude=.git/ \
-    --exclude=.credentials.json \
-    --exclude=credentials.json \
-    --exclude=auth.json \
-    --exclude='auth*' \
-    --exclude='oauth*' \
-    --exclude='token*' \
-    --exclude=sessions/ \
-    --exclude=session-env/ \
-    --exclude=projects/ \
-    --exclude=/cache/ \
-    --exclude=plugins/cache/ \
-    --exclude=logs/ \
-    --exclude=backups/ \
-    --exclude=shell-snapshots/ \
-    --exclude=file-history/ \
-    --exclude='history*' \
-    --exclude='*.log' \
-    "$src"/ "$dest"/
-  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
-  ok "$label profile mirrored"
-}
-
 write_claude_baseline() {
   mkdir -p "$CCC_HOME/.claude/bin"
   if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]; then
@@ -1383,11 +753,7 @@ write_claude_baseline() {
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "allow": [
-      "Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)",
-      "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)",
-      "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"
-    ]
+    "defaultMode": "bypassPermissions"
   },
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
@@ -1414,13 +780,16 @@ try:
     data = json.loads(open(path).read())
 except Exception:
     data = {}
-required = ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)", "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)", "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"]
+# Older provisions wrote an invalid tool-glob allowlist (e.g. "Bash(*)") that
+# Claude Code never honored. Strip it and use the supported knob instead.
+legacy = {"Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "MultiEdit(*)", "WebFetch(*)", "WebSearch(*)", "TodoRead(*)", "TodoWrite(*)", "Grep(*)", "Glob(*)", "LS(*)", "Task(*)", "mcp__*"}
 perms = data.setdefault("permissions", {})
-allows = list(perms.get("allow", []))
-for a in required:
-    if a not in allows:
-        allows.append(a)
-perms["allow"] = allows
+allows = [a for a in perms.get("allow", []) if a not in legacy]
+if allows:
+    perms["allow"] = allows
+else:
+    perms.pop("allow", None)
+perms.setdefault("defaultMode", "bypassPermissions")
 env = data.setdefault("env", {})
 for k, v in {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1", "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000", "MAX_THINKING_TOKENS": "31999"}.items():
     env.setdefault(k, v)
@@ -1617,9 +986,6 @@ else
   ok "oculus-configs checkout present"
 fi
 
-mirror_provider_profile ".claude" "Claude"
-mirror_provider_profile ".codex" "Codex"
-mirror_provider_profile ".gemini" "Gemini"
 write_claude_baseline
 write_tmux_config
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
@@ -1848,7 +1214,11 @@ echo -e "${B}Container Code Companion Tooling Update${N}"
 echo -e "${Y}Updates Container Code Companion tooling from GitHub and app CLIs only. OS packages are not upgraded.${N}"
 echo ""
 
-echo -e "${C}[1/3]${N} Container Code Companion provisioner/tools from GitHub..."
+as_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then "$@"; else sudo -n "$@"; fi
+}
+
+echo -e "${C}[1/4]${N} Container Code Companion provisioner/tools from GitHub..."
 if command -v ccc-self-update &>/dev/null; then
   ccc-self-update || true
 else
@@ -1856,21 +1226,37 @@ else
 fi
 
 echo ""
-echo -e "${C}[2/3]${N} Claude Code CLI..."
-if command -v claude &>/dev/null; then
-  sudo -u "$CCC_USER" env HOME="$CCC_HOME" PATH="$PATH" claude update || true
+echo -e "${C}[2/4]${N} Claude Code CLI (all accounts)..."
+# Claude Code is per-user (native installer in ~/.local/bin). Update every
+# account that has it; secondary accounts are the same person on other
+# provider logins.
+getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1 ":" $6}' | while IFS=: read -r u h; do
+  if [[ -x "$h/.local/bin/claude" ]]; then
+    echo "  Updating Claude Code for $u..."
+    as_root sudo -u "$u" env HOME="$h" "$h/.local/bin/claude" update || true
+  fi
+done
+
+echo ""
+echo -e "${C}[3/4]${N} Shared app CLIs (Codex, Gemini)..."
+_ccc_npm_pkgs=()
+[[ -x /usr/local/ccc-npm/bin/codex ]]  && _ccc_npm_pkgs+=("@openai/codex")
+[[ -x /usr/local/ccc-npm/bin/gemini ]] && _ccc_npm_pkgs+=("@google/gemini-cli")
+if [[ ${#_ccc_npm_pkgs[@]} -gt 0 ]]; then
+  npm update -g --prefix /usr/local/ccc-npm "${_ccc_npm_pkgs[@]}" || true
+  as_root chgrp -R ccc /usr/local/ccc-npm 2>/dev/null || true
+  as_root chmod -R g+rwX /usr/local/ccc-npm 2>/dev/null || true
 else
-  echo "  claude binary not found; skipping."
+  echo "  No shared CLIs installed; skipping."
 fi
 
 echo ""
-echo -e "${C}[3/3]${N} Shared app CLIs..."
-if [[ -x /usr/local/ccc-npm/bin/codex ]]; then
-  npm update -g --prefix /usr/local/ccc-npm @openai/codex || true
-  chgrp -R ccc /usr/local/ccc-npm 2>/dev/null || true
-  chmod -R g+rwX /usr/local/ccc-npm 2>/dev/null || true
+echo -e "${C}[4/4]${N} Node.js (current NodeSource channel)..."
+if as_root apt-get update -qq 2>/dev/null; then
+  as_root apt-get install -y --only-upgrade nodejs || true
+  echo "  Node.js: $(node --version 2>/dev/null || echo 'not installed')"
 else
-  echo "  Codex CLI not installed; skipping."
+  echo "  apt unavailable (need root/sudo); skipping Node.js."
 fi
 
 echo ""
@@ -1917,24 +1303,31 @@ git config --global user.email "$GIT_EMAIL"
 echo -e "  ${G}✓ Git identity set${N}"
 echo ""
 
-# SSH key
-echo -e "${C}── SSH Key for GitHub ────────────────────────${N}"
-if [[ -f ~/.ssh/id_ed25519.pub ]]; then
-  echo -e "  ${Y}Existing key found:${N}"
-else
-  echo "  Generating ed25519 SSH key..."
-  mkdir -p ~/.ssh
-  chmod 700 ~/.ssh
-  ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f ~/.ssh/id_ed25519 -N ""
-  echo -e "  ${G}✓ Key generated${N}"
-fi
+# GitHub SSH — one shared machine key for every account (same person, multiple
+# provider logins). Per-user key generation is retired; the web UI's GitHub page
+# manages the machine key and writes each account's ~/.ssh/config.
+echo -e "${C}── GitHub SSH (shared machine key) ───────────${N}"
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
 ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null || true
 chmod 600 ~/.ssh/known_hosts 2>/dev/null || true
-echo ""
-echo -e "  ${B}Add this public key to GitHub:${N}"
-echo -e "  ${Y}https://github.com/settings/ssh/new${N}"
-echo ""
-echo -e "  ${C}$(cat ~/.ssh/id_ed25519.pub)${N}"
+if [[ -r /etc/ccc/ssh/github_ed25519.pub ]]; then
+  echo -e "  ${G}✓ Machine key present:${N} /etc/ccc/ssh/github_ed25519"
+  if grep -qs "github_ed25519" ~/.ssh/config 2>/dev/null; then
+    echo -e "  ${G}✓ ~/.ssh/config already points at it${N}"
+  else
+    echo -e "  ${Y}!${N} ~/.ssh/config not configured yet — use the web UI's"
+    echo -e "    GitHub page (Configure For All Work Identities), or add:"
+    echo "      Host github.com"
+    echo "        IdentityFile /etc/ccc/ssh/github_ed25519"
+    echo "        IdentitiesOnly yes"
+  fi
+  echo ""
+  echo -e "  ${B}Public key (add once at https://github.com/settings/ssh/new):${N}"
+  echo -e "  ${C}$(cat /etc/ccc/ssh/github_ed25519.pub)${N}"
+else
+  echo -e "  ${Y}!${N} No machine key yet. Create one from the web UI's GitHub page."
+fi
 echo ""
 
 # Test GitHub connection
@@ -2072,7 +1465,7 @@ DOCTORSCRIPT
 chmod +x /usr/local/bin/ccc-doctor
 
 # ── ccc-install-playwright (standalone script) ───────────────────────────────
-step 24 "ccc-install-playwright script"
+step 22 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
@@ -2222,7 +1615,7 @@ trap cleanup EXIT
 # SSH key: use device key if present, otherwise fall back to HTTPS for public repos.
 CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
 if [[ -r "$CCC_SSH_KEY" ]]; then
-  export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=no -o BatchMode=yes"
+  export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
   FETCH_URL="$REPO_URL"
 elif [[ "$REPO_URL" == git@github.com:* ]]; then
   FETCH_URL="https://github.com/${REPO_URL#git@github.com:}"
@@ -2360,11 +1753,12 @@ echo -e "${C}[4/4]${N} Syncing web assets..."
 rsync -a --delete "$SRC/container-code-companion/web/" "$WEB/"
 echo -e "  OK: $WEB"
 
-# Sync current user agent configs
+# Sync agent configs for every account — same person on every login, so all
+# accounts should pick up config/skill updates together.
 echo ""
-echo -e "${C}Syncing current user agent configs, skills, and plugins...${N}"
+echo -e "${C}Syncing agent configs, skills, and plugins for all accounts...${N}"
 if command -v ccc-sync-agent-configs >/dev/null 2>&1; then
-  NO_COLOR=1 ccc-sync-agent-configs --user "$CCC_USER"
+  NO_COLOR=1 ccc-sync-agent-configs --all-users
 else
   echo "  ccc-sync-agent-configs not installed; skipping."
 fi
@@ -2394,7 +1788,7 @@ SELFUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-self-update
 
 # ── MOTD ─────────────────────────────────────────────────────────────────────
-step 25 "MOTD"
+step 23 "MOTD"
 if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
   chmod -x /etc/update-motd.d/* 2>/dev/null || true
 else
@@ -2434,7 +1828,7 @@ MOTD
 chmod +x /etc/update-motd.d/00-ccc
 
 # ── Shared project umask ─────────────────────────────────────────────────────
-step 26 "Shared project umask"
+step 24 "Shared project umask"
 cat > /etc/profile.d/ccc-umask.sh << 'UMASKEOF'
 # Files created by ccc group members should be group-writable (664/775)
 # so all work identities can modify shared project files.
@@ -2445,7 +1839,7 @@ UMASKEOF
 chmod 0644 /etc/profile.d/ccc-umask.sh
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
-step 27 "Git defaults"
+step 25 "Git defaults"
 git config --system safe.directory "*" 2>/dev/null || true
 sudo -u "$CCC_USER" git config --global init.defaultBranch main
 sudo -u "$CCC_USER" git config --global core.editor nano
@@ -2481,7 +1875,7 @@ AUTOUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-auto-update
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-step 27 "Application auto-update cron"
+step 26 "Application auto-update cron"
 rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
 cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
@@ -2503,7 +1897,7 @@ cat > /etc/logrotate.d/ccc-app-update << 'LOGROTATE'
 LOGROTATE
 
 # ── Container Code Companion native web UI ───────────────────────────────────────────
-step 28 "Container Code Companion native web UI"
+step 27 "Container Code Companion native web UI"
 
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 systemctl disable --now cockpit.socket 2>/dev/null || true
@@ -2645,6 +2039,12 @@ if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
 fi
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
+
+# ── Agent configs (initial sync) ─────────────────────────────────────────────
+# The sync command was installed by the updateable section above. Run it once
+# at provision time for the primary user; self-update re-runs it on upgrades.
+step 28 "Agent configs (initial sync)"
+NO_COLOR=1 /usr/local/bin/ccc-sync-agent-configs --user "$CCC_USER" || true
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 step 29 "Cleanup"

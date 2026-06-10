@@ -438,9 +438,8 @@ provision_container() {
   _timer_pid=$!
 
   stage_workstation_provisioner "/tmp/ccc-provision-${CT_ID}.sh"
-  if [[ "$CC_USER" != "claude-code" ]]; then
-    sed -i "s/claude-code/${CC_USER}/g" "/tmp/ccc-provision-${CT_ID}.sh"
-  fi
+  # Username flows in via CCC_USER/CCC_HOME env below — no text substitution
+  # on the provisioner (the old sed rewrote unrelated strings too).
   pct push "$CT_ID" "/tmp/ccc-provision-${CT_ID}.sh" /tmp/ccc-provision-workstation.sh
   pct exec "$CT_ID" -- chmod +x /tmp/ccc-provision-workstation.sh
   pct exec "$CT_ID" -- env \

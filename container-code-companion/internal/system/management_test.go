@@ -53,66 +53,91 @@ func TestSetupCCCProfileCommandIncludesSharedWorkspaceAndAgentSync(t *testing.T)
 	for _, want := range []string{
 		"id -u 'work-id'",
 		"sudo usermod -aG 'ccc' 'work-id'",
+		// The web UI service user reads other accounts' settings.json without
+		// sudo (server-side Claude options page), so homes stay group-readable.
 		"sudo chgrp 'ccc' '/home/work-id'",
 		"sudo chmod g+rx '/home/work-id'",
 		"sudo ln -sfn '/srv/ccc/projects' '/home/work-id/projects'",
 		"sudo mkdir -p '/home/work-id/.claude' '/home/work-id/.codex' '/home/work-id/.gemini'",
-		"Direct Agent Config Sync",
-		"check_file \"$home/.claude/settings.json\"",
-		"check_exec \"$home/.claude/bin/statusline-command.sh\"",
-		"check_file \"$home/.codex/AGENTS.md\"",
-		"check_dir \"$home/.codex/skills\"",
-		"check_file \"$home/.gemini/GEMINI.md\"",
-		"check_dir \"$home/.gemini/skills\"",
-		"sudo test -x '/home/work-id/.local/bin/codex'",
-		"sudo test -x '/home/work-id/.local/bin/gemini'",
+		"/usr/local/bin/ccc-sync-agent-configs --user 'work-id'",
+		"curl -fsSL https://claude.ai/install.sh | bash",
+		"sudo test -x '/home/work-id/.local/bin/claude'",
+		"test -x /usr/local/ccc-npm/bin/codex",
+		"test -x /usr/local/ccc-npm/bin/gemini",
 		"sudo chgrp -R 'ccc' '/srv/ccc/projects'",
 		"if [ -L \"$entry\" ] && [ -d \"$entry\" ]; then sudo chgrp -R 'ccc' \"$entry\"/",
-		"CCC shell projects login",
-		"cd ~/projects",
-		"CCC shell environment",
-		"export PATH=\"$HOME/.local/bin:$HOME/.claude/bin:$HOME/.cargo/bin:/usr/local/go/bin:$PATH\"",
-		"curl -fsSL https://claude.ai/install.sh | bash",
-		"npm install -g --prefix '/home/work-id/.local' @openai/codex @google/gemini-cli",
 		"IdentityFile /etc/ccc/ssh/github_ed25519",
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("setup command missing %q:\n%s", want, command)
 		}
 	}
+	// Codex/Gemini are shared from /usr/local/ccc-npm; shell env is machine-wide
+	// (/etc/profile.d + /etc/ccc/ccc-shell.sh). No per-user installs or .bashrc
+	// appends.
+	for _, reject := range []string{
+		"npm install -g --prefix '/home/work-id/.local'",
+		"tee -a '/home/work-id/.bashrc'",
+	} {
+		if strings.Contains(command, reject) {
+			t.Fatalf("setup command must not contain %q:\n%s", reject, command)
+		}
+	}
 }
 
-func TestAgentConfigSyncCommandValidatesExpectedFilesAndSkills(t *testing.T) {
+// provisionerText reads the workstation provisioner — the single source of
+// truth for the agent config sync logic the web UI delegates to.
+func provisionerText(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "install", "ccc-provision-workstation.sh"))
+	if err != nil {
+		t.Fatalf("read provisioner: %v", err)
+	}
+	return string(data)
+}
+
+// provisionerSyncScript extracts the ccc-sync-agent-configs heredoc body from
+// the provisioner's updateable section.
+func provisionerSyncScript(t *testing.T) string {
+	t.Helper()
+	text := provisionerText(t)
+	start := strings.Index(text, "<< 'AGENTCONFIGSYNCSCRIPT'")
+	end := strings.Index(text, "\nAGENTCONFIGSYNCSCRIPT\n")
+	if start < 0 || end < 0 || end < start {
+		t.Fatal("AGENTCONFIGSYNCSCRIPT heredoc not found in provisioner")
+	}
+	return text[start:end]
+}
+
+func TestAgentConfigSyncCommandDelegatesToInstalledScript(t *testing.T) {
 	command := agentConfigSyncCommand("work-id")
 	for _, want := range []string{
-		"Direct Agent Config Sync",
-		"copy_file \"$src/claude/CLAUDE.md\" \"$home/.claude/CLAUDE.md\"",
-		"copy_optional_dir \"$src/claude/plugins\" \"$home/.claude/plugins\" \"Claude default plugins\"",
-		"copy_optional_dir \"$src/claude/skills\" \"$home/.claude/skills\" \"Claude default skills\"",
-		"copy_optional_dir \"$src/claude/commands\" \"$home/.claude/commands\" \"Claude default commands\"",
-		"copy_dir \"$src/codex/skills\" \"$home/.codex/skills\"",
-		"copy_optional_dir \"$src/codex/plugins\" \"$home/.codex/plugins\" \"Codex default plugins\"",
-		"copy_dir \"$src/gemini/skills\" \"$home/.gemini/skills\"",
-		"copy_dir \"$src/templates\" \"$home/Templates\"",
-		"mirror_provider_profile \".claude\" \"Claude\"",
-		"mirror_provider_profile \".codex\" \"Codex\"",
-		"mirror_provider_profile \".gemini\" \"Gemini\"",
-		"--exclude=.credentials.json",
-		"--exclude=auth.json",
-		"--exclude=sessions/",
-		"--exclude=/cache/",
-		"write_claude_baseline \"$home\"",
-		"chgrp \"$shared_group\" \"$home\"",
-		"chmod g+rx \"$home\"",
-		"chown -R \"$target_user:$target_user\"",
-		"check_file \"$home/.claude/CLAUDE.md\"",
-		"check_file \"$home/.claude/settings.json\"",
-		"check_exec \"$home/.claude/bin/statusline-command.sh\"",
-		"check_dir \"$home/.codex/skills\"",
-		"find \"$home/.claude\" \"$home/.codex\" \"$home/.gemini\"",
+		"sudo",
+		"/usr/local/bin/ccc-sync-agent-configs",
+		"--user 'work-id'",
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("agent sync command missing %q:\n%s", want, command)
+		}
+	}
+}
+
+func TestProvisionerSyncScriptCoversExpectedFilesAndSkills(t *testing.T) {
+	script := provisionerSyncScript(t)
+	for _, want := range []string{
+		`copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md"`,
+		`copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins"`,
+		`copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/skills" "$CCC_HOME/.claude/skills"`,
+		`copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/commands" "$CCC_HOME/.claude/commands"`,
+		`copy_managed_file "$OCULUS_CONFIGS_DIR/codex/AGENTS.md" "$CCC_HOME/.codex/AGENTS.md"`,
+		`copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/skills" "$CCC_HOME/.codex/skills"`,
+		`copy_managed_file "$OCULUS_CONFIGS_DIR/gemini/GEMINI.md" "$CCC_HOME/.gemini/GEMINI.md"`,
+		`copy_optional_dir "$OCULUS_CONFIGS_DIR/gemini/skills" "$CCC_HOME/.gemini/skills"`,
+		"write_claude_baseline",
+		"install_claude_plugins",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("provisioner sync script missing %q", want)
 		}
 	}
 }
@@ -142,15 +167,15 @@ func TestSelfUpdateRunsAgentConfigSyncForCurrentUser(t *testing.T) {
 	}
 }
 
-func TestAgentConfigSyncMirrorsBeforeApplyingDefaults(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	mirrorIndex := strings.Index(command, `mirror_provider_profile ".claude" "Claude"`)
-	defaultIndex := strings.Index(command, `copy_file "$src/claude/CLAUDE.md"`)
-	if mirrorIndex < 0 || defaultIndex < 0 {
-		t.Fatalf("expected mirror and default copy commands in sync command")
+func TestAgentConfigSyncNeverMirrorsProviderProfiles(t *testing.T) {
+	// One person, many provider accounts: each account owns its ~/.claude,
+	// ~/.codex, ~/.gemini state (auth, history, UI prefs). Shared baseline
+	// flows from oculus-configs only — never by mirroring another account.
+	if strings.Contains(provisionerSyncScript(t), "mirror_provider_profile") {
+		t.Fatal("sync script must not mirror provider profiles between accounts")
 	}
-	if mirrorIndex > defaultIndex {
-		t.Fatalf("provider mirror must run before defaults so rsync --delete cannot remove freshly copied defaults")
+	if strings.Contains(agentConfigSyncCommand("work-id"), "rsync") {
+		t.Fatal("agent sync command must not rsync provider profiles")
 	}
 }
 
@@ -171,14 +196,17 @@ func TestGitCommandArgsMarksRepositorySafe(t *testing.T) {
 func TestAllAgentConfigSyncCommandSyncsAllUsers(t *testing.T) {
 	command := allAgentConfigSyncCommand()
 	for _, want := range []string{
-		"getent passwd | awk",
-		"sync_one \"$user\"",
-		"Direct Agent Config Sync",
-		"copy_file \"$src/claude/CLAUDE.md\"",
+		"sudo",
+		"/usr/local/bin/ccc-sync-agent-configs",
+		"--all-users",
 	} {
 		if !strings.Contains(command, want) {
 			t.Fatalf("allAgentConfigSyncCommand() missing %q:\n%s", want, command)
 		}
+	}
+	script := provisionerSyncScript(t)
+	if !strings.Contains(script, "--all-users") || !strings.Contains(script, "getent passwd") {
+		t.Fatal("installed sync script must implement --all-users via a getent user loop")
 	}
 }
 
@@ -569,22 +597,14 @@ func TestExplainProjectGitFailureUsesGitHubOutputForPullGuidance(t *testing.T) {
 }
 
 func TestAgentConfigSyncCopyFileSkipsMissingSource(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if strings.Contains(command, `[ -f "$from" ] || { printf 'missing source file %s\n' "$from"; return 1; }`) {
-		t.Fatal("copy_file hard-fails on missing source; must skip gracefully (return 0)")
-	}
-	if !strings.Contains(command, `if [ ! -f "$from" ]`) {
-		t.Fatal("copy_file must use graceful if-branch for missing source check")
+	if !strings.Contains(provisionerSyncScript(t), `if [[ ! -f "$src" ]]`) {
+		t.Fatal("copy_managed_file must skip gracefully when the source file is missing")
 	}
 }
 
 func TestAgentConfigSyncCopyDirSkipsMissingSource(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if strings.Contains(command, `[ -d "$from" ] || { printf 'missing source dir %s\n' "$from"; return 1; }`) {
-		t.Fatal("copy_dir hard-fails on missing source; must skip gracefully (return 0)")
-	}
-	if !strings.Contains(command, `if [ ! -d "$from" ]`) {
-		t.Fatal("copy_dir must use graceful if-branch for missing source check")
+	if !strings.Contains(provisionerSyncScript(t), `if [[ ! -d "$src" ]]`) {
+		t.Fatal("copy_optional_dir must skip gracefully when the source dir is missing")
 	}
 }
 
@@ -743,73 +763,81 @@ func TestExplainDriveMountFailureAddsLinuxHostContext(t *testing.T) {
 }
 
 func TestAgentConfigSyncBaselinePreservesExistingSettings(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if !strings.Contains(command, `if [ ! -f "$home/.claude/settings.json" ]`) {
+	script := provisionerSyncScript(t)
+	if !strings.Contains(script, `if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]`) {
 		t.Fatal("write_claude_baseline must check if settings.json exists before writing")
 	}
 }
 
 func TestAgentConfigSyncBaselineMergesSettingsWithPython(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if !strings.Contains(command, "python3") {
+	script := provisionerSyncScript(t)
+	if !strings.Contains(script, "python3") {
 		t.Fatal("write_claude_baseline must use python3 to merge settings.json when file exists")
 	}
-	if !strings.Contains(command, `perms.get("allow"`) {
-		t.Fatal("write_claude_baseline python merge must preserve existing allow list")
+	if !strings.Contains(script, `perms.get("allow"`) {
+		t.Fatal("write_claude_baseline python merge must scrub the legacy allow list, not blind-overwrite")
+	}
+	if !strings.Contains(script, `"defaultMode": "bypassPermissions"`) {
+		t.Fatal("baseline settings must use permissions.defaultMode (tool-glob allowlists were never valid)")
+	}
+	if !strings.Contains(script, `Bash(*)`) {
+		t.Fatal("python merge must strip the legacy invalid Bash(*)-style allow entries")
 	}
 }
 
 func TestAgentConfigSyncBaselineStatuslineShowsModel(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if strings.Contains(command, `echo "${USER}@$(hostname -s):$(pwd`) {
+	script := provisionerSyncScript(t)
+	if strings.Contains(script, `echo "${USER}@$(hostname -s):$(pwd`) {
 		t.Fatal("write_claude_baseline statusline is the minimal one-liner; must use full statusline with model/context")
 	}
-	if !strings.Contains(command, "jq") {
+	if !strings.Contains(script, "jq") {
 		t.Fatal("write_claude_baseline statusline must use jq for model/thinking/context extraction")
 	}
-	if !strings.Contains(command, "CTX_PCT") {
+	if !strings.Contains(script, "CTX_PCT") {
 		t.Fatal("write_claude_baseline statusline must show context percentage")
 	}
 }
 
 func TestAgentConfigSyncOptionalDirMergesNotReplaces(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	// Isolate the copy_optional_dir function body
-	start := strings.Index(command, "copy_optional_dir() {")
-	end := strings.Index(command[start:], "\n}")
-	if start < 0 || end < 0 {
-		t.Fatal("copy_optional_dir function not found in sync command")
+	script := provisionerSyncScript(t)
+	start := strings.Index(script, "copy_optional_dir() {")
+	if start < 0 {
+		t.Fatal("copy_optional_dir function not found in sync script")
 	}
-	funcBody := command[start : start+end]
+	end := strings.Index(script[start:], "\n}")
+	if end < 0 {
+		t.Fatal("copy_optional_dir function body not terminated")
+	}
+	funcBody := script[start : start+end]
 	if strings.Contains(funcBody, "rm -rf") {
 		t.Fatal("copy_optional_dir must not rm -rf destination (use merge, not replace)")
 	}
 }
 
 func TestAgentConfigSyncPluginsWritesKnownMarketplaces(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if !strings.Contains(command, "known_marketplaces.json") {
+	script := provisionerSyncScript(t)
+	if !strings.Contains(script, "known_marketplaces.json") {
 		t.Fatal("install_claude_plugins must write known_marketplaces.json")
 	}
-	if !strings.Contains(command, "claude-plugins-official") {
+	if !strings.Contains(script, "claude-plugins-official") {
 		t.Fatal("install_claude_plugins must register claude-plugins-official marketplace")
 	}
 }
 
 func TestAgentConfigSyncPluginsFixesWrongHomePaths(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
-	if !strings.Contains(command, `not loc.startswith(home + "/")`) {
+	script := provisionerSyncScript(t)
+	if !strings.Contains(script, `not loc.startswith(home + "/")`) {
 		t.Fatal("install_claude_plugins must detect and fix marketplace paths from a different user's home")
 	}
 }
 
 func TestAgentConfigSyncPluginsReclonesEmptySuperpowers(t *testing.T) {
-	command := agentConfigSyncCommand("work-id")
+	script := provisionerSyncScript(t)
 	// Guard must also re-clone when the 5.1.0 dir exists but is empty
-	if !strings.Contains(command, `ls -A "$cache/superpowers/5.1.0"`) {
+	if !strings.Contains(script, `ls -A "$cache/superpowers/5.1.0"`) {
 		t.Fatal("install_claude_plugins must re-clone superpowers when the 5.1.0 directory is empty")
 	}
-	if !strings.Contains(command, `rm -rf "$cache/superpowers"`) {
+	if !strings.Contains(script, `rm -rf "$cache/superpowers"`) {
 		t.Fatal("install_claude_plugins must remove stale superpowers dir before re-cloning")
 	}
 }
