@@ -707,14 +707,21 @@ func TestNodeInstallDoesNotPullDebianNPM(t *testing.T) {
 	}
 }
 
-func TestProviderNPMToolsInstallToUserPrefix(t *testing.T) {
-	for _, tool := range []string{"gemini"} {
-		command, err := toolInstallCommand(tool)
-		if err != nil {
-			t.Fatalf("expected %s install command: %v", tool, err)
-		}
-		if !strings.Contains(command, `--prefix "$HOME/.local"`) {
-			t.Fatalf("expected %s to install under user npm prefix, got %q", tool, command)
+func TestProviderNPMToolsUseSharedPrefix(t *testing.T) {
+	// Codex and Gemini are installed once into the machine-wide npm prefix
+	// (/usr/local/ccc-npm) and shared by every account. A spec pointing at
+	// "$HOME/.local" reports a stale per-user copy instead of the CLI the
+	// machine actually manages.
+	command, err := toolInstallCommand("gemini")
+	if err != nil {
+		t.Fatalf("expected gemini install command: %v", err)
+	}
+	if !strings.Contains(command, "--prefix /usr/local/ccc-npm") {
+		t.Fatalf("expected gemini to install into the shared npm prefix, got %q", command)
+	}
+	for _, spec := range toolSpecs() {
+		if strings.Contains(spec.Install, "$HOME/.local") || strings.Contains(spec.UpdateCheck, "$HOME/.local") {
+			t.Fatalf("tool %s references the retired per-user npm prefix: install=%q updateCheck=%q", spec.Name, spec.Install, spec.UpdateCheck)
 		}
 	}
 	// Claude uses the official binary installer, not npm
@@ -724,6 +731,21 @@ func TestProviderNPMToolsInstallToUserPrefix(t *testing.T) {
 	}
 	if !strings.Contains(claudeCmd, "claude.ai/install.sh") {
 		t.Fatalf("expected claude to use binary installer, got %q", claudeCmd)
+	}
+}
+
+func TestNPMUpdateChecksOnlyFallBackWhenSilent(t *testing.T) {
+	// npm outdated exits non-zero AND prints the table when a package is
+	// stale, so "npm outdated || echo 'No update detected.'" appends the
+	// no-update message to a genuine update report. The fallback must be
+	// gated on empty output instead.
+	for _, spec := range toolSpecs() {
+		if !strings.Contains(spec.UpdateCheck, "npm outdated") {
+			continue
+		}
+		if !strings.Contains(spec.UpdateCheck, "| grep . || echo 'No update detected.'") {
+			t.Fatalf("tool %s npm update check must gate the no-update fallback on empty output, got %q", spec.Name, spec.UpdateCheck)
+		}
 	}
 }
 

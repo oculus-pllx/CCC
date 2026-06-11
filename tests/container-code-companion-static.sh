@@ -499,6 +499,17 @@ require_file_contains container-code-companion/internal/system/management.go 'su
 require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.local/bin/claude")'
 require_file_contains container-code-companion/internal/system/management.go 'test -x /usr/local/ccc-npm/bin/codex'
 require_file_contains container-code-companion/internal/system/management.go 'test -x /usr/local/ccc-npm/bin/gemini'
+# Tool catalog: Codex/Gemini are shared CLIs — versions and update checks must
+# target /usr/local/ccc-npm, never a per-user "$HOME/.local" npm prefix.
+require_file_contains container-code-companion/internal/system/management.go 'func npmSharedUpdateCheck'
+require_file_contains container-code-companion/internal/system/management.go 'npm outdated -g --prefix /usr/local/ccc-npm'
+require_file_contains container-code-companion/internal/system/management.go '/usr/local/ccc-npm/bin/codex --version'
+require_file_contains container-code-companion/internal/system/management.go '/usr/local/ccc-npm/bin/gemini --version'
+require_file_not_contains container-code-companion/internal/system/management.go 'prefix \"$HOME/.local\"'
+# Self-update purges stale per-user Codex/Gemini copies that shadow the shared
+# prefix, and the UI-invoked installers suppress ANSI colors off-terminal.
+require_file_contains install/ccc-provision-workstation.sh '"$_ccc_user_home/.local/bin/codex" "$_ccc_user_home/.local/bin/gemini"'
+require_file_contains install/ccc-provision-workstation.sh 'if [[ -n "${NO_COLOR:-}" || ! -t 1 ]]; then'
 # The web UI delegates sync to the installed script — no inlined copy, and
 # provider profiles (auth, sessions, history) are never mirrored between accounts.
 require_file_not_contains container-code-companion/internal/system/management.go 'directAgentConfigSyncScript'

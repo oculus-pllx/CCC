@@ -402,12 +402,16 @@ func StartSelfUpdate() (CommandResult, error) {
 		return CommandResult{Command: "ccc-self-update", Output: "Cannot start update: " + msg, ExitCode: 1}, errors.New(msg)
 	}
 
+	// The braces matter: a bare trailing "&" would background the entire &&
+	// chain in a subshell that then waits for ccc-self-update while holding
+	// this process's stderr pipe, blocking cmd.Wait() (and the HTTP response)
+	// until the update's service restart kills the connection mid-flight.
 	command := "umask 022" +
 		" && mkdir -p /var/log" +
 		" && touch " + logPath +
 		" && chmod 0644 " + logPath +
 		" && printf 'Container Code Companion self-update started at %s\\n' \"$(date -Is)\" > " + logPath +
-		" && setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null &"
+		" && { setsid env NO_COLOR=1 ccc-self-update >> " + logPath + " 2>&1 < /dev/null & }"
 	// Use Start+Wait instead of Output/Run so that no stdout/stderr pipe is
 	// inherited by the setsid child process. If Output() is used, the child
 	// inherits bash's stderr pipe and cmd.Output() blocks until ccc-self-update
@@ -1509,10 +1513,10 @@ func toolSpecs() []toolSpec {
 		{Name: "go", Label: "Go", Command: "go", Version: "go version", Install: "sudo ccc-update-go || sudo apt-get install -y golang-go", UpdateCheck: "ccc-update-go --check 2>/dev/null || echo 'No update detected.'", Description: "Go toolchain for native builds"},
 		{Name: "python", Label: "Python", Command: "python3", Version: "python3 --version", Install: "sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv pipx", UpdateCheck: aptUpdateCheck("python3"), Description: "Python runtime, venv, pip, and pipx"},
 		{Name: "uv", Label: "uv", Command: "uv", Version: "uv --version", Install: "curl -LsSf https://astral.sh/uv/install.sh | sh", UpdateCheck: "uv self update --dry-run 2>/dev/null || echo 'No update detected.'", Description: "Fast Python package and project manager"},
-		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", UpdateCheck: "npm outdated -g playwright --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Browser automation/test dependencies"},
-		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "codex --version", Install: "ccc-install-codex", UpdateCheck: "npm outdated -g --prefix \"$HOME/.local\" @openai/codex --depth=0 2>/dev/null || echo 'No update detected.'", Description: "OpenAI Codex CLI"},
+		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", UpdateCheck: "npm outdated -g playwright --depth=0 2>/dev/null | grep . || echo 'No update detected.'", Description: "Browser automation/test dependencies"},
+		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "/usr/local/ccc-npm/bin/codex --version", Install: "ccc-install-codex", UpdateCheck: npmSharedUpdateCheck("@openai/codex"), Description: "OpenAI Codex CLI"},
 		{Name: "claude", Label: "Claude Code", Command: "claude", Version: "claude --version", Install: "curl -fsSL https://claude.ai/install.sh | bash", UpdateCheck: "claude update --check 2>/dev/null || echo 'No update detected.'", Description: "Anthropic Claude Code CLI"},
-		{Name: "gemini", Label: "Gemini CLI", Command: "gemini", Version: "gemini --version", Install: "npm install -g --prefix \"$HOME/.local\" @google/gemini-cli", UpdateCheck: "npm outdated -g --prefix \"$HOME/.local\" @google/gemini-cli --depth=0 2>/dev/null || echo 'No update detected.'", Description: "Google Gemini command-line agent"},
+		{Name: "gemini", Label: "Gemini CLI", Command: "gemini", Version: "/usr/local/ccc-npm/bin/gemini --version", Install: "npm install -g --prefix /usr/local/ccc-npm @google/gemini-cli", UpdateCheck: npmSharedUpdateCheck("@google/gemini-cli"), Description: "Google Gemini command-line agent"},
 		{Name: "gh", Label: "GitHub CLI", Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", UpdateCheck: aptUpdateCheck("gh"), Description: "GitHub auth and repo operations"},
 		{Name: "bubblewrap", Label: "Bubblewrap", Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", UpdateCheck: aptUpdateCheck("bubblewrap"), Description: "Codex sandbox prerequisite"},
 		{Name: "ripgrep", Label: "ripgrep", Command: "rg", Version: "rg --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y ripgrep", UpdateCheck: aptUpdateCheck("ripgrep"), Description: "Fast code search"},
@@ -1525,6 +1529,16 @@ func toolSpecs() []toolSpec {
 
 func aptUpdateCheck(pkg string) string {
 	return "apt list --upgradable " + shellQuote(pkg) + " 2>/dev/null | sed -n '2,4p' | grep . || echo 'No update detected.'"
+}
+
+// npmSharedUpdateCheck reports outdated packages in the machine-wide npm
+// prefix, where Codex and Gemini are installed for all accounts. npm outdated
+// exits non-zero *and* prints a table when a package is stale, so a bare
+// "npm outdated || echo no-update" appends the no-update message to a real
+// update report; gating the fallback on grep makes it fire only when npm
+// printed nothing.
+func npmSharedUpdateCheck(pkg string) string {
+	return "npm outdated -g --prefix /usr/local/ccc-npm " + shellQuote(pkg) + " --depth=0 2>/dev/null | grep . || echo 'No update detected.'"
 }
 
 func toolUpdateAvailable(status string) bool {

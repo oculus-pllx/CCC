@@ -469,6 +469,18 @@ fi
 rm -rf "$CCC_NPM_PREFIX/lib/node_modules/@anthropic-ai/claude-code" 2>/dev/null || true
 rm -f "$CCC_NPM_PREFIX/bin/claude" 2>/dev/null || true
 
+# Codex and Gemini are the opposite: shared-prefix only. Login shells put
+# ~/.local/bin ahead of /usr/local/ccc-npm/bin, so a stale per-user npm copy
+# left over from the pre-shared-prefix layout shadows the shared CLI and pins
+# that account (and the web UI Tools page) to an old version forever. Purge
+# them; Claude Code in ~/.local stays untouched.
+for _ccc_user_home in /home/*; do
+  [[ -d "$_ccc_user_home" ]] || continue
+  rm -f "$_ccc_user_home/.local/bin/codex" "$_ccc_user_home/.local/bin/gemini" 2>/dev/null || true
+  rm -rf "$_ccc_user_home/.local/lib/node_modules/@openai/codex" \
+         "$_ccc_user_home/.local/lib/node_modules/@google/gemini-cli" 2>/dev/null || true
+done
+
 # ── Per-user Claude Code dispatch wrapper ─────────────────────────────────────
 # Replaces the old global symlink that pointed every account at the primary
 # user's binary (unreadable to others). Each account keeps its own native
@@ -1469,6 +1481,9 @@ step 22 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+# The web UI Tools page captures this output through a pipe; raw ANSI escapes
+# show up there as literal garbage. Color only on a real terminal.
+if [[ -n "${NO_COLOR:-}" || ! -t 1 ]]; then B=''; G=''; C=''; Y=''; R=''; N=''; fi
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
@@ -1515,6 +1530,9 @@ chmod +x /usr/local/bin/ccc-install-playwright
 cat > /usr/local/bin/ccc-install-codex << 'CODEXSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+# The web UI Tools page captures this output through a pipe; raw ANSI escapes
+# show up there as literal garbage. Color only on a real terminal.
+if [[ -n "${NO_COLOR:-}" || ! -t 1 ]]; then B=''; G=''; C=''; Y=''; R=''; N=''; fi
 [[ -r /etc/ccc/config ]] && source /etc/ccc/config
 CCC_USER="${CCC_USER:-claude-code}"
 CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"
