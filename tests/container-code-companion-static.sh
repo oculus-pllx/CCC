@@ -80,7 +80,7 @@ require_file_contains install/ccc-provision-workstation.sh '[[ -f "$CCC_HOME/.ss
 require_file_contains install/ccc-provision-workstation.sh 'ccc-sync-agent-configs --user "$user"'
 require_file_contains install/ccc-provision-workstation.sh '--all-users)'
 require_file_contains install/ccc-provision-workstation.sh '--user requires a username'
-require_file_contains install/ccc-provision-workstation.sh '# Start in projects dir on login'
+require_file_contains install/ccc-provision-workstation.sh '# Land in the shared projects workspace on new interactive logins.'
 # Multi-user permission model (delivered inside the updateable region)
 require_file_contains install/ccc-provision-workstation.sh 'UMask=0002'
 require_file_contains install/ccc-provision-workstation.sh '/usr/local/ccc-npm'
@@ -152,21 +152,16 @@ require_file_contains container-code-companion/web/styles.css ".app-footer"
 require_file_contains install/ccc-provision-workstation.sh "ccc-sync-agent-configs"
 require_file_contains install/ccc-provision-workstation.sh "Shared Workspace"
 require_file_contains install/ccc-provision-workstation.sh "ccc-migrate-shared-workspace --status"
-require_file_contains install/ccc-provision-workstation.sh 'PRIMARY_CCC_HOME="${CCC_HOME:-/home/$PRIMARY_CCC_USER}"'
-require_file_contains install/ccc-provision-workstation.sh 'mirror_provider_profile ".claude" "Claude"'
-require_file_contains install/ccc-provision-workstation.sh 'mirror_provider_profile ".codex" "Codex"'
-require_file_contains install/ccc-provision-workstation.sh 'mirror_provider_profile ".gemini" "Gemini"'
-require_file_contains install/ccc-provision-workstation.sh '--exclude=.credentials.json'
-require_file_contains install/ccc-provision-workstation.sh '--exclude=auth.json'
-require_file_contains install/ccc-provision-workstation.sh '--exclude=sessions/'
-require_file_contains install/ccc-provision-workstation.sh '--exclude=/cache/'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_HOME="${CCC_HOME:-/home/$CCC_USER}"'
+# Provider profiles (auth, sessions, history) are never mirrored between accounts.
+require_file_not_contains install/ccc-provision-workstation.sh 'mirror_provider_profile'
 require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins" "Claude default plugins"'
 require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/skills" "$CCC_HOME/.claude/skills" "Claude default skills"'
 require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins" "Codex default plugins"'
 require_file_contains install/ccc-provision-workstation.sh 'git config --system safe.directory "*"'
 require_file_contains install/ccc-provision-workstation.sh 'git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch'
-require_file_contains install/ccc-provision-workstation.sh 'Syncing current user agent configs, skills, and plugins'
-require_file_contains install/ccc-provision-workstation.sh 'NO_COLOR=1 ccc-sync-agent-configs --user "$CCC_USER"'
+require_file_contains install/ccc-provision-workstation.sh 'step 28 "Agent configs (initial sync)"'
+require_file_contains install/ccc-provision-workstation.sh 'NO_COLOR=1 /usr/local/bin/ccc-sync-agent-configs --user "$CCC_USER"'
 require_file_contains install/ccc-provision-workstation.sh "/etc/ccc/ssh/github_ed25519"
 require_file_contains install/ccc-provision-workstation.sh "Setup CCC Profile"
 require_file_contains README.md "ccc-sync-agent-configs"
@@ -191,6 +186,7 @@ require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
 require_file_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs"
 require_file_contains install/ccc-provision-workstation.sh 'command -v npm'
 require_file_not_contains install/ccc-provision-workstation.sh "apt-get install -y -qq nodejs npm"
+require_file_not_contains container-code-companion/internal/system/management.go "apt-get install -y nodejs npm"
 require_file_contains install/ccc-provision-workstation.sh 'command -v tmux'
 require_file_contains install/ccc-provision-workstation.sh 'command -v code-server'
 require_file_contains README.md "bubblewrap"
@@ -210,22 +206,19 @@ require_file_not_contains install/ccc-provision-workstation.sh "oculus-settings.
 require_file_contains install/ccc-provision-workstation.sh '"statusLine": {'
 require_file_contains install/ccc-provision-workstation.sh '"command": "~/.claude/bin/statusline-command.sh"'
 require_file_not_contains install/ccc-provision-workstation.sh '"statusLine": "~/.claude/bin/statusline-command.sh"'
-require_file_contains install/ccc-provision-workstation.sh 'CLAUDE_SETTINGS="$CCC_HOME/.claude/settings.json"'
-require_file_contains install/ccc-provision-workstation.sh 'data["statusLine"] = {"type": "command", "command": status_line}'
-require_file_contains install/ccc-provision-workstation.sh 'data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"'
-require_file_contains install/ccc-provision-workstation.sh "CCC Statusline"
-require_file_contains install/ccc-provision-workstation.sh 'step 20 "Statusline"'
+require_file_contains install/ccc-provision-workstation.sh 'if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]'
+require_file_contains install/ccc-provision-workstation.sh 'data["statusLine"] = sl'
+require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")'
+require_file_contains install/ccc-provision-workstation.sh 'perms.setdefault("defaultMode", "bypassPermissions")'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER:-claude-code}"'
-require_file_contains install/ccc-provision-workstation.sh "Statusline user"
-require_file_contains install/ccc-provision-workstation.sh 'sudo -u "$CCC_USER" mkdir -p "$CCC_HOME/.claude/bin"'
+require_file_contains install/ccc-provision-workstation.sh 'mkdir -p "$CCC_HOME/.claude/bin"'
 require_file_contains install/ccc-provision-workstation.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
-require_file_contains install/ccc-provision-workstation.sh 'chown "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'
+require_file_contains install/ccc-provision-workstation.sh 'chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'
 require_file_not_contains install/ccc-provision-workstation.sh 'cat > /home/claude-code/.claude/bin/statusline-command.sh'
-require_file_contains install/ccc-provision-workstation.sh "claude statusline-command"
-require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.model.id    // ""'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.model.id // ""'\'''
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.thinking.enabled // false'\'''
-require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.used  // 0'\'''
-require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.max   // 200000'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.used // 0'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.max // 200000'\'''
 require_file_contains install/ccc-provision-workstation.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_WARN="!!"'
 require_file_contains install/ccc-provision-workstation.sh 'TIME=$(date +"%I:%M%p"'
@@ -495,48 +488,30 @@ require_file_contains container-code-companion/internal/system/management.go 'ca
 require_file_contains container-code-companion/internal/system/management.go 'case "shared-workspace-apply"'
 require_file_contains container-code-companion/internal/system/management.go 'CCC shell projects login'
 require_file_contains container-code-companion/internal/system/management.go 'CCC shell environment'
-require_file_contains container-code-companion/internal/system/management.go '@openai/codex @google/gemini-cli'
 require_file_contains container-code-companion/internal/system/management.go 'https://claude.ai/install.sh | bash'
-require_file_contains container-code-companion/internal/system/management.go 'Provider CLIs installed'
+require_file_contains container-code-companion/internal/system/management.go 'Profile ready. First-login checklist'
 require_file_contains container-code-companion/internal/system/management.go 'agentConfigSyncCommand'
 require_file_contains container-code-companion/internal/system/management.go 'allAgentConfigSyncCommand'
-require_file_contains container-code-companion/internal/system/management.go 'directAgentConfigSyncScript'
+require_file_contains container-code-companion/internal/system/management.go '/usr/local/bin/ccc-sync-agent-configs --user '
+require_file_contains container-code-companion/internal/system/management.go '/usr/local/bin/ccc-sync-agent-configs --all-users'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chgrp " + shellQuote(group) + " " + shellQuote(home)'
 require_file_contains container-code-companion/internal/system/management.go 'sudo chmod g+rx " + shellQuote(home)'
-require_file_contains container-code-companion/internal/system/management.go 'Direct Agent Config Sync'
-require_file_contains container-code-companion/internal/system/management.go 'copy_optional_dir "$src/claude/plugins" "$home/.claude/plugins"'
-require_file_contains container-code-companion/internal/system/management.go 'copy_optional_dir "$src/claude/skills" "$home/.claude/skills"'
-require_file_contains container-code-companion/internal/system/management.go 'copy_optional_dir "$src/codex/plugins" "$home/.codex/plugins"'
-require_file_contains container-code-companion/internal/system/management.go 'mirror_provider_profile ".claude" "Claude"'
-require_file_contains container-code-companion/internal/system/management.go 'mirror_provider_profile ".codex" "Codex"'
-require_file_contains container-code-companion/internal/system/management.go 'mirror_provider_profile ".gemini" "Gemini"'
-require_file_contains container-code-companion/internal/system/management.go '--exclude=.credentials.json'
-require_file_contains container-code-companion/internal/system/management.go '--exclude=auth.json'
-require_file_contains container-code-companion/internal/system/management.go '--exclude=sessions/'
-require_file_contains container-code-companion/internal/system/management.go '--exclude=/cache/'
+require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.local/bin/claude")'
+require_file_contains container-code-companion/internal/system/management.go 'test -x /usr/local/ccc-npm/bin/codex'
+require_file_contains container-code-companion/internal/system/management.go 'test -x /usr/local/ccc-npm/bin/gemini'
+# The web UI delegates sync to the installed script — no inlined copy, and
+# provider profiles (auth, sessions, history) are never mirrored between accounts.
+require_file_not_contains container-code-companion/internal/system/management.go 'directAgentConfigSyncScript'
+require_file_not_contains container-code-companion/internal/system/management.go 'mirror_provider_profile'
 require_file_contains container-code-companion/internal/system/management.go 'git config --system safe.directory \"*\"'
 require_file_contains container-code-companion/internal/system/management.go 'safe.directory=" + dir'
-require_file_contains container-code-companion/internal/system/management.go 'chgrp "$shared_group" "$home"'
-require_file_contains container-code-companion/internal/system/management.go 'chmod g+rx "$home"'
-require_file_contains container-code-companion/internal/system/management.go 'copy_file "$src/claude/CLAUDE.md" "$home/.claude/CLAUDE.md"'
-require_file_contains container-code-companion/internal/system/management.go 'copy_dir "$src/codex/skills" "$home/.codex/skills"'
-require_file_contains container-code-companion/internal/system/management.go 'copy_dir "$src/gemini/skills" "$home/.gemini/skills"'
-require_file_contains container-code-companion/internal/system/management.go 'copy_dir "$src/templates" "$home/Templates"'
-require_file_contains container-code-companion/internal/system/management.go 'write_claude_baseline "$home"'
-require_file_contains container-code-companion/internal/system/management.go 'check_dir "$home/.codex/skills"'
-require_file_contains container-code-companion/internal/system/management.go 'check_file "$home/.claude/settings.json"'
-require_file_contains container-code-companion/internal/system/management.go 'check_exec "$home/.claude/bin/statusline-command.sh"'
-require_file_contains container-code-companion/internal/system/management.go 'sudo test -x " + shellQuote(home+"/.local/bin/codex")'
-require_file_contains container-code-companion/internal/system/management.go 'Account: %s'
-require_file_contains container-code-companion/internal/system/management.go 'Created config inventory:'
 require_file_contains container-code-companion/internal/system/management.go 'listFilesWithError'
-require_file_contains container-code-companion/internal/system/management.go 'getent passwd'
 require_file_contains container-code-companion/internal/system/management.go 'Codex skills'
 require_file_contains container-code-companion/internal/system/management.go 'Gemini skills'
 require_file_contains container-code-companion/web/app.js 'c.isDir'
 require_file_contains container-code-companion/web/app.js 'function stripANSI'
 require_file_contains container-code-companion/web/app.js 'replace(/\[(?:\d{1,2};)*\d{1,2}m/g,'
-require_file_contains container-code-companion/internal/system/management.go 'cd ~/projects'
+require_file_contains install/ccc-provision-workstation.sh 'cd "$HOME/projects" || true'
 require_file_contains container-code-companion/internal/system/management.go 'sharedWorkspaceMigrationCommand'
 require_file_contains container-code-companion/internal/system/management.go 'Migration command is not installed yet'
 require_file_contains container-code-companion/internal/system/management.go 'IdentityFile " + keyPath'
@@ -611,7 +586,7 @@ awk '/UPDATESTATUSSCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-w
 bash -n /tmp/ccc-update-status.syntax
 node tests/update-status-ui.test.mjs
 
-awk '/^cat > .*statusline-command.sh.*STATUSLINE/{flag=1; next} /^STATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-statusline.syntax
+awk '/cat > .*statusline-command.sh.*CLAUDESTATUSLINE/{flag=1; next} /^CLAUDESTATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-statusline.syntax
 bash -n /tmp/ccc-statusline.syntax
 statusline_test_bin=$(mktemp -d)
 cat > "$statusline_test_bin/jq" <<'FAKEJQ'

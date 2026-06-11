@@ -695,6 +695,18 @@ func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
 	}
 }
 
+func TestNodeInstallDoesNotPullDebianNPM(t *testing.T) {
+	command, err := toolInstallCommand("nodejs")
+	if err != nil {
+		t.Fatalf("expected nodejs install command: %v", err)
+	}
+	// NodeSource's nodejs package bundles npm and declares Conflicts: npm,
+	// so installing Debian's separate npm package alongside it always fails.
+	if strings.Contains(command, "npm") {
+		t.Fatalf("nodejs install must not reference the npm apt package, got %q", command)
+	}
+}
+
 func TestProviderNPMToolsInstallToUserPrefix(t *testing.T) {
 	for _, tool := range []string{"gemini"} {
 		command, err := toolInstallCommand(tool)
