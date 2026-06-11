@@ -510,6 +510,14 @@ require_file_not_contains container-code-companion/internal/system/management.go
 # prefix, and the UI-invoked installers suppress ANSI colors off-terminal.
 require_file_contains install/ccc-provision-workstation.sh '"$_ccc_user_home/.local/bin/codex" "$_ccc_user_home/.local/bin/gemini"'
 require_file_contains install/ccc-provision-workstation.sh 'if [[ -n "${NO_COLOR:-}" || ! -t 1 ]]; then'
+# ccc-update-status must not pick the device SSH key when running as its owner
+# (root/cron) — ssh refuses group-readable keys for the owner, which used to
+# kill the status check silently and made the 3 AM cron re-install nightly.
+require_file_contains install/ccc-provision-workstation.sh 'if [[ -r "$CCC_SSH_KEY" && ! -O "$CCC_SSH_KEY" ]]; then'
+require_file_contains install/ccc-provision-workstation.sh 'env -u GIT_SSH_COMMAND git ls-remote "https://github.com/${REPO_URL#git@github.com:}"'
+# ccc-auto-update needs an affirmative update signal; a failed status check
+# must skip, not trigger a full self-update.
+require_file_contains install/ccc-provision-workstation.sh 'grep -Eq "Update available\.|No version recorded"'
 # The web UI delegates sync to the installed script — no inlined copy, and
 # provider profiles (auth, sessions, history) are never mirrored between accounts.
 require_file_not_contains container-code-companion/internal/system/management.go 'directAgentConfigSyncScript'

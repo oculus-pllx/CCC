@@ -1631,8 +1631,13 @@ trap cleanup EXIT
 
 # SSH key for GitHub — device key readable by ccc group, falls back to agent
 # SSH key: use device key if present, otherwise fall back to HTTPS for public repos.
+# ssh refuses a group-readable private key for its OWNER (root) but accepts it
+# for group members, so the key path must not be chosen when we own the file —
+# that is exactly the 3 AM cron context, and BatchMode turns the refusal into
+# a silent ls-remote failure. ccc-self-update forces HTTPS as root for the
+# same reason.
 CCC_SSH_KEY="${CCC_GITHUB_KEY:-/etc/ccc/ssh/github_ed25519}"
-if [[ -r "$CCC_SSH_KEY" ]]; then
+if [[ -r "$CCC_SSH_KEY" && ! -O "$CCC_SSH_KEY" ]]; then
   export GIT_SSH_COMMAND="ssh -i $CCC_SSH_KEY -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
   FETCH_URL="$REPO_URL"
 elif [[ "$REPO_URL" == git@github.com:* ]]; then
@@ -1649,7 +1654,13 @@ installed_date=""
 }
 
 # Use git ls-remote — no local writes needed, works as any user, always current.
-latest_commit=$(git ls-remote "$FETCH_URL" "refs/heads/$REF" 2>/dev/null | awk '{print $1}')
+# "|| true" keeps a failed ls-remote from tripping set -e/pipefail before the
+# unreachable-GitHub message below can print.
+latest_commit=$(git ls-remote "$FETCH_URL" "refs/heads/$REF" 2>/dev/null | awk '{print $1}' || true)
+if [[ -z "$latest_commit" && "$REPO_URL" == git@github.com:* && "$FETCH_URL" != https://* ]]; then
+  # SSH auth failed; public repos still answer over HTTPS.
+  latest_commit=$(env -u GIT_SSH_COMMAND git ls-remote "https://github.com/${REPO_URL#git@github.com:}" "refs/heads/$REF" 2>/dev/null | awk '{print $1}' || true)
+fi
 if [[ -z "$latest_commit" ]]; then
   echo -e "${R}Could not reach GitHub. Check internet connection.${N}"
   exit 1
@@ -1878,12 +1889,20 @@ echo ""
 echo -e "${B}Container Code Companion Auto-Update Check${N} — $(date -Is)"
 
 # Smart check: only update if GitHub has a newer commit.
-STATUS=$(ccc-update-status 2>&1 || true)
+STATUS=$(NO_COLOR=1 ccc-update-status --no-actions 2>&1 || true)
 echo "$STATUS"
 
 if echo "$STATUS" | grep -q "Up to date\."; then
     echo -e "${G}Already up to date. No update needed.${N}"
     exit 0
+fi
+
+# Only a positive signal triggers a full update. A failed or empty status
+# check (network down, auth hiccup) used to fall through here and re-install
+# the same commit every night.
+if ! echo "$STATUS" | grep -Eq "Update available\.|No version recorded"; then
+    echo -e "${Y}Could not determine update status — skipping until the next scheduled check.${N}"
+    exit 1
 fi
 
 echo ""
