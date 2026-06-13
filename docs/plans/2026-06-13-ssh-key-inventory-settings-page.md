@@ -185,7 +185,7 @@ git commit -m "docs: update SSH key inventory location"
 **Files:**
 - Verify all modified files
 
-- [ ] **Step 1: Run formatting and whitespace checks**
+- [x] **Step 1: Run formatting and whitespace checks**
 
 ```bash
 git diff --check HEAD~3..HEAD
@@ -193,7 +193,7 @@ git diff --check HEAD~3..HEAD
 
 Expected: no output and exit code 0.
 
-- [ ] **Step 2: Run static and JavaScript tests**
+- [x] **Step 2: Run static and JavaScript tests**
 
 ```bash
 bash tests/container-code-companion-static.sh
@@ -202,7 +202,7 @@ node tests/update-status-ui.test.mjs
 
 Expected: both commands pass.
 
-- [ ] **Step 3: Run Go tests**
+- [x] **Step 3: Run Go tests**
 
 ```bash
 cd container-code-companion && go test ./...
@@ -210,7 +210,7 @@ cd container-code-companion && go test ./...
 
 Expected: all packages pass.
 
-- [ ] **Step 4: Inspect the final diff and status**
+- [x] **Step 4: Inspect the final diff and status**
 
 ```bash
 git status --short
