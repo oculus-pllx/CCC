@@ -591,7 +591,7 @@ require_ordered_patterns container-code-companion/web/index.html \
   '<div class="nav-heading">Dashboard</div>' 'data-section="overview"' 'data-section="updates"' \
   '<div class="nav-heading">Workstation</div>' 'data-section="apps"' 'data-section="files"' 'data-section="drives"' 'data-section="notes"' 'data-section="projects"' 'data-section="terminal"' \
   '<div class="nav-heading">System</div>' 'data-section="accounts"' 'data-section="logs"' 'data-section="network"' 'data-section="services"' \
-  '<div class="nav-heading">Settings</div>' 'data-section="github"' 'data-section="oculus"' 'data-section="settings"' 'data-section="configs"'
+  '<div class="nav-heading">Settings</div>' 'data-section="github"' 'data-section="ssh-keys"' 'data-section="oculus"' 'data-section="settings"' 'data-section="configs"'
 
 require_ordered_patterns container-code-companion/web/app.js \
   '<p id="tool-status"' '<pre id="tool-output"' '<div id="tool-catalog"'
@@ -660,6 +660,16 @@ require_file_contains container-code-companion/web/app.js 'hexToRgb'
 # Task 4: Settings page
 require_file_contains container-code-companion/web/app.js 'renderSettings'
 require_file_contains container-code-companion/web/app.js 'bindSettings'
+require_file_contains container-code-companion/web/index.html 'data-section="ssh-keys"'
+require_file_contains container-code-companion/web/app.js "ssh-keys: 'SSH Key Inventory'"
+require_file_contains container-code-companion/web/app.js "'ssh-keys': renderSSHKeyInventoryPage"
+require_file_contains container-code-companion/web/app.js "if (section === 'ssh-keys')"
+require_file_contains container-code-companion/web/app.js 'function renderSSHKeyInventoryPage()'
+require_file_contains container-code-companion/web/app.js 'function bindSSHKeyInventoryPage()'
+projects_renderer=$(sed -n '/^function renderProjects()/,/^function renderConfigs()/p' container-code-companion/web/app.js)
+projects_binder=$(sed -n '/^function bindProjects()/,/^async function repairProjectPermissions()/p' container-code-companion/web/app.js)
+[[ "$projects_renderer" != *'ssh-key-inventory-placeholder'* ]] || fail "Projects renderer still contains SSH Key Inventory"
+[[ "$projects_binder" != *'loadSSHKeyInventory()'* ]] || fail "Projects binder still loads SSH Key Inventory"
 require_file_contains container-code-companion/web/app.js 'renderAppCatalog'
 require_file_contains container-code-companion/web/app.js 'renderMapDrives'
 require_file_contains container-code-companion/web/app.js 'loadToolCatalog'
