@@ -661,7 +661,7 @@ require_file_contains container-code-companion/web/app.js 'hexToRgb'
 require_file_contains container-code-companion/web/app.js 'renderSettings'
 require_file_contains container-code-companion/web/app.js 'bindSettings'
 require_file_contains container-code-companion/web/index.html 'data-section="ssh-keys"'
-require_file_contains container-code-companion/web/app.js "ssh-keys: 'SSH Key Inventory'"
+require_file_contains container-code-companion/web/app.js "'ssh-keys': 'SSH Key Inventory'"
 require_file_contains container-code-companion/web/app.js "'ssh-keys': renderSSHKeyInventoryPage"
 require_file_contains container-code-companion/web/app.js "if (section === 'ssh-keys')"
 require_file_contains container-code-companion/web/app.js 'function renderSSHKeyInventoryPage()'

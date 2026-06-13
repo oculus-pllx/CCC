@@ -14,6 +14,7 @@ const titles = {
   configs: 'Provider Configs',
   oculus: 'oculus-configs',
   github: 'GitHub',
+  'ssh-keys': 'SSH Key Inventory',
   settings: 'Preferences',
 };
 
@@ -285,6 +286,7 @@ function renderSection(section) {
     configs: renderConfigs,
     oculus: renderOculus,
     github: renderGitHub,
+    'ssh-keys': renderSSHKeyInventoryPage,
     settings: renderSettings,
   };
   body.innerHTML = renderers[section]?.() || '<p>Section unavailable.</p>';
@@ -779,7 +781,6 @@ function renderTerminal() {
 function renderProjects() {
   const projectRoot = snapshot.projectRoot || {};
   return `
-    <div id="ssh-key-inventory-placeholder"></div>
     <div class="project-root-health">
       <h3>Shared Workspace</h3>
       <dl class="facts">
@@ -1248,6 +1249,9 @@ function bindSectionActions(section) {
   }
   if (section === 'github') {
     bindGitHub();
+  }
+  if (section === 'ssh-keys') {
+    bindSSHKeyInventoryPage();
   }
   if (section === 'network') {
     bindNetwork();
@@ -2756,13 +2760,6 @@ function openAgentConfig(path) {
 }
 
 function bindProjects() {
-  loadSSHKeyInventory().then(keys => {
-    const placeholder = document.getElementById('ssh-key-inventory-placeholder');
-    if (placeholder) {
-      placeholder.outerHTML = renderSSHKeyInventory(keys);
-      bindSSHKeyInventory();
-    }
-  });
   document.getElementById('create-project-button').addEventListener('click', createProject);
   document.getElementById('add-existing-project-button').addEventListener('click', addExistingProject);
   document.getElementById('clone-project-button')?.addEventListener('click', cloneProject);
@@ -3302,6 +3299,20 @@ async function loadSSHKeyInventory() {
   } catch {
     return [];
   }
+}
+
+function renderSSHKeyInventoryPage() {
+  return '<div id="ssh-key-inventory-placeholder"></div>';
+}
+
+function bindSSHKeyInventoryPage() {
+  loadSSHKeyInventory().then(keys => {
+    const placeholder = document.getElementById('ssh-key-inventory-placeholder');
+    if (placeholder) {
+      placeholder.outerHTML = renderSSHKeyInventory(keys);
+      bindSSHKeyInventory();
+    }
+  });
 }
 
 function renderSSHKeyInventory(keys) {
