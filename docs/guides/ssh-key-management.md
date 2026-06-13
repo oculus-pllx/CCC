@@ -26,7 +26,7 @@ The shared GitHub machine key stays at `/etc/ccc/ssh/github_ed25519` as before â
 
 ## SSH Key Inventory (audit panel)
 
-Open **Projects** in the web UI. At the top, above the project list, is the **SSH Key Inventory** panel.
+Open **Settings > SSH Key Inventory** in the web UI.
 
 It scans:
 - All user `~/.ssh/` directories

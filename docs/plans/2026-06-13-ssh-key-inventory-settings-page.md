@@ -22,7 +22,7 @@
 **Files:**
 - Modify: `tests/container-code-companion-static.sh`
 
-- [ ] **Step 1: Add the failing static assertions**
+- [x] **Step 1: Add the failing static assertions**
 
 Add assertions that require:
 
@@ -48,7 +48,7 @@ projects_binder=$(sed -n '/^function bindProjects()/,/^async function repairProj
 [[ "$projects_binder" != *'loadSSHKeyInventory()'* ]] || fail "Projects binder still loads SSH Key Inventory"
 ```
 
-- [ ] **Step 2: Run the static test to verify it fails**
+- [x] **Step 2: Run the static test to verify it fails**
 
 Run:
 
@@ -59,7 +59,7 @@ bash tests/container-code-companion-static.sh
 Expected: FAIL because `data-section="ssh-keys"` and the dedicated page wiring do
 not exist yet.
 
-- [ ] **Step 3: Commit the failing regression test**
+- [x] **Step 3: Commit the failing regression test**
 
 ```bash
 git add tests/container-code-companion-static.sh
@@ -72,7 +72,7 @@ git commit -m "test: require SSH key inventory settings page"
 - Modify: `container-code-companion/web/index.html`
 - Modify: `container-code-companion/web/app.js`
 
-- [ ] **Step 1: Add the Settings navigation item**
+- [x] **Step 1: Add the Settings navigation item**
 
 Insert:
 
@@ -82,7 +82,7 @@ Insert:
 
 after GitHub in the Settings navigation group.
 
-- [ ] **Step 2: Register the title and renderer**
+- [x] **Step 2: Register the title and renderer**
 
 Add:
 
@@ -98,7 +98,7 @@ to `titles`, and:
 
 to the renderer map.
 
-- [ ] **Step 3: Add the dedicated page renderer and binder**
+- [x] **Step 3: Add the dedicated page renderer and binder**
 
 Add:
 
@@ -126,13 +126,13 @@ if (section === 'ssh-keys') {
 }
 ```
 
-- [ ] **Step 4: Remove inventory loading from Projects**
+- [x] **Step 4: Remove inventory loading from Projects**
 
 Remove the inventory placeholder from `renderProjects()` and remove the
 `loadSSHKeyInventory()` block from `bindProjects()`. Leave all project and
 per-project SSH controls unchanged.
 
-- [ ] **Step 5: Run the static test to verify it passes**
+- [x] **Step 5: Run the static test to verify it passes**
 
 Run:
 
@@ -142,7 +142,7 @@ bash tests/container-code-companion-static.sh
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the UI relocation**
+- [x] **Step 6: Commit the UI relocation**
 
 ```bash
 git add container-code-companion/web/index.html container-code-companion/web/app.js
@@ -154,7 +154,7 @@ git commit -m "feat: move SSH key inventory to settings"
 **Files:**
 - Modify: `docs/guides/ssh-key-management.md`
 
-- [ ] **Step 1: Change the documented navigation path**
+- [x] **Step 1: Change the documented navigation path**
 
 Replace the Projects-page instruction with:
 
@@ -162,7 +162,7 @@ Replace the Projects-page instruction with:
 Open **Settings > SSH Key Inventory** in the web UI.
 ```
 
-- [ ] **Step 2: Verify the old location is absent**
+- [x] **Step 2: Verify the old location is absent**
 
 Run:
 
@@ -173,7 +173,7 @@ rg -n 'Open \\*\\*Projects\\*\\*|Settings > SSH Key Inventory' docs/guides/ssh-k
 Expected: one match for the new Settings path and no match for the old Projects
 instruction.
 
-- [ ] **Step 3: Commit the documentation update**
+- [x] **Step 3: Commit the documentation update**
 
 ```bash
 git add docs/guides/ssh-key-management.md
