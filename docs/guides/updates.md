@@ -35,8 +35,9 @@ What `ccc-self-update` does:
 2. Builds the new `container-code-companion` binary
 3. Re-runs the updateable provisioner section — keeps `/usr/local/bin` helper commands, cron, MOTD, tmux configs, and system scripts current without a full reprovisioning
 4. Syncs web assets
-5. Writes the new version to `/etc/ccc/version` and restarts the service
-6. Runs `ccc-sync-agent-configs` for your user so new default configs are applied immediately
+5. Updates every account's Claude Code CLI to the latest native version — migrating any older npm-style install to the native installer — so per-user versions never drift
+6. Writes the new version to `/etc/ccc/version` and restarts the service
+7. Runs `ccc-sync-agent-configs` for your user so new default configs are applied immediately
 
 If the build fails, the service keeps running the old version and the error is in `/var/log/ccc-self-update.log`.
 
