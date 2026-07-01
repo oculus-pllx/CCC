@@ -261,6 +261,11 @@ require_file_contains install/ccc-provision-workstation.sh 'setsid systemctl res
 require_file_contains install/ccc-provision-workstation.sh 'CCC_INSTALLED_COMMIT'
 require_file_contains install/ccc-provision-workstation.sh 'Update available'
 require_file_contains install/ccc-provision-workstation.sh "Self-update successful"
+# ccc-self-update must also refresh the per-user Claude Code CLI for every
+# account — the nightly auto-update runs ccc-self-update (not ccc-update), so
+# without this each account's ~/.local/bin/claude never gets updated.
+require_file_contains install/ccc-provision-workstation.sh 'Updating Claude Code CLI for all accounts'
+require_file_contains install/ccc-provision-workstation.sh 'sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update'
 require_file_contains install/ccc-provision-workstation.sh "-buildvcs=false"
 require_file_contains install/ccc-provision-workstation.sh "Building Container Code Companion binary"
 require_file_contains install/ccc-provision-workstation.sh 'timeout 600 "$GO" build -C "$SRC/container-code-companion"'

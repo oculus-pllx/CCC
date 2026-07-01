@@ -1792,6 +1792,19 @@ else
   echo "  ccc-sync-agent-configs not installed; skipping."
 fi
 
+# Update the per-user Claude Code CLI for every account. Claude Code is a
+# native per-user install in ~/.local/bin, so the nightly auto-update (which
+# runs ccc-self-update, not ccc-update) must bump each account here — otherwise
+# only the manual `ccc-update` ever refreshes them and versions drift.
+echo ""
+echo -e "${C}Updating Claude Code CLI for all accounts...${N}"
+getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1 ":" $6}' | while IFS=: read -r _u _h; do
+  if [[ -x "$_h/.local/bin/claude" ]]; then
+    echo "  Updating Claude Code for $_u..."
+    sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update || true
+  fi
+done
+
 # [5/5] Write version + restart
 echo ""
 echo -e "${C}[5/5]${N} Recording version and restarting service..."
