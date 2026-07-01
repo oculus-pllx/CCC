@@ -1796,14 +1796,34 @@ fi
 # native per-user install in ~/.local/bin, so the nightly auto-update (which
 # runs ccc-self-update, not ccc-update) must bump each account here — otherwise
 # only the manual `ccc-update` ever refreshes them and versions drift.
+#
+# Non-native (npm-style or dangling) installs never self-update via
+# `claude update`, so they are migrated to the native installer instead. A
+# native install is one whose ~/.local/bin/claude resolves under
+# ~/.local/share/claude/versions/; anything else converges to native.
 echo ""
 echo -e "${C}Updating Claude Code CLI for all accounts...${N}"
 getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1 ":" $6}' | while IFS=: read -r _u _h; do
-  if [[ -x "$_h/.local/bin/claude" ]]; then
-    echo "  Updating Claude Code for $_u..."
-    sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update || true
+  if [[ -e "$_h/.local/bin/claude" || -L "$_h/.local/bin/claude" ]]; then
+    _target="$(sudo -u "$_u" readlink -f "$_h/.local/bin/claude" 2>/dev/null || true)"
+    if [[ "$_target" == *"/.local/share/claude/versions/"* ]]; then
+      echo "  Updating Claude Code for $_u..."
+      sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update || true
+    else
+      echo "  Migrating $_u to native Claude Code..."
+      sudo -u "$_u" env HOME="$_h" bash -c 'rm -f "$HOME/.local/bin/claude"; rm -rf "$HOME/.local/lib/node_modules/@anthropic-ai/claude-code"; curl -fsSL https://claude.ai/install.sh | bash' || true
+    fi
   fi
 done
+
+# Claude Code must never live in the shared npm prefix — it is per-user and
+# native. Remove any copy that leaked in, but only after every account has its
+# own native install above, so no account is left resolving from the shared prefix.
+if [[ -e /usr/local/ccc-npm/lib/node_modules/@anthropic-ai/claude-code || -L /usr/local/ccc-npm/bin/claude ]]; then
+  echo "  Removing Claude Code from the shared npm prefix..."
+  rm -f /usr/local/ccc-npm/bin/claude
+  rm -rf /usr/local/ccc-npm/lib/node_modules/@anthropic-ai/claude-code
+fi
 
 # [5/5] Write version + restart
 echo ""

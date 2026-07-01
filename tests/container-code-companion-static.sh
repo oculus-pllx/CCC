@@ -266,6 +266,12 @@ require_file_contains install/ccc-provision-workstation.sh "Self-update successf
 # without this each account's ~/.local/bin/claude never gets updated.
 require_file_contains install/ccc-provision-workstation.sh 'Updating Claude Code CLI for all accounts'
 require_file_contains install/ccc-provision-workstation.sh 'sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update'
+# Non-native (npm-style / dangling) installs must be migrated to the native
+# installer, and Claude Code must never remain in the shared npm prefix.
+require_file_contains install/ccc-provision-workstation.sh 'Migrating $_u to native Claude Code'
+require_file_contains install/ccc-provision-workstation.sh 'curl -fsSL https://claude.ai/install.sh | bash'
+require_file_contains install/ccc-provision-workstation.sh 'Removing Claude Code from the shared npm prefix'
+require_file_contains install/ccc-provision-workstation.sh '/usr/local/ccc-npm/lib/node_modules/@anthropic-ai/claude-code'
 require_file_contains install/ccc-provision-workstation.sh "-buildvcs=false"
 require_file_contains install/ccc-provision-workstation.sh "Building Container Code Companion binary"
 require_file_contains install/ccc-provision-workstation.sh 'timeout 600 "$GO" build -C "$SRC/container-code-companion"'
