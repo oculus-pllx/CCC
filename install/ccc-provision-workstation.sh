@@ -1808,7 +1808,10 @@ getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1 ":" $6
     _target="$(sudo -u "$_u" readlink -f "$_h/.local/bin/claude" 2>/dev/null || true)"
     if [[ "$_target" == *"/.local/share/claude/versions/"* ]]; then
       echo "  Updating Claude Code for $_u..."
-      sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update || true
+      # PATH must include ~/.local/bin here: this is a non-login subprocess that
+      # does not source /etc/profile.d, so without it `claude update` prints
+      # "Native installation exists but ~/.local/bin is not in your PATH".
+      sudo -u "$_u" env HOME="$_h" PATH="$_h/.local/bin:$PATH" "$_h/.local/bin/claude" update || true
     else
       echo "  Migrating $_u to native Claude Code..."
       sudo -u "$_u" env HOME="$_h" bash -c 'rm -f "$HOME/.local/bin/claude"; rm -rf "$HOME/.local/lib/node_modules/@anthropic-ai/claude-code"; curl -fsSL https://claude.ai/install.sh | bash' || true

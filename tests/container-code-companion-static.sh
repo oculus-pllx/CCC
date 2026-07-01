@@ -265,7 +265,10 @@ require_file_contains install/ccc-provision-workstation.sh "Self-update successf
 # account — the nightly auto-update runs ccc-self-update (not ccc-update), so
 # without this each account's ~/.local/bin/claude never gets updated.
 require_file_contains install/ccc-provision-workstation.sh 'Updating Claude Code CLI for all accounts'
-require_file_contains install/ccc-provision-workstation.sh 'sudo -u "$_u" env HOME="$_h" "$_h/.local/bin/claude" update'
+# .local/bin must be on PATH for the (non-login) updater subprocess, else
+# `claude update` warns "Native installation exists but ~/.local/bin is not in
+# your PATH"; /etc/profile.d only covers interactive login shells, not this env.
+require_file_contains install/ccc-provision-workstation.sh 'sudo -u "$_u" env HOME="$_h" PATH="$_h/.local/bin:$PATH" "$_h/.local/bin/claude" update'
 # Non-native (npm-style / dangling) installs must be migrated to the native
 # installer, and Claude Code must never remain in the shared npm prefix.
 require_file_contains install/ccc-provision-workstation.sh 'Migrating $_u to native Claude Code'
