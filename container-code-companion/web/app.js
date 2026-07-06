@@ -13,6 +13,7 @@ const titles = {
   projects: 'Projects',
   configs: 'Provider Configs',
   oculus: 'oculus-configs',
+  chronicle: 'Claude Chronicle',
   github: 'GitHub',
   'ssh-keys': 'SSH Key Inventory',
   settings: 'Preferences',
@@ -285,6 +286,7 @@ function renderSection(section) {
     projects: renderProjects,
     configs: renderConfigs,
     oculus: renderOculus,
+    chronicle: renderChronicle,
     github: renderGitHub,
     'ssh-keys': renderSSHKeyInventoryPage,
     settings: renderSettings,
@@ -958,6 +960,167 @@ function renderOculus() {
   `;
 }
 
+function renderChronicle() {
+  return `
+    <p class="section-description">Harvest Fable-5 transcript patterns into config-delta proposals, review them, and publish a selection to oculus-configs.</p>
+    <div class="action-row">
+      <button id="chronicle-run-btn" class="small-button">Run Chronicle</button>
+      <span id="chronicle-run-state" class="muted"></span>
+    </div>
+    <pre id="chronicle-run-log" class="output" hidden></pre>
+    <div id="chronicle-pending"><p class="muted">Loading pending items…</p></div>
+    <pre id="chronicle-publish-output" class="output" hidden></pre>
+  `;
+}
+
+function bindChronicle() {
+  const runBtn = document.getElementById('chronicle-run-btn');
+  if (runBtn) runBtn.addEventListener('click', runChronicle);
+  loadChroniclePending();
+}
+
+async function loadChroniclePending() {
+  const container = document.getElementById('chronicle-pending');
+  if (!container) return;
+  try {
+    const resp = await fetch('/api/chronicle-pending', { credentials: 'include' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const pending = await resp.json();
+    renderChroniclePendingList(pending);
+  } catch (err) {
+    container.innerHTML = `<p class="error-text">${escapeHTML(err.message)}</p>`;
+  }
+}
+
+function renderChroniclePendingList(pending) {
+  const container = document.getElementById('chronicle-pending');
+  if (!container) return;
+  const items = (pending && pending.items) || [];
+  if (!pending || !pending.available || items.length === 0) {
+    container.innerHTML = '<p class="muted">No pending items — run Chronicle to synthesize.</p>';
+    return;
+  }
+  const rows = items.map((item, i) => `
+    <label class="chronicle-item">
+      <input type="checkbox" class="chronicle-item-check" value="${i + 1}" checked>
+      <span class="chronicle-item-rule">${escapeHTML(item.rule || '')}</span>
+      <span class="chronicle-item-target">${escapeHTML(item.target_file || '')}</span>
+    </label>
+  `).join('');
+  container.innerHTML = `
+    <div class="chronicle-pending-header">
+      <strong>${items.length} pending item${items.length === 1 ? '' : 's'}</strong>
+      <span class="muted">synthesized ${escapeHTML(pending.synthesizedAt || 'unknown')} · ${pending.sessionCount || 0} session${pending.sessionCount === 1 ? '' : 's'}</span>
+    </div>
+    <div class="chronicle-item-list">${rows}</div>
+    <div class="action-row">
+      <button id="chronicle-publish-selected" class="small-button">Publish Selected</button>
+      <button id="chronicle-publish-all" class="small-button">Publish All</button>
+      <button id="chronicle-discard" class="small-button danger-button">Discard</button>
+    </div>
+  `;
+  bindChroniclePublishButtons();
+}
+
+function bindChroniclePublishButtons() {
+  const sel = document.getElementById('chronicle-publish-selected');
+  const all = document.getElementById('chronicle-publish-all');
+  const dis = document.getElementById('chronicle-discard');
+  if (sel) sel.addEventListener('click', () => {
+    const items = Array.from(document.querySelectorAll('.chronicle-item-check:checked'))
+      .map((c) => parseInt(c.value, 10));
+    if (items.length === 0) {
+      showChroniclePublishOutput('Select at least one item, or use Publish All / Discard.');
+      return;
+    }
+    publishChronicle({ mode: 'items', items });
+  });
+  if (all) all.addEventListener('click', () => publishChronicle({ mode: 'all' }));
+  if (dis) dis.addEventListener('click', () => {
+    if (confirm('Discard all pending items without publishing?')) {
+      publishChronicle({ mode: 'discard' });
+    }
+  });
+}
+
+function showChroniclePublishOutput(text) {
+  const out = document.getElementById('chronicle-publish-output');
+  if (out) {
+    out.hidden = false;
+    out.textContent = stripANSI(text);
+  }
+}
+
+async function publishChronicle(op) {
+  showChroniclePublishOutput('Publishing…');
+  try {
+    const result = await postJSON('/api/chronicle-publish', op);
+    showChroniclePublishOutput(result.output || ('Exit code ' + result.exitCode));
+    await loadChroniclePending();
+    await loadSnapshot(); // refresh oculus-configs data so the new proposal commit shows
+  } catch (err) {
+    showChroniclePublishOutput(err.message);
+  }
+}
+
+async function runChronicle() {
+  const runBtn = document.getElementById('chronicle-run-btn');
+  const state = document.getElementById('chronicle-run-state');
+  const log = document.getElementById('chronicle-run-log');
+  if (!log) return;
+  log.hidden = false;
+  log.textContent = 'Starting run…\n';
+  if (runBtn) runBtn.disabled = true;
+  if (state) state.textContent = 'running…';
+  // Pause the snapshot poll so it doesn't re-render the section mid-run.
+  stopSnapshotPolling();
+
+  let start;
+  try {
+    start = await postJSON('/api/chronicle-run', {});
+  } catch (err) {
+    log.textContent = 'Failed to start run: ' + err.message;
+    finishChronicleRun(runBtn, state, false);
+    return;
+  }
+  if (start.exitCode !== 0) {
+    log.textContent = stripANSI(start.output || 'Failed to start run.');
+    finishChronicleRun(runBtn, state, false);
+    return;
+  }
+
+  let notRunningCount = 0;
+  const poll = setInterval(async () => {
+    try {
+      const resp = await fetch('/api/chronicle-run-log', { credentials: 'include' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (log.isConnected) log.textContent = stripANSI(data.log || '(no output yet)\n');
+      if (data.running) {
+        notRunningCount = 0;
+        return;
+      }
+      // Two consecutive not-running polls == run finished (matches self-update).
+      notRunningCount += 1;
+      if (notRunningCount >= 2) {
+        clearInterval(poll);
+        finishChronicleRun(runBtn, state, true);
+        loadChroniclePending();
+      }
+    } catch (err) {
+      clearInterval(poll);
+      if (log.isConnected) log.textContent += '\n[poll error: ' + err.message + ']';
+      finishChronicleRun(runBtn, state, false);
+    }
+  }, 2000);
+}
+
+function finishChronicleRun(runBtn, state, ok) {
+  if (runBtn) runBtn.disabled = false;
+  if (state) state.textContent = ok ? 'done' : '';
+  startSnapshotPolling();
+}
+
 function renderGitHub() {
   return `
     <p class="section-description">Manage the shared machine SSH key for GitHub repository access from CCC work identities.</p>
@@ -1267,6 +1430,9 @@ function bindSectionActions(section) {
   }
   if (section === 'settings') {
     bindSettings();
+  }
+  if (section === 'chronicle') {
+    bindChronicle();
   }
 }
 

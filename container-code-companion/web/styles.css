@@ -2132,3 +2132,30 @@ td {
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+.chronicle-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+.chronicle-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.chronicle-item-target {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.chronicle-pending-header {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
