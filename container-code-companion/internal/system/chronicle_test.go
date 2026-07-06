@@ -84,23 +84,26 @@ func TestReadChroniclePendingCorrupt(t *testing.T) {
 
 func TestBuildPublishArgs(t *testing.T) {
 	cases := []struct {
-		name    string
-		op      ChroniclePublishOperation
-		want    []string
-		wantErr bool
+		name      string
+		op        ChroniclePublishOperation
+		itemCount int
+		want      []string
+		wantErr   bool
 	}{
-		{"all", ChroniclePublishOperation{Mode: "all"}, []string{"publish", "--all"}, false},
-		{"discard", ChroniclePublishOperation{Mode: "discard"}, []string{"publish", "--discard"}, false},
-		{"items", ChroniclePublishOperation{Mode: "items", Items: []int{1, 3}}, []string{"publish", "--items", "1,3"}, false},
-		{"items empty", ChroniclePublishOperation{Mode: "items"}, nil, true},
-		{"items zero index", ChroniclePublishOperation{Mode: "items", Items: []int{0}}, nil, true},
-		{"items negative", ChroniclePublishOperation{Mode: "items", Items: []int{-2}}, nil, true},
-		{"bad mode", ChroniclePublishOperation{Mode: "nuke"}, nil, true},
-		{"empty mode", ChroniclePublishOperation{}, nil, true},
+		{"all", ChroniclePublishOperation{Mode: "all"}, 0, []string{"publish", "--all"}, false},
+		{"discard", ChroniclePublishOperation{Mode: "discard"}, 0, []string{"publish", "--discard"}, false},
+		{"items", ChroniclePublishOperation{Mode: "items", Items: []int{1, 3}}, 3, []string{"publish", "--items", "1,3"}, false},
+		{"items empty", ChroniclePublishOperation{Mode: "items"}, 3, nil, true},
+		{"items zero index", ChroniclePublishOperation{Mode: "items", Items: []int{0}}, 3, nil, true},
+		{"items negative", ChroniclePublishOperation{Mode: "items", Items: []int{-2}}, 3, nil, true},
+		{"items above count", ChroniclePublishOperation{Mode: "items", Items: []int{4}}, 3, nil, true},
+		{"items with no pending", ChroniclePublishOperation{Mode: "items", Items: []int{1}}, 0, nil, true},
+		{"bad mode", ChroniclePublishOperation{Mode: "nuke"}, 0, nil, true},
+		{"empty mode", ChroniclePublishOperation{}, 0, nil, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := buildPublishArgs(tc.op)
+			got, err := buildPublishArgs(tc.op, tc.itemCount)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got args %v", got)
@@ -147,8 +150,24 @@ func TestPublishChronicleInvalidRejectedBeforeExec(t *testing.T) {
 	}
 }
 
+// writePendingItems plants a pending file with n minimal items so publish
+// index bounds can be exercised.
+func writePendingItems(t *testing.T, dataDir string, n int) {
+	t.Helper()
+	items := make([]string, n)
+	for i := range items {
+		items[i] = `{"rule":"r","why":"w","citations":[],"target_file":"claude/CLAUDE.md","placement":"append"}`
+	}
+	json := `{"synthesized_at":"2026-07-06T12:00:00+00:00","session_count":1,"items":[` +
+		strings.Join(items, ",") + `]}`
+	if err := os.WriteFile(filepath.Join(dataDir, "pending-items.json"), []byte(json), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPublishChronicleRunsFakeBinary(t *testing.T) {
 	dataDir := withChronicleRoot(t)
+	writePendingItems(t, dataDir, 4)
 	binDir := filepath.Join(filepath.Dir(dataDir), ".venv", "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -170,6 +189,28 @@ func TestPublishChronicleRunsFakeBinary(t *testing.T) {
 	}
 	if !strings.Contains(res.Output, "cwd: "+chronicleDir()) {
 		t.Fatalf("cwd not set to chronicleDir: %q", res.Output)
+	}
+}
+
+func TestPublishChronicleOutOfRangeRejectedBeforeExec(t *testing.T) {
+	// Only two items pending, but the request asks for index 3.
+	dataDir := withChronicleRoot(t)
+	writePendingItems(t, dataDir, 2)
+	binDir := filepath.Join(filepath.Dir(dataDir), ".venv", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Binary would fail loudly if the out-of-range index ever reached it.
+	script := "#!/bin/sh\necho SHOULD_NOT_RUN >&2\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(binDir, "chronicle"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res, err := PublishChronicle(ChroniclePublishOperation{Mode: "items", Items: []int{3}})
+	if err == nil {
+		t.Fatal("expected out-of-range validation error before exec")
+	}
+	if strings.Contains(res.Output, "SHOULD_NOT_RUN") {
+		t.Fatalf("binary ran despite out-of-range index: %q", res.Output)
 	}
 }
 

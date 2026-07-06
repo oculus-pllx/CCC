@@ -98,7 +98,10 @@ type ChroniclePublishOperation struct {
 
 // buildPublishArgs turns a validated operation into a chronicle argv. It never
 // embeds client text into a shell string; the CLI receives discrete args.
-func buildPublishArgs(op ChroniclePublishOperation) ([]string, error) {
+// itemCount is the number of pending items and bounds "items" indices; every
+// index must satisfy 1 <= n <= itemCount, so an out-of-range selection is
+// rejected here rather than reaching the CLI.
+func buildPublishArgs(op ChroniclePublishOperation, itemCount int) ([]string, error) {
 	switch op.Mode {
 	case "all":
 		return []string{"publish", "--all"}, nil
@@ -113,6 +116,9 @@ func buildPublishArgs(op ChroniclePublishOperation) ([]string, error) {
 			if n < 1 {
 				return nil, fmt.Errorf("invalid item index %d; indices are 1-based", n)
 			}
+			if n > itemCount {
+				return nil, fmt.Errorf("invalid item index %d; only %d item(s) pending", n, itemCount)
+			}
 			parts = append(parts, strconv.Itoa(n))
 		}
 		return []string{"publish", "--items", strings.Join(parts, ",")}, nil
@@ -126,7 +132,17 @@ func buildPublishArgs(op ChroniclePublishOperation) ([]string, error) {
 // well under the 45s ceiling; a 60s guard covers a stalled push). A non-zero
 // CLI exit is reported through the result, not as a returned error.
 func PublishChronicle(op ChroniclePublishOperation) (CommandResult, error) {
-	args, err := buildPublishArgs(op)
+	// "items" indices are bounded by the current pending set, so read it to
+	// reject an out-of-range selection before exec. Other modes don't need it.
+	itemCount := 0
+	if op.Mode == "items" {
+		pending, perr := ReadChroniclePending()
+		if perr != nil {
+			return CommandResult{}, perr
+		}
+		itemCount = len(pending.Items)
+	}
+	args, err := buildPublishArgs(op, itemCount)
 	if err != nil {
 		return CommandResult{}, err
 	}
