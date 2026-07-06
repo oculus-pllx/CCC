@@ -156,3 +156,92 @@ func PublishChronicle(op ChroniclePublishOperation) (CommandResult, error) {
 	}
 	return result, nil
 }
+
+// StartChronicleRun launches `chronicle run` as a detached background process
+// that appends stdout+stderr to the run log and returns immediately. This
+// mirrors StartSelfUpdate and is required because chronicle run makes LLM calls
+// that exceed CCC's 45s synchronous-command timeout. The arg list is kept
+// simple so a later provider/limit change can extend it.
+func StartChronicleRun() (CommandResult, error) {
+	bin := chronicleBinary()
+	if _, err := os.Stat(bin); err != nil {
+		return CommandResult{
+			Command:  "chronicle run",
+			Output:   fmt.Sprintf("Chronicle not found at %s", bin),
+			ExitCode: 1,
+		}, fmt.Errorf("Chronicle not found at %s", bin)
+	}
+
+	logPath := chronicleRunLogPath()
+	dataDir := filepath.Dir(logPath)
+	// setsid + no inherited pipes so the run survives the HTTP response; a
+	// fresh log per run (truncate) starts each readout clean. Braces matter
+	// here for the same reason as StartSelfUpdate: a bare trailing "&" would
+	// background the entire && chain in a subshell that still holds this
+	// process's stderr pipe, blocking cmd.Wait() until the run itself exits.
+	command := "mkdir -p " + shellQuote(dataDir) +
+		" && printf 'chronicle run started at %s\\n' \"$(date -Is)\" > " + shellQuote(logPath) +
+		" && { setsid env NO_COLOR=1 " + shellQuote(bin) + " run >> " + shellQuote(logPath) +
+		" 2>&1 < /dev/null & }"
+
+	// Use Start+Wait instead of Output/Run so that no stdout/stderr pipe is
+	// inherited by the setsid child process. If Output() is used, the child
+	// inherits bash's stderr pipe and cmd.Output() blocks until chronicle run
+	// exits (minutes), causing the HTTP response to never be sent.
+	var launchErr bytes.Buffer
+	cmd := exec.Command("bash", "-lc", command)
+	cmd.Dir = chronicleDir()
+	cmd.Stderr = &launchErr
+	if err := cmd.Start(); err != nil {
+		return CommandResult{Command: "chronicle run", Output: "Run launch failed: " + err.Error(), ExitCode: 1}, err
+	}
+	if err := cmd.Wait(); err != nil {
+		msg := strings.TrimSpace(launchErr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return CommandResult{Command: "chronicle run", Output: "Run launch failed: " + msg, ExitCode: 1}, errors.New(msg)
+	}
+	return CommandResult{
+		Command:  "chronicle run",
+		Cwd:      chronicleDir(),
+		Output:   "Chronicle run started.",
+		ExitCode: 0,
+	}, nil
+}
+
+// ChronicleRunStatus returns the run-log contents and whether a chronicle run
+// process is still alive. A missing log reads as empty (the run may not have
+// written yet); it is not an error.
+func ChronicleRunStatus() (string, bool) {
+	log, _ := os.ReadFile(chronicleRunLogPath())
+	return string(log), chronicleRunActive()
+}
+
+// chronicleRunActive scans /proc for a process whose cmdline references the
+// chronicle binary path. Matching the full derived path (not just "chronicle")
+// avoids false positives from unrelated processes. No sudo required.
+func chronicleRunActive() bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	needle := chronicleBinary()
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name == "" || name[0] < '1' || name[0] > '9' {
+			continue
+		}
+		data, err := os.ReadFile("/proc/" + name + "/cmdline")
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), needle) {
+			return true
+		}
+	}
+	return false
+}

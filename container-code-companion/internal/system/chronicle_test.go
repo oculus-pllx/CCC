@@ -172,3 +172,49 @@ func TestPublishChronicleRunsFakeBinary(t *testing.T) {
 		t.Fatalf("cwd not set to chronicleDir: %q", res.Output)
 	}
 }
+
+func TestStartChronicleRunMissingBinary(t *testing.T) {
+	withChronicleRoot(t) // no binary
+	res, err := StartChronicleRun()
+	if err == nil {
+		t.Fatal("expected error when binary is missing")
+	}
+	if res.ExitCode == 0 {
+		t.Fatal("expected non-zero exit code in result")
+	}
+}
+
+func TestChronicleRunStatusReadsLog(t *testing.T) {
+	dataDir := withChronicleRoot(t)
+	if err := os.WriteFile(filepath.Join(dataDir, "chronicle-run.log"), []byte("line one\nline two\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log, running := ChronicleRunStatus()
+	if log != "line one\nline two\n" {
+		t.Fatalf("log mismatch: %q", log)
+	}
+	// No chronicle process is running against this temp path.
+	if running {
+		t.Fatal("expected running=false with no chronicle process")
+	}
+}
+
+func TestChronicleRunStatusNoLog(t *testing.T) {
+	withChronicleRoot(t) // no log file
+	log, running := ChronicleRunStatus()
+	if log != "" {
+		t.Fatalf("expected empty log, got %q", log)
+	}
+	if running {
+		t.Fatal("expected running=false")
+	}
+}
+
+func TestShellQuote(t *testing.T) {
+	if got := shellQuote("/a/b c"); got != "'/a/b c'" {
+		t.Fatalf("got %q", got)
+	}
+	if got := shellQuote("it's"); got != `'it'\''s'` {
+		t.Fatalf("got %q", got)
+	}
+}
