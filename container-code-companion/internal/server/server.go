@@ -19,111 +19,123 @@ import (
 const SessionCookieName = "aw_session"
 
 type Config struct {
-	SessionToken     string
-	Username         string
-	Password         string
-	WebDir           string
-	Overview         func() (system.Overview, error)
-	Snapshot         func() (system.ManagementSnapshot, error)
-	RunCommand       func(command string, cwd string) (system.CommandResult, error)
-	RunAction        func(action string) (system.CommandResult, error)
-	ListFiles        func(path string) (system.FileListing, error)
-	ReadFile         func(path string) (system.FileContent, error)
-	WriteFile        func(path string, content string) error
-	UploadFile       func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
-	DownloadFile     func(path string) (system.DownloadFile, error)
-	UploadFiles      func(destDir string, entries []system.BatchUploadEntry) ([]string, error)
-	DownloadZip      func(w io.Writer, paths []string) error
-	ControlService   func(service string, operation string) (system.CommandResult, error)
-	FileOperation    func(operation system.FileOperation) (system.CommandResult, error)
-	ProjectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
+	SessionToken        string
+	Username            string
+	Password            string
+	WebDir              string
+	Overview            func() (system.Overview, error)
+	Snapshot            func() (system.ManagementSnapshot, error)
+	RunCommand          func(command string, cwd string) (system.CommandResult, error)
+	RunAction           func(action string) (system.CommandResult, error)
+	ListFiles           func(path string) (system.FileListing, error)
+	ReadFile            func(path string) (system.FileContent, error)
+	WriteFile           func(path string, content string) error
+	UploadFile          func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
+	DownloadFile        func(path string) (system.DownloadFile, error)
+	UploadFiles         func(destDir string, entries []system.BatchUploadEntry) ([]string, error)
+	DownloadZip         func(w io.Writer, paths []string) error
+	ControlService      func(service string, operation string) (system.CommandResult, error)
+	FileOperation       func(operation system.FileOperation) (system.CommandResult, error)
+	ProjectOperation    func(operation system.ProjectOperation) (system.CommandResult, error)
 	AccountOperation    func(operation system.AccountOperation) (system.CommandResult, error)
 	WriteClaudeSettings func(username, home string, patch map[string]any) (system.CommandResult, error)
 	ListAccounts        func() []system.AccountStatus
 	NetworkActivity     func() (system.NetworkActivity, error)
-	ListNotes        func() ([]system.Note, error)
-	SaveNote         func(note system.Note) (system.Note, error)
-	DeleteNote       func(id string) error
-	TimeSettings     func() (system.TimeSettings, error)
-	SetTimezone      func(timezone string) (system.CommandResult, error)
-	ToolStatuses     func() []system.ToolStatus
-	ToolOperation    func(operation system.ToolOperation) (system.CommandResult, error)
-	DriveOperation   func(operation system.DriveOperation) (system.CommandResult, error)
-	SSHKeyOperation  func(operation system.SSHKeyOperation) (any, error)
-	SecureCookies    bool // set true when serving behind HTTPS
+	ListNotes           func() ([]system.Note, error)
+	SaveNote            func(note system.Note) (system.Note, error)
+	DeleteNote          func(id string) error
+	TimeSettings        func() (system.TimeSettings, error)
+	SetTimezone         func(timezone string) (system.CommandResult, error)
+	ToolStatuses        func() []system.ToolStatus
+	ToolOperation       func(operation system.ToolOperation) (system.CommandResult, error)
+	DriveOperation      func(operation system.DriveOperation) (system.CommandResult, error)
+	SSHKeyOperation     func(operation system.SSHKeyOperation) (any, error)
+	ChronicleRun        func() (system.CommandResult, error)
+	ChronicleRunStatus  func() (string, bool)
+	ChroniclePending    func() (system.ChroniclePending, error)
+	ChroniclePublish    func(op system.ChroniclePublishOperation) (system.CommandResult, error)
+	SecureCookies       bool // set true when serving behind HTTPS
 }
 
 type Server struct {
-	mux              *http.ServeMux
-	sessionToken     string
-	username         string
-	password         string
-	webDir           string
-	overview         func() (system.Overview, error)
-	snapshot         func() (system.ManagementSnapshot, error)
-	runCommand       func(command string, cwd string) (system.CommandResult, error)
-	runAction        func(action string) (system.CommandResult, error)
-	listFiles        func(path string) (system.FileListing, error)
-	readFile         func(path string) (system.FileContent, error)
-	writeFile        func(path string, content string) error
-	uploadFile       func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
-	downloadFile     func(path string) (system.DownloadFile, error)
-	uploadFiles      func(destDir string, entries []system.BatchUploadEntry) ([]string, error)
-	downloadZip      func(w io.Writer, paths []string) error
-	controlService   func(service string, operation string) (system.CommandResult, error)
-	fileOperation    func(operation system.FileOperation) (system.CommandResult, error)
-	projectOperation func(operation system.ProjectOperation) (system.CommandResult, error)
+	mux                 *http.ServeMux
+	sessionToken        string
+	username            string
+	password            string
+	webDir              string
+	overview            func() (system.Overview, error)
+	snapshot            func() (system.ManagementSnapshot, error)
+	runCommand          func(command string, cwd string) (system.CommandResult, error)
+	runAction           func(action string) (system.CommandResult, error)
+	listFiles           func(path string) (system.FileListing, error)
+	readFile            func(path string) (system.FileContent, error)
+	writeFile           func(path string, content string) error
+	uploadFile          func(dir string, filename string, source io.Reader) (system.UploadedFile, error)
+	downloadFile        func(path string) (system.DownloadFile, error)
+	uploadFiles         func(destDir string, entries []system.BatchUploadEntry) ([]string, error)
+	downloadZip         func(w io.Writer, paths []string) error
+	controlService      func(service string, operation string) (system.CommandResult, error)
+	fileOperation       func(operation system.FileOperation) (system.CommandResult, error)
+	projectOperation    func(operation system.ProjectOperation) (system.CommandResult, error)
 	accountOperation    func(operation system.AccountOperation) (system.CommandResult, error)
 	writeClaudeSettings func(username, home string, patch map[string]any) (system.CommandResult, error)
 	listAccounts        func() []system.AccountStatus
 	networkActivity     func() (system.NetworkActivity, error)
-	listNotes        func() ([]system.Note, error)
-	saveNote         func(note system.Note) (system.Note, error)
-	deleteNote       func(id string) error
-	timeSettings     func() (system.TimeSettings, error)
-	setTimezone      func(timezone string) (system.CommandResult, error)
-	toolStatuses     func() []system.ToolStatus
-	toolOperation    func(operation system.ToolOperation) (system.CommandResult, error)
-	driveOperation   func(operation system.DriveOperation) (system.CommandResult, error)
-	sshKeyOperation  func(operation system.SSHKeyOperation) (any, error)
-	secureCookies    bool
+	listNotes           func() ([]system.Note, error)
+	saveNote            func(note system.Note) (system.Note, error)
+	deleteNote          func(id string) error
+	timeSettings        func() (system.TimeSettings, error)
+	setTimezone         func(timezone string) (system.CommandResult, error)
+	toolStatuses        func() []system.ToolStatus
+	toolOperation       func(operation system.ToolOperation) (system.CommandResult, error)
+	driveOperation      func(operation system.DriveOperation) (system.CommandResult, error)
+	sshKeyOperation     func(operation system.SSHKeyOperation) (any, error)
+	chronicleRun        func() (system.CommandResult, error)
+	chronicleRunStatus  func() (string, bool)
+	chroniclePending    func() (system.ChroniclePending, error)
+	chroniclePublish    func(op system.ChroniclePublishOperation) (system.CommandResult, error)
+	secureCookies       bool
 }
 
 func New(config Config) *Server {
 	s := &Server{
-		mux:              http.NewServeMux(),
-		sessionToken:     config.SessionToken,
-		username:         config.Username,
-		password:         config.Password,
-		webDir:           config.WebDir,
-		overview:         config.Overview,
-		snapshot:         config.Snapshot,
-		runCommand:       config.RunCommand,
-		runAction:        config.RunAction,
-		listFiles:        config.ListFiles,
-		readFile:         config.ReadFile,
-		writeFile:        config.WriteFile,
-		uploadFile:       config.UploadFile,
-		downloadFile:     config.DownloadFile,
-		uploadFiles:      config.UploadFiles,
-		downloadZip:      config.DownloadZip,
-		controlService:   config.ControlService,
-		fileOperation:    config.FileOperation,
-		projectOperation: config.ProjectOperation,
+		mux:                 http.NewServeMux(),
+		sessionToken:        config.SessionToken,
+		username:            config.Username,
+		password:            config.Password,
+		webDir:              config.WebDir,
+		overview:            config.Overview,
+		snapshot:            config.Snapshot,
+		runCommand:          config.RunCommand,
+		runAction:           config.RunAction,
+		listFiles:           config.ListFiles,
+		readFile:            config.ReadFile,
+		writeFile:           config.WriteFile,
+		uploadFile:          config.UploadFile,
+		downloadFile:        config.DownloadFile,
+		uploadFiles:         config.UploadFiles,
+		downloadZip:         config.DownloadZip,
+		controlService:      config.ControlService,
+		fileOperation:       config.FileOperation,
+		projectOperation:    config.ProjectOperation,
 		accountOperation:    config.AccountOperation,
 		writeClaudeSettings: config.WriteClaudeSettings,
 		listAccounts:        config.ListAccounts,
 		networkActivity:     config.NetworkActivity,
-		listNotes:        config.ListNotes,
-		saveNote:         config.SaveNote,
-		deleteNote:       config.DeleteNote,
-		timeSettings:     config.TimeSettings,
-		setTimezone:      config.SetTimezone,
-		toolStatuses:     config.ToolStatuses,
-		toolOperation:    config.ToolOperation,
-		driveOperation:   config.DriveOperation,
-		sshKeyOperation:  config.SSHKeyOperation,
-		secureCookies:    config.SecureCookies,
+		listNotes:           config.ListNotes,
+		saveNote:            config.SaveNote,
+		deleteNote:          config.DeleteNote,
+		timeSettings:        config.TimeSettings,
+		setTimezone:         config.SetTimezone,
+		toolStatuses:        config.ToolStatuses,
+		toolOperation:       config.ToolOperation,
+		driveOperation:      config.DriveOperation,
+		sshKeyOperation:     config.SSHKeyOperation,
+		chronicleRun:        config.ChronicleRun,
+		chronicleRunStatus:  config.ChronicleRunStatus,
+		chroniclePending:    config.ChroniclePending,
+		chroniclePublish:    config.ChroniclePublish,
+		secureCookies:       config.SecureCookies,
 	}
 	if s.overview == nil {
 		s.overview = system.CollectOverview
@@ -206,6 +218,18 @@ func New(config Config) *Server {
 	if s.sshKeyOperation == nil {
 		s.sshKeyOperation = system.RunSSHKeyOperation
 	}
+	if s.chronicleRun == nil {
+		s.chronicleRun = system.StartChronicleRun
+	}
+	if s.chronicleRunStatus == nil {
+		s.chronicleRunStatus = system.ChronicleRunStatus
+	}
+	if s.chroniclePending == nil {
+		s.chroniclePending = system.ReadChroniclePending
+	}
+	if s.chroniclePublish == nil {
+		s.chroniclePublish = system.PublishChronicle
+	}
 	system.StartUpdateStatusPoller(4 * time.Hour)
 	s.routes()
 	return s
@@ -244,6 +268,10 @@ func (s *Server) routes() {
 	s.mux.Handle("/api/drive", s.requireSession(http.HandlerFunc(s.handleDrive)))
 	s.mux.Handle("/api/ssh-key-operation", s.requireSession(http.HandlerFunc(s.handleSSHKeyOperation)))
 	s.mux.Handle("/api/pty", s.requireSession(http.HandlerFunc(s.handlePTY)))
+	s.mux.Handle("/api/chronicle-run", s.requireSession(http.HandlerFunc(s.handleChronicleRun)))
+	s.mux.Handle("/api/chronicle-run-log", s.requireSession(http.HandlerFunc(s.handleChronicleRunLog)))
+	s.mux.Handle("/api/chronicle-pending", s.requireSession(http.HandlerFunc(s.handleChroniclePending)))
+	s.mux.Handle("/api/chronicle-publish", s.requireSession(http.HandlerFunc(s.handleChroniclePublish)))
 	s.mux.Handle("/", s.staticHandler())
 }
 
@@ -775,6 +803,57 @@ func (s *Server) handleSSHKeyOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.sshKeyOperation(op)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleChronicleRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// A missing binary is reported through the result (ExitCode!=0 + Output);
+	// the browser inspects exitCode, mirroring handleSelfUpdate.
+	result, _ := s.chronicleRun()
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleChronicleRunLog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	log, running := s.chronicleRunStatus()
+	writeJSON(w, http.StatusOK, map[string]any{"log": log, "running": running})
+}
+
+func (s *Server) handleChroniclePending(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	pending, err := s.chroniclePending()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, pending)
+}
+
+func (s *Server) handleChroniclePublish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var op system.ChroniclePublishOperation
+	if err := json.NewDecoder(r.Body).Decode(&op); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	result, err := s.chroniclePublish(op)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return

@@ -890,6 +890,28 @@ func newTestServer() *Server {
 				return nil, fmt.Errorf("unknown action: %q", operation.Action)
 			}
 		},
+		ChronicleRunStatus: func() (string, bool) {
+			return "chronicle run started at 2026-07-06\n", false
+		},
+		ChroniclePending: func() (system.ChroniclePending, error) {
+			return system.ChroniclePending{
+				Available:     true,
+				SynthesizedAt: "2026-07-06T12:00:00+00:00",
+				SessionCount:  3,
+				Items: []system.ChroniclePendingItem{
+					{Rule: "rule one", TargetFile: "claude/CLAUDE.md"},
+				},
+			}, nil
+		},
+		ChroniclePublish: func(op system.ChroniclePublishOperation) (system.CommandResult, error) {
+			if op.Mode == "" {
+				return system.CommandResult{}, fmt.Errorf("invalid publish mode")
+			}
+			return system.CommandResult{Command: "chronicle publish", Output: "published " + op.Mode, ExitCode: 0}, nil
+		},
+		ChronicleRun: func() (system.CommandResult, error) {
+			return system.CommandResult{Command: "chronicle run", Output: "Chronicle run started.", ExitCode: 0}, nil
+		},
 	})
 }
 
@@ -935,6 +957,88 @@ func TestSSHKeyOperationRejectsBadAction(t *testing.T) {
 
 	if res.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d with body %q", res.Code, res.Body.String())
+	}
+}
+
+func TestChroniclePendingRequiresSession(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/chronicle-pending", nil)
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without session, got %d", res.Code)
+	}
+}
+
+func TestChroniclePendingReturnsItems(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/chronicle-pending", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	var got system.ChroniclePending
+	if err := json.Unmarshal(res.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Available || len(got.Items) != 1 {
+		t.Fatalf("unexpected pending payload: %+v", got)
+	}
+}
+
+func TestChronicleRunLogReturnsStatus(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/chronicle-run-log", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	var got struct {
+		Log     string `json:"log"`
+		Running bool   `json:"running"`
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Log == "" || got.Running {
+		t.Fatalf("unexpected run-log payload: %+v", got)
+	}
+}
+
+func TestChroniclePublishValidReturnsResult(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/chronicle-publish", strings.NewReader(`{"mode":"all"}`))
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", res.Code, res.Body.String())
+	}
+}
+
+func TestChroniclePublishInvalidModeRejected(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/chronicle-publish", strings.NewReader(`{"mode":""}`))
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid mode, got %d", res.Code)
+	}
+}
+
+func TestChronicleRunRejectsGet(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/chronicle-run", nil)
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 for GET, got %d", res.Code)
 	}
 }
 
