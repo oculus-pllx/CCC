@@ -984,7 +984,11 @@ async function loadChroniclePending() {
   if (!container) return;
   try {
     const resp = await fetch('/api/chronicle-pending', { credentials: 'include' });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    if (!resp.ok) {
+      let message = 'HTTP ' + resp.status;
+      try { message = (await resp.json()).error || message; } catch {}
+      throw new Error(message);
+    }
     const pending = await resp.json();
     renderChroniclePendingList(pending);
   } catch (err) {
