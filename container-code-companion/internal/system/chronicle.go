@@ -96,6 +96,37 @@ type ChroniclePublishOperation struct {
 	Items []int  `json:"items"` // 1-based indices, required when Mode=="items"
 }
 
+// chronicleModelAllowlist is the exact set of model values the dashboard may
+// pass to `chronicle run`. It is the primary guard on the one piece of
+// browser-supplied input that reaches a shell command (shellQuote is the
+// backstop). Empty string is not in the set: it means "Default" (flag omitted).
+var chronicleModelAllowlist = map[string]bool{
+	"claude-sonnet-5":  true,
+	"claude-fable-5":   true,
+	"claude-opus-4-8":  true,
+	"claude-haiku-4-5": true,
+}
+
+// chronicleRunArgs builds the `chronicle run` argument list, appending
+// --extract-model/--synthesize-model only for a non-empty, allowlisted model.
+// An empty model means Default: Chronicle applies its own per-provider default.
+func chronicleRunArgs(extractModel, synthesizeModel string) ([]string, error) {
+	args := []string{"run"}
+	for _, m := range []struct{ flag, value string }{
+		{"--extract-model", extractModel},
+		{"--synthesize-model", synthesizeModel},
+	} {
+		if m.value == "" {
+			continue
+		}
+		if !chronicleModelAllowlist[m.value] {
+			return nil, fmt.Errorf("model %q is not an allowed Chronicle model", m.value)
+		}
+		args = append(args, m.flag, m.value)
+	}
+	return args, nil
+}
+
 // buildPublishArgs turns a validated operation into a chronicle argv. It never
 // embeds client text into a shell string; the CLI receives discrete args.
 // itemCount is the number of pending items and bounds "items" indices; every

@@ -125,6 +125,49 @@ func TestBuildPublishArgs(t *testing.T) {
 	}
 }
 
+func TestChronicleRunArgs(t *testing.T) {
+	cases := []struct {
+		name           string
+		extract, synth string
+		want           []string
+		wantErr        bool
+	}{
+		{"both default", "", "", []string{"run"}, false},
+		{"extract only", "claude-opus-4-8", "",
+			[]string{"run", "--extract-model", "claude-opus-4-8"}, false},
+		{"synth only", "", "claude-sonnet-5",
+			[]string{"run", "--synthesize-model", "claude-sonnet-5"}, false},
+		{"both set", "claude-haiku-4-5", "claude-sonnet-5",
+			[]string{"run", "--extract-model", "claude-haiku-4-5",
+				"--synthesize-model", "claude-sonnet-5"}, false},
+		{"off-list extract", "gpt-4", "", nil, true},
+		{"off-list synth", "", "sonnet", nil, true},
+		{"metacharacter injection", "claude-sonnet-5; rm -rf /", "", nil, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := chronicleRunArgs(tc.extract, tc.synth)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got args %v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("got %v want %v", got, tc.want)
+				}
+			}
+		})
+	}
+}
+
 func TestPublishChronicleMissingBinary(t *testing.T) {
 	withChronicleRoot(t) // no binary planted
 	_, err := PublishChronicle(ChroniclePublishOperation{Mode: "all"})
