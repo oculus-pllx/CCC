@@ -209,7 +209,7 @@ func PublishChronicle(op ChroniclePublishOperation) (CommandResult, error) {
 // mirrors StartSelfUpdate and is required because chronicle run makes LLM calls
 // that exceed CCC's 45s synchronous-command timeout. The arg list is kept
 // simple so a later provider/limit change can extend it.
-func StartChronicleRun() (CommandResult, error) {
+func StartChronicleRun(extractModel, synthesizeModel string) (CommandResult, error) {
 	bin := chronicleBinary()
 	if _, err := os.Stat(bin); err != nil {
 		return CommandResult{
@@ -218,6 +218,20 @@ func StartChronicleRun() (CommandResult, error) {
 			ExitCode: 1,
 		}, fmt.Errorf("Chronicle not found at %s", bin)
 	}
+
+	runArgs, err := chronicleRunArgs(extractModel, synthesizeModel)
+	if err != nil {
+		return CommandResult{
+			Command:  "chronicle run",
+			Output:   err.Error(),
+			ExitCode: 1,
+		}, err
+	}
+	quoted := make([]string, len(runArgs))
+	for i, a := range runArgs {
+		quoted[i] = shellQuote(a)
+	}
+	runInvocation := shellQuote(bin) + " " + strings.Join(quoted, " ")
 
 	logPath := chronicleRunLogPath()
 	dataDir := filepath.Dir(logPath)
@@ -228,7 +242,7 @@ func StartChronicleRun() (CommandResult, error) {
 	// process's stderr pipe, blocking cmd.Wait() until the run itself exits.
 	command := "mkdir -p " + shellQuote(dataDir) +
 		" && printf 'chronicle run started at %s\\n' \"$(date -Is)\" > " + shellQuote(logPath) +
-		" && { setsid env NO_COLOR=1 " + shellQuote(bin) + " run >> " + shellQuote(logPath) +
+		" && { setsid env NO_COLOR=1 " + runInvocation + " >> " + shellQuote(logPath) +
 		" 2>&1 < /dev/null & }"
 
 	// Use Start+Wait instead of Output/Run so that no stdout/stderr pipe is

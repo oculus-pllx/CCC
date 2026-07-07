@@ -259,7 +259,7 @@ func TestPublishChronicleOutOfRangeRejectedBeforeExec(t *testing.T) {
 
 func TestStartChronicleRunMissingBinary(t *testing.T) {
 	withChronicleRoot(t) // no binary
-	res, err := StartChronicleRun()
+	res, err := StartChronicleRun("", "")
 	if err == nil {
 		t.Fatal("expected error when binary is missing")
 	}
