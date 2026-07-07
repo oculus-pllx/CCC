@@ -837,7 +837,11 @@ func TestSelfUpdateActionReturnsMonitorStartedMessage(t *testing.T) {
 }
 
 func newTestServer() *Server {
-	return New(Config{
+	return New(testConfig())
+}
+
+func testConfig() Config {
+	return Config{
 		SessionToken: "test-token",
 		Username:     "oculus",
 		Password:     "secret",
@@ -909,10 +913,10 @@ func newTestServer() *Server {
 			}
 			return system.CommandResult{Command: "chronicle publish", Output: "published " + op.Mode, ExitCode: 0}, nil
 		},
-		ChronicleRun: func() (system.CommandResult, error) {
+		ChronicleRun: func(extractModel, synthesizeModel string) (system.CommandResult, error) {
 			return system.CommandResult{Command: "chronicle run", Output: "Chronicle run started.", ExitCode: 0}, nil
 		},
-	})
+	}
 }
 
 func TestSSHKeyOperationRequiresSession(t *testing.T) {
@@ -1039,6 +1043,53 @@ func TestChronicleRunRejectsGet(t *testing.T) {
 	srv.ServeHTTP(res, req)
 	if res.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 for GET, got %d", res.Code)
+	}
+}
+
+func TestChronicleRunPassesModels(t *testing.T) {
+	var gotExtractModel, gotSynthesizeModel string
+	cfg := testConfig()
+	cfg.ChronicleRun = func(extractModel, synthesizeModel string) (system.CommandResult, error) {
+		gotExtractModel = extractModel
+		gotSynthesizeModel = synthesizeModel
+		return system.CommandResult{Command: "chronicle run", Output: "Chronicle run started.", ExitCode: 0}, nil
+	}
+	srv := New(cfg)
+	req := httptest.NewRequest(http.MethodPost, "/api/chronicle-run", strings.NewReader(`{"extractModel":"claude-opus-4-8","synthesizeModel":"claude-sonnet-5"}`))
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", res.Code, res.Body.String())
+	}
+	if gotExtractModel != "claude-opus-4-8" || gotSynthesizeModel != "claude-sonnet-5" {
+		t.Fatalf("expected models to be passed through, got extract=%q synthesize=%q", gotExtractModel, gotSynthesizeModel)
+	}
+}
+
+func TestChronicleRunEmptyBodyDefaults(t *testing.T) {
+	var gotExtractModel, gotSynthesizeModel string
+	called := false
+	cfg := testConfig()
+	cfg.ChronicleRun = func(extractModel, synthesizeModel string) (system.CommandResult, error) {
+		called = true
+		gotExtractModel = extractModel
+		gotSynthesizeModel = synthesizeModel
+		return system.CommandResult{Command: "chronicle run", Output: "Chronicle run started.", ExitCode: 0}, nil
+	}
+	srv := New(cfg)
+	req := httptest.NewRequest(http.MethodPost, "/api/chronicle-run", strings.NewReader(""))
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "test-token"})
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", res.Code, res.Body.String())
+	}
+	if !called {
+		t.Fatalf("expected chronicleRun to be called")
+	}
+	if gotExtractModel != "" || gotSynthesizeModel != "" {
+		t.Fatalf("expected empty models by default, got extract=%q synthesize=%q", gotExtractModel, gotSynthesizeModel)
 	}
 }
 

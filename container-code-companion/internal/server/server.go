@@ -50,7 +50,7 @@ type Config struct {
 	ToolOperation       func(operation system.ToolOperation) (system.CommandResult, error)
 	DriveOperation      func(operation system.DriveOperation) (system.CommandResult, error)
 	SSHKeyOperation     func(operation system.SSHKeyOperation) (any, error)
-	ChronicleRun        func() (system.CommandResult, error)
+	ChronicleRun        func(extractModel, synthesizeModel string) (system.CommandResult, error)
 	ChronicleRunStatus  func() (string, bool)
 	ChroniclePending    func() (system.ChroniclePending, error)
 	ChroniclePublish    func(op system.ChroniclePublishOperation) (system.CommandResult, error)
@@ -90,7 +90,7 @@ type Server struct {
 	toolOperation       func(operation system.ToolOperation) (system.CommandResult, error)
 	driveOperation      func(operation system.DriveOperation) (system.CommandResult, error)
 	sshKeyOperation     func(operation system.SSHKeyOperation) (any, error)
-	chronicleRun        func() (system.CommandResult, error)
+	chronicleRun        func(extractModel, synthesizeModel string) (system.CommandResult, error)
 	chronicleRunStatus  func() (string, bool)
 	chroniclePending    func() (system.ChroniclePending, error)
 	chroniclePublish    func(op system.ChroniclePublishOperation) (system.CommandResult, error)
@@ -815,9 +815,17 @@ func (s *Server) handleChronicleRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	var body struct {
+		ExtractModel    string `json:"extractModel"`
+		SynthesizeModel string `json:"synthesizeModel"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
 	// A missing binary is reported through the result (ExitCode!=0 + Output);
 	// the browser inspects exitCode, mirroring handleSelfUpdate.
-	result, _ := s.chronicleRun()
+	result, _ := s.chronicleRun(body.ExtractModel, body.SynthesizeModel)
 	writeJSON(w, http.StatusOK, result)
 }
 
