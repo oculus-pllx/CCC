@@ -268,6 +268,36 @@ func TestStartChronicleRunMissingBinary(t *testing.T) {
 	}
 }
 
+func TestStartChronicleRunRejectsOffListModelBeforeExec(t *testing.T) {
+	// Plant a binary that would fail loudly if ever executed.
+	dataDir := withChronicleRoot(t)
+	binDir := filepath.Join(filepath.Dir(dataDir), ".venv", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\necho SHOULD_NOT_RUN >&2\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(binDir, "chronicle"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := StartChronicleRun("bogus-model; rm -rf /", "")
+	if err == nil {
+		t.Fatal("expected error for off-list model")
+	}
+	if res.ExitCode == 0 {
+		t.Fatal("expected non-zero exit code in result")
+	}
+	if !strings.Contains(err.Error(), "bogus-model; rm -rf /") {
+		t.Fatalf("error should name the rejected model: %v", err)
+	}
+
+	// The rejection happens before mkdir/log-file creation, so the run log
+	// must not exist and the fake binary must never have been launched.
+	if _, statErr := os.Stat(chronicleRunLogPath()); !os.IsNotExist(statErr) {
+		t.Fatalf("expected no run log to be created, stat err: %v", statErr)
+	}
+}
+
 func TestChronicleRunStatusReadsLog(t *testing.T) {
 	dataDir := withChronicleRoot(t)
 	if err := os.WriteFile(filepath.Join(dataDir, "chronicle-run.log"), []byte("line one\nline two\n"), 0o644); err != nil {

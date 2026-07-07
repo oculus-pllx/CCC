@@ -120,7 +120,7 @@ func chronicleRunArgs(extractModel, synthesizeModel string) ([]string, error) {
 			continue
 		}
 		if !chronicleModelAllowlist[m.value] {
-			return nil, fmt.Errorf("model %q is not an allowed Chronicle model", m.value)
+			return nil, fmt.Errorf("%s: model %q is not an allowed Chronicle model", m.flag, m.value)
 		}
 		args = append(args, m.flag, m.value)
 	}
