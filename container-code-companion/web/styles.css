@@ -2159,3 +2159,21 @@ td {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
+.chronicle-model-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.chronicle-model-select {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--topbar);
+  color: var(--text);
+  padding: 6px 8px;
+}
+.chronicle-model-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}

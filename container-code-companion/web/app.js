@@ -960,10 +960,30 @@ function renderOculus() {
   `;
 }
 
+const CHRONICLE_MODELS = [
+  { label: 'Default', value: '' },
+  { label: 'Sonnet 5', value: 'claude-sonnet-5' },
+  { label: 'Fable 5', value: 'claude-fable-5' },
+  { label: 'Opus 4.8', value: 'claude-opus-4-8' },
+  { label: 'Haiku 4.5', value: 'claude-haiku-4-5' },
+];
+
+function chronicleModelOptions() {
+  return CHRONICLE_MODELS
+    .map((m) => `<option value="${m.value}"${m.value === '' ? ' selected' : ''}>${m.label}</option>`)
+    .join('');
+}
+
 function renderChronicle() {
   return `
     <p class="section-description">Harvest Fable-5 transcript patterns into config-delta proposals, review them, and publish a selection to oculus-configs.</p>
     <div class="action-row">
+      <label class="chronicle-model-label">Extract:
+        <select id="chronicle-extract-model" class="chronicle-model-select">${chronicleModelOptions()}</select>
+      </label>
+      <label class="chronicle-model-label">Synthesize:
+        <select id="chronicle-synthesize-model" class="chronicle-model-select">${chronicleModelOptions()}</select>
+      </label>
       <button id="chronicle-run-btn" class="small-button">Run Chronicle</button>
       <span id="chronicle-run-state" class="muted"></span>
     </div>
@@ -1071,17 +1091,24 @@ async function runChronicle() {
   const runBtn = document.getElementById('chronicle-run-btn');
   const state = document.getElementById('chronicle-run-state');
   const log = document.getElementById('chronicle-run-log');
+  const extractSel = document.getElementById('chronicle-extract-model');
+  const synthSel = document.getElementById('chronicle-synthesize-model');
   if (!log) return;
   log.hidden = false;
   log.textContent = 'Starting run…\n';
   if (runBtn) runBtn.disabled = true;
+  if (extractSel) extractSel.disabled = true;
+  if (synthSel) synthSel.disabled = true;
   if (state) state.textContent = 'running…';
   // Pause the snapshot poll so it doesn't re-render the section mid-run.
   stopSnapshotPolling();
 
   let start;
   try {
-    start = await postJSON('/api/chronicle-run', {});
+    start = await postJSON('/api/chronicle-run', {
+      extractModel: extractSel ? extractSel.value : '',
+      synthesizeModel: synthSel ? synthSel.value : '',
+    });
   } catch (err) {
     log.textContent = 'Failed to start run: ' + err.message;
     finishChronicleRun(runBtn, state, false);
@@ -1121,6 +1148,10 @@ async function runChronicle() {
 
 function finishChronicleRun(runBtn, state, ok) {
   if (runBtn) runBtn.disabled = false;
+  const extractSel = document.getElementById('chronicle-extract-model');
+  const synthSel = document.getElementById('chronicle-synthesize-model');
+  if (extractSel) extractSel.disabled = false;
+  if (synthSel) synthSel.disabled = false;
   if (state) state.textContent = ok ? 'done' : '';
   startSnapshotPolling();
 }
