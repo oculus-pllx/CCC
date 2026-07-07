@@ -100,6 +100,9 @@ type ChroniclePublishOperation struct {
 // pass to `chronicle run`. It is the primary guard on the one piece of
 // browser-supplied input that reaches a shell command (shellQuote is the
 // backstop). Empty string is not in the set: it means "Default" (flag omitted).
+// These are Claude model names; the dashboard's Chronicle deployment uses a
+// claude provider. If Chronicle is ever reconfigured to a non-claude provider
+// (codex-cli, ollama), this list must change to match that provider's models.
 var chronicleModelAllowlist = map[string]bool{
 	"claude-sonnet-5":  true,
 	"claude-fable-5":   true,
