@@ -2529,7 +2529,11 @@ async function renameCurrentFile() {
     return;
   }
   const path = opTarget.path;
-  if (!path) return;
+  if (!path) {
+    output.hidden = false;
+    output.textContent = 'Select a file or folder first (check its box).';
+    return;
+  }
   const target = prompt('New path', path);
   if (!target || target === path) return;
   output.hidden = false;
@@ -2555,7 +2559,11 @@ async function copyCurrentFile() {
     return;
   }
   const path = opTarget.path;
-  if (!path) return;
+  if (!path) {
+    output.hidden = false;
+    output.textContent = 'Select a file or folder first (check its box).';
+    return;
+  }
   const target = prompt('Copy to path', `${path}.copy`);
   if (!target || target === path) return;
   output.hidden = false;
@@ -2578,7 +2586,11 @@ async function chmodCurrentFile() {
     return;
   }
   const path = opTarget.path;
-  if (!path) return;
+  if (!path) {
+    output.hidden = false;
+    output.textContent = 'Select a file or folder first (check its box).';
+    return;
+  }
   const mode = prompt('Permissions mode', '644');
   if (!mode) return;
   output.hidden = false;
@@ -2601,7 +2613,12 @@ async function deleteCurrentFile() {
     return;
   }
   const path = opTarget.path;
-  if (!path || !confirm(`Delete ${path}?`)) return;
+  if (!path) {
+    output.hidden = false;
+    output.textContent = 'Select a file or folder first (check its box).';
+    return;
+  }
+  if (!confirm(`Delete ${path}?`)) return;
   output.hidden = false;
   output.textContent = 'Deleting...';
   try {
