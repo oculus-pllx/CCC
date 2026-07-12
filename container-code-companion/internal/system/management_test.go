@@ -229,6 +229,38 @@ func TestBrowseFilesReturnsUnreadableDirectoryError(t *testing.T) {
 	}
 }
 
+func TestBrowseFilesReportsDirectoryModeWithTypeBit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "subdir"), 0o755); err != nil {
+		t.Fatalf("mkdir subdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "file.txt"), []byte("hi"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	listing, err := BrowseFiles(root)
+	if err != nil {
+		t.Fatalf("BrowseFiles: %v", err)
+	}
+
+	var dirMode, fileMode string
+	for _, entry := range listing.Entries {
+		switch entry.Name {
+		case "subdir":
+			dirMode = entry.Mode
+		case "file.txt":
+			fileMode = entry.Mode
+		}
+	}
+
+	if !strings.HasPrefix(dirMode, "d") {
+		t.Fatalf("expected directory mode to start with 'd', got %q", dirMode)
+	}
+	if !strings.HasPrefix(fileMode, "-") {
+		t.Fatalf("expected file mode to start with '-', got %q", fileMode)
+	}
+}
+
 func TestSharedProjectPermissionRepairCommandFollowsTopLevelSymlinkedProjects(t *testing.T) {
 	command := sharedProjectPermissionRepairCommand("/srv/ccc/projects", "ccc")
 	for _, want := range []string{

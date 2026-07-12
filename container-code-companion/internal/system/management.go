@@ -1942,7 +1942,7 @@ func listFilesWithError(root string, limit int) ([]FileEntry, error) {
 			Type:  fileType,
 			Size:  info.Size(),
 			MTime: info.ModTime().Format(time.RFC3339),
-			Mode:  info.Mode().Perm().String(),
+			Mode:  info.Mode().String(),
 		})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
