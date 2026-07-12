@@ -2513,12 +2513,25 @@ async function createFileEntry(kind) {
   }
 }
 
+function getFileOpTarget() {
+  const checked = document.querySelectorAll('.file-select-checkbox:checked');
+  if (checked.length > 1) return { ambiguous: true, path: '' };
+  if (checked.length === 1) return { ambiguous: false, path: checked[0].dataset.path };
+  return { ambiguous: false, path: selectedFilePath || document.getElementById('current-file').value };
+}
+
 async function renameCurrentFile() {
-  const path = selectedFilePath || document.getElementById('current-file').value;
+  const opTarget = getFileOpTarget();
+  const output = document.getElementById('file-output');
+  if (opTarget.ambiguous) {
+    output.hidden = false;
+    output.textContent = 'Select exactly one item to rename.';
+    return;
+  }
+  const path = opTarget.path;
   if (!path) return;
   const target = prompt('New path', path);
   if (!target || target === path) return;
-  const output = document.getElementById('file-output');
   output.hidden = false;
   output.textContent = 'Renaming...';
   try {
@@ -2534,11 +2547,17 @@ async function renameCurrentFile() {
 }
 
 async function copyCurrentFile() {
-  const path = selectedFilePath || document.getElementById('current-file').value;
+  const opTarget = getFileOpTarget();
+  const output = document.getElementById('file-output');
+  if (opTarget.ambiguous) {
+    output.hidden = false;
+    output.textContent = 'Select exactly one item to copy.';
+    return;
+  }
+  const path = opTarget.path;
   if (!path) return;
   const target = prompt('Copy to path', `${path}.copy`);
   if (!target || target === path) return;
-  const output = document.getElementById('file-output');
   output.hidden = false;
   output.textContent = 'Copying...';
   try {
@@ -2551,11 +2570,17 @@ async function copyCurrentFile() {
 }
 
 async function chmodCurrentFile() {
-  const path = selectedFilePath || document.getElementById('current-file').value;
+  const opTarget = getFileOpTarget();
+  const output = document.getElementById('file-output');
+  if (opTarget.ambiguous) {
+    output.hidden = false;
+    output.textContent = 'Select exactly one item to chmod.';
+    return;
+  }
+  const path = opTarget.path;
   if (!path) return;
   const mode = prompt('Permissions mode', '644');
   if (!mode) return;
-  const output = document.getElementById('file-output');
   output.hidden = false;
   output.textContent = 'Updating permissions...';
   try {
@@ -2568,9 +2593,15 @@ async function chmodCurrentFile() {
 }
 
 async function deleteCurrentFile() {
-  const path = selectedFilePath || document.getElementById('current-file').value;
-  if (!path || !confirm(`Delete ${path}?`)) return;
+  const opTarget = getFileOpTarget();
   const output = document.getElementById('file-output');
+  if (opTarget.ambiguous) {
+    output.hidden = false;
+    output.textContent = 'Select exactly one item to delete.';
+    return;
+  }
+  const path = opTarget.path;
+  if (!path || !confirm(`Delete ${path}?`)) return;
   output.hidden = false;
   output.textContent = 'Deleting...';
   try {
