@@ -237,6 +237,13 @@ require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.thinking.
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.used // 0'\'''
 require_file_contains install/ccc-provision-workstation.sh 'jq -r ".context.max // $CTX_MAX_DEFAULT"'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
+# Terse output style. keep-coding-instructions is load-bearing: without it Claude
+# Code drops the software-engineering system prompt instead of layering the style
+# on top of it. outputStyle uses setdefault so /config can switch it permanently.
+require_file_contains install/ccc-provision-workstation.sh 'cat > "$CCC_HOME/.claude/output-styles/terse.md"'
+require_file_contains install/ccc-provision-workstation.sh 'keep-coding-instructions: true'
+require_file_contains install/ccc-provision-workstation.sh '"outputStyle": "terse"'
+require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("outputStyle", "terse")'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_WARN="!!"'
 require_file_contains install/ccc-provision-workstation.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"

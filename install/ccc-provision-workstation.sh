@@ -771,7 +771,7 @@ copy_optional_dir() {
 }
 
 write_claude_baseline() {
-  mkdir -p "$CCC_HOME/.claude/bin"
+  mkdir -p "$CCC_HOME/.claude/bin" "$CCC_HOME/.claude/output-styles"
   if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]; then
     cat > "$CCC_HOME/.claude/settings.json" << 'CLAUDESETTINGS'
 {
@@ -788,6 +788,7 @@ write_claude_baseline() {
   "enableRemoteControl": true,
   "model": "opus",
   "autoCompactWindow": 833000,
+  "outputStyle": "terse",
   "statusLine": {"type": "command", "command": "~/.claude/bin/statusline-command.sh"},
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
@@ -838,6 +839,9 @@ except (TypeError, ValueError):
     _acw = 0
 if _acw < 833000:
     data["autoCompactWindow"] = 833000
+# setdefault, not assignment: the style file below is managed, but which style is
+# active is a preference. Switching it in /config must survive the next run.
+data.setdefault("outputStyle", "terse")
 # Assignment, not setdefault: an explicitly disabled plugin must self-heal.
 # setdefault never overwrites, so a stray "false" survived every provision run.
 ep = data.setdefault("enabledPlugins", {})
@@ -885,6 +889,54 @@ CLAUDESTATUSLINE
   chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
   chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
   ok "Claude statusline written"
+
+  # Managed content, same as the statusline. keep-coding-instructions is required:
+  # without it an output style *replaces* the software-engineering system prompt
+  # instead of layering on top of it, which would gut Claude on a dev workstation.
+  cat > "$CCC_HOME/.claude/output-styles/terse.md" << 'CLAUDEOUTPUTSTYLE'
+---
+name: Terse
+description: Short, direct answers. Leads with the result and separates what is being reported from what needs a decision.
+keep-coding-instructions: true
+---
+
+<!-- Managed by CCC provisioner (install/ccc-provision-workstation.sh) - edits are overwritten. -->
+
+# Terse
+
+Say the thing. Then stop.
+
+## Shape of a response
+
+- Lead with the result. Add context only where it changes what the reader does next.
+- Default to under 150 words. A table or a short list beats a paragraph.
+- When a response both reports and requires a decision, label the two parts. The
+  reader should never have to hunt for the question.
+- Give one recommendation, not a survey. If asked to choose, choose, and put the
+  reason in a clause rather than a section.
+
+## Cut
+
+- Preambles: "Great question", "I'll go ahead and", "Let me start by".
+- Restating the request before answering it.
+- Narrating tool calls that are already visible in the transcript.
+- Recapping work the user just watched happen.
+- Hedge stacks: "it might possibly be worth considering".
+- Closing offers of further help. If a next step matters, state it as a line.
+
+## Keep
+
+- Exact numbers, paths, commands, error text, and file:line references. Terse
+  means fewer words, never fewer facts.
+- Bad news, early and plain. Failures, skipped steps, and unfinished work get
+  reported, never softened and never dropped to save space.
+- Corrections to a wrong premise: one sentence, no apology, then continue.
+- Real uncertainty. "Not verified" is shorter than a paragraph of qualifiers.
+
+Brevity is a budget on words, not on rigor. Do the whole job; report it small.
+CLAUDEOUTPUTSTYLE
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/output-styles/terse.md"
+  ok "Claude terse output style written"
 }
 
 write_tmux_config() {
@@ -1450,6 +1502,7 @@ echo -e "${C}── Claude Code ────────────────
 command -v claude &>/dev/null && ok "claude binary: $(which claude)" || fail "claude not in PATH"
 [[ -f "$CCC_HOME/.claude/settings.json" ]] && ok "settings.json present for $CCC_USER" || fail "settings.json missing for $CCC_USER"
 [[ -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]] && ok "statusline script present" || warn "statusline script missing"
+[[ -f "$CCC_HOME/.claude/output-styles/terse.md" ]] && ok "terse output style present" || warn "terse output style missing"
 echo ""
 
 echo -e "${C}── Services ──────────────────────────────────${N}"
