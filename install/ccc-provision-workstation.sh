@@ -837,19 +837,25 @@ MERGESETTINGS
     chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/settings.json"
     ok "Claude settings merged"
   fi
-  if [[ ! -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]]; then
-    cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
+  # Managed content: rewritten every run. The old "only if missing" guard is why
+  # a stale 200000 context fallback survived on already-provisioned accounts.
+  cat > "$CCC_HOME/.claude/bin/statusline-command.sh" << 'CLAUDESTATUSLINE'
 #!/bin/bash
+# Managed by CCC provisioner (install/ccc-provision-workstation.sh) - edits are overwritten.
 set -euo pipefail
 INPUT=$(cat 2>/dev/null || echo '{}')
+# Fallback matches the current model family's 1M context. It only applies when
+# Claude Code omits .context.max; a too-small value here inflates the reported %.
+CTX_MAX_DEFAULT=1000000
 if command -v jq &>/dev/null; then
   MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
   THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
   CTX_USED=$(echo "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
-  CTX_MAX=$(echo "$INPUT" | jq -r '.context.max // 200000' 2>/dev/null)
+  CTX_MAX=$(echo "$INPUT" | jq -r ".context.max // $CTX_MAX_DEFAULT" 2>/dev/null)
 else
-  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=200000
+  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=$CTX_MAX_DEFAULT
 fi
+[[ -z "$CTX_MAX" || "$CTX_MAX" == "null" ]] && CTX_MAX=$CTX_MAX_DEFAULT
 [[ -z "$MODEL" ]] && MODEL="claude"
 CTX_PCT=0
 [[ "$CTX_MAX" -gt 0 ]] && CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
@@ -864,10 +870,9 @@ DIR=$(pwd | sed "s|^$HOME|~|")
 TIME=$(date +"%I:%M%p" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
 echo "${USER}@$(hostname -s):${DIR}${GIT_BRANCH} [${MODEL}${THINK}] [ctx:${CTX_PCT}%${CTX_WARN}] ${TIME}"
 CLAUDESTATUSLINE
-    chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
-    chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
-    ok "Claude statusline written"
-  fi
+  chmod +x "$CCC_HOME/.claude/bin/statusline-command.sh"
+  chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"
+  ok "Claude statusline written"
 }
 
 write_tmux_config() {

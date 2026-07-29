@@ -220,12 +220,17 @@ require_file_not_contains install/ccc-provision-workstation.sh 'ep.setdefault(k,
 require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER:-claude-code}"'
 require_file_contains install/ccc-provision-workstation.sh 'mkdir -p "$CCC_HOME/.claude/bin"'
 require_file_contains install/ccc-provision-workstation.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
+# Statusline is managed content, rewritten every run - an "only if missing" guard
+# strands stale values on already-provisioned accounts.
+require_file_not_contains install/ccc-provision-workstation.sh 'if [[ ! -f "$CCC_HOME/.claude/bin/statusline-command.sh" ]]'
+require_file_contains install/ccc-provision-workstation.sh 'CTX_MAX_DEFAULT=1000000'
+require_file_not_contains install/ccc-provision-workstation.sh 'CTX_MAX=200000'
 require_file_contains install/ccc-provision-workstation.sh 'chown_if_root "$CCC_USER:$CCC_USER" "$CCC_HOME/.claude/bin/statusline-command.sh"'
 require_file_not_contains install/ccc-provision-workstation.sh 'cat > /home/claude-code/.claude/bin/statusline-command.sh'
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.model.id // ""'\'''
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.thinking.enabled // false'\'''
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.used // 0'\'''
-require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.max // 200000'\'''
+require_file_contains install/ccc-provision-workstation.sh 'jq -r ".context.max // $CTX_MAX_DEFAULT"'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_WARN="!!"'
 require_file_contains install/ccc-provision-workstation.sh 'TIME=$(date +"%I:%M%p"'
