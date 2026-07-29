@@ -210,6 +210,11 @@ require_file_contains install/ccc-provision-workstation.sh 'if [[ ! -f "$CCC_HOM
 require_file_contains install/ccc-provision-workstation.sh 'data["statusLine"] = sl'
 require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")'
 require_file_contains install/ccc-provision-workstation.sh 'perms.setdefault("defaultMode", "bypassPermissions")'
+# backup_file runs on every provision and self-update: it must skip identical
+# content, chown the copy, and prune, or it accumulates root-owned junk forever.
+require_file_contains install/ccc-provision-workstation.sh 'backup_file "$dest" "$src"'
+require_file_contains install/ccc-provision-workstation.sh 'cmp -s "$src" "$dest"'
+require_file_contains install/ccc-provision-workstation.sh 'chown_if_root "$CCC_USER:$CCC_USER" "$backup"'
 require_file_contains install/ccc-provision-workstation.sh '"autoCompactWindow": 833000'
 require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("model", "opus")'
 require_file_contains install/ccc-provision-workstation.sh 'if _acw < 833000:'

@@ -727,9 +727,21 @@ run_as_user() {
 }
 
 backup_file() {
-  local dest=$1
+  local dest=$1 src=${2:-}
   [[ -f "$dest" ]] || return 0
-  cp "$dest" "${dest}.bak.$(date +%Y%m%d%H%M%S)"
+  # Snapshot only when the incoming content actually differs. This runs on every
+  # provision and self-update, so an unconditional copy left a fresh backup per
+  # file per account per run - the daily update cron alone accumulated them.
+  if [[ -n "$src" && -f "$src" ]] && cmp -s "$src" "$dest"; then
+    return 0
+  fi
+  local backup="${dest}.bak.$(date +%Y%m%d%H%M%S)"
+  cp "$dest" "$backup"
+  # Without this the backup stays root:root while the rest of the directory
+  # belongs to the account, and the user cannot read or remove their own file.
+  chown_if_root "$CCC_USER:$CCC_USER" "$backup"
+  # Keep the three most recent snapshots; older ones are noise.
+  ls -1t "${dest}".bak.* 2>/dev/null | tail -n +4 | xargs -r rm -f
 }
 
 copy_managed_file() {
@@ -739,7 +751,7 @@ copy_managed_file() {
     return 0
   fi
   mkdir -p "$(dirname "$dest")"
-  backup_file "$dest"
+  backup_file "$dest" "$src"
   cp "$src" "$dest"
   chown_if_root "$CCC_USER:$CCC_USER" "$dest"
   ok "$label synced"
