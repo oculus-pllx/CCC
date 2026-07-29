@@ -210,6 +210,13 @@ require_file_contains install/ccc-provision-workstation.sh 'if [[ ! -f "$CCC_HOM
 require_file_contains install/ccc-provision-workstation.sh 'data["statusLine"] = sl'
 require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")'
 require_file_contains install/ccc-provision-workstation.sh 'perms.setdefault("defaultMode", "bypassPermissions")'
+require_file_contains install/ccc-provision-workstation.sh '"autoCompactWindow": 833000'
+require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("model", "opus")'
+require_file_contains install/ccc-provision-workstation.sh 'if _acw < 833000:'
+# Plugin enablement must be assignment, not setdefault, or an explicit "false"
+# never self-heals across provision runs.
+require_file_contains install/ccc-provision-workstation.sh 'ep[k] = True'
+require_file_not_contains install/ccc-provision-workstation.sh 'ep.setdefault(k, True)'
 require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${CCC_USER:-claude-code}"'
 require_file_contains install/ccc-provision-workstation.sh 'mkdir -p "$CCC_HOME/.claude/bin"'
 require_file_contains install/ccc-provision-workstation.sh 'cat > "$CCC_HOME/.claude/bin/statusline-command.sh"'
@@ -469,6 +476,9 @@ require_file_contains container-code-companion/internal/system/management.go 'Na
 require_file_contains container-code-companion/internal/system/management.go 'Name: "gemini"'
 require_file_not_contains container-code-companion/internal/system/management.go 'Name: "ollama"'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "aider"'
+# Aider must not go through "pip install --user": PEP 668 blocks it on Ubuntu 24.04.
+require_file_contains container-code-companion/internal/system/management.go 'uv tool install --force --with pip aider-chat@latest'
+require_file_not_contains container-code-companion/internal/system/management.go 'pip install --user -U aider-chat'
 require_file_contains container-code-companion/internal/system/management.go 'Name: "ripgrep"'
 require_file_contains container-code-companion/internal/system/management.go "func RunDriveOperation"
 require_file_contains container-code-companion/internal/system/management.go "func explainDriveMountFailure"

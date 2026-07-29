@@ -751,7 +751,13 @@ func TestProviderNPMToolsUseSharedPrefix(t *testing.T) {
 	if !strings.Contains(command, "--prefix /usr/local/ccc-npm") {
 		t.Fatalf("expected gemini to install into the shared npm prefix, got %q", command)
 	}
+	// Scoped to npm-based specs: the retired prefix is an npm concept. Non-npm
+	// installers legitimately live in ~/.local/bin (uv puts aider's launcher
+	// there), and flagging those would be a false positive.
 	for _, spec := range toolSpecs() {
+		if !strings.Contains(spec.Install, "npm") && !strings.Contains(spec.UpdateCheck, "npm") {
+			continue
+		}
 		if strings.Contains(spec.Install, "$HOME/.local") || strings.Contains(spec.UpdateCheck, "$HOME/.local") {
 			t.Fatalf("tool %s references the retired per-user npm prefix: install=%q updateCheck=%q", spec.Name, spec.Install, spec.UpdateCheck)
 		}

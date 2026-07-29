@@ -774,6 +774,8 @@ write_claude_baseline() {
   },
   "alwaysThinkingEnabled": true,
   "enableRemoteControl": true,
+  "model": "opus",
+  "autoCompactWindow": 833000,
   "statusLine": {"type": "command", "command": "~/.claude/bin/statusline-command.sh"},
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
@@ -812,9 +814,23 @@ if not isinstance(sl, dict): sl = {"command": str(sl)}
 sl.setdefault("type", "command")
 sl.setdefault("command", "~/.claude/bin/statusline-command.sh")
 data["statusLine"] = sl
+data.setdefault("model", "opus")
+# autoCompactWindow is a *window size*, not the trigger point: Claude Code
+# compacts at (window - 20000 output reserve - 13000 headroom). 833000 puts the
+# trigger at 800000 tokens, i.e. 80% of the 1M context. Raise-only, so a machine
+# tuned higher keeps its value while stale low ones (the old 150000 default fired
+# at 11.7% of the window) get repaired.
+try:
+    _acw = int(data.get("autoCompactWindow", 0))
+except (TypeError, ValueError):
+    _acw = 0
+if _acw < 833000:
+    data["autoCompactWindow"] = 833000
+# Assignment, not setdefault: an explicitly disabled plugin must self-heal.
+# setdefault never overwrites, so a stray "false" survived every provision run.
 ep = data.setdefault("enabledPlugins", {})
 for k in ["superpowers@claude-plugins-official", "frontend-design@claude-plugins-official", "skill-creator@claude-plugins-official"]:
-    ep.setdefault(k, True)
+    ep[k] = True
 data.setdefault("$schema", "https://json.schemastore.org/claude-code-settings.json")
 open(path, "w").write(json.dumps(data, indent=2) + "\n")
 MERGESETTINGS
