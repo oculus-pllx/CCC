@@ -993,11 +993,18 @@ ETCTMUX
 install_claude_plugins() {
   local cache="$CCC_HOME/.claude/plugins/cache/claude-plugins-official"
   mkdir -p "$cache"
-  if [[ ! -d "$cache/superpowers" ]] || [[ -z "$(ls -A "$cache/superpowers/5.1.0" 2>/dev/null)" ]]; then
-    rm -rf "$cache/superpowers"
-    git clone --quiet --depth 1 --branch v5.1.0 https://github.com/obra/superpowers "$cache/superpowers/5.1.0" 2>/dev/null \
-      && ok "superpowers plugin installed" \
-      || warn2 "superpowers plugin install failed (network?)"
+  # Pinned rather than tracking a branch: one edit here lands on every account at
+  # once, so the bump stays a deliberate decision. Guard on the target version
+  # directory, not on "$cache/superpowers" - guarding on the parent meant a bumped
+  # pin never re-cloned once an account had any version installed, which is how
+  # four accounts sat on 5.1.0 with newer trees beside them.
+  local sp_version="6.2.0"
+  local sp_dir="$cache/superpowers/$sp_version"
+  if [[ -z "$(ls -A "$sp_dir" 2>/dev/null)" ]]; then
+    rm -rf "$sp_dir"
+    git clone --quiet --depth 1 --branch "v$sp_version" https://github.com/obra/superpowers "$sp_dir" 2>/dev/null \
+      && ok "superpowers $sp_version plugin installed" \
+      || warn2 "superpowers $sp_version plugin install failed (network?)"
   fi
   local need_cpo=0
   [[ ! -d "$cache/frontend-design" ]] && need_cpo=1
@@ -1038,7 +1045,15 @@ for mkt_path in sorted(glob.glob(cache + "/*")):
         plugin = os.path.basename(plugin_path)
         try: vdirs = sorted(d for d in os.listdir(plugin_path) if os.path.isdir(os.path.join(plugin_path, d)))
         except OSError: continue
-        version = vdirs[0] if vdirs else "unknown"
+        # Newest, by numeric component - not vdirs[0]. A lexicographic pick made
+        # the registry point at the *oldest* tree on disk, so accounts carrying
+        # 6.x alongside 5.1.0 still loaded 5.1.0. Non-numeric dirs (the
+        # "unknown" the anthropics plugins use) sort below any real version but
+        # still win when they are the only candidate.
+        def _vkey(d):
+            try: return (1, tuple(int(p) for p in d.split(".")))
+            except ValueError: return (0, ())
+        version = max(vdirs, key=_vkey) if vdirs else "unknown"
         install_path = os.path.join(plugin_path, version) if vdirs else plugin_path
         plugins[plugin + "@" + mkt] = [{"scope": "user", "installPath": install_path, "version": version, "installedAt": now, "lastUpdated": now}]
 open(home + "/.claude/plugins/installed_plugins.json", "w").write(json.dumps({"version": 2, "plugins": plugins, "enabledPlugins": {k: True for k in plugins}}, indent=2) + "\n")

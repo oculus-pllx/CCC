@@ -15,7 +15,9 @@ require_file_contains() {
 require_file_not_contains() {
   local file=$1
   local pattern=$2
-  if grep -Fq "$pattern" "$file"; then
+  # "--" so a pattern beginning with a dash is not parsed as a grep option. Without
+  # it grep exits non-zero on the usage error and the assertion passes vacuously.
+  if grep -Fq -- "$pattern" "$file"; then
     fail "$file still contains: $pattern"
   fi
 }
@@ -244,6 +246,15 @@ require_file_contains install/ccc-provision-workstation.sh 'cat > "$CCC_HOME/.cl
 require_file_contains install/ccc-provision-workstation.sh 'keep-coding-instructions: true'
 require_file_contains install/ccc-provision-workstation.sh '"outputStyle": "terse"'
 require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("outputStyle", "terse")'
+# Superpowers pin. The guard must test the versioned directory: guarding on the
+# plugin directory made a bumped pin a no-op on provisioned accounts. The registry
+# must pick the newest version dir, not the lexicographically first one.
+require_file_contains install/ccc-provision-workstation.sh 'local sp_version="6.2.0"'
+require_file_contains install/ccc-provision-workstation.sh 'git clone --quiet --depth 1 --branch "v$sp_version"'
+require_file_not_contains install/ccc-provision-workstation.sh '--branch v5.1.0'
+require_file_not_contains install/ccc-provision-workstation.sh 'rm -rf "$cache/superpowers"'
+require_file_contains install/ccc-provision-workstation.sh 'version = max(vdirs, key=_vkey) if vdirs else "unknown"'
+require_file_not_contains install/ccc-provision-workstation.sh 'version = vdirs[0] if vdirs else "unknown"'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_WARN="!!"'
 require_file_contains install/ccc-provision-workstation.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"
