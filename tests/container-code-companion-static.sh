@@ -255,6 +255,10 @@ require_file_not_contains install/ccc-provision-workstation.sh '--branch v5.1.0'
 require_file_not_contains install/ccc-provision-workstation.sh 'rm -rf "$cache/superpowers"'
 require_file_contains install/ccc-provision-workstation.sh 'version = max(vdirs, key=_vkey) if vdirs else "unknown"'
 require_file_not_contains install/ccc-provision-workstation.sh 'version = vdirs[0] if vdirs else "unknown"'
+# Pruning superseded trees must be gated on the pinned one being intact, so a
+# failed clone cannot leave an account with no plugin at all.
+require_file_contains install/ccc-provision-workstation.sh 'if [[ -f "$sp_dir/.claude-plugin/plugin.json" ]]; then'
+require_file_contains install/ccc-provision-workstation.sh '[[ -d "$old_dir" && "$old_dir" != "$sp_dir" ]] || continue'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_WARN="!!"'
 require_file_contains install/ccc-provision-workstation.sh 'TIME=$(date +"%I:%M%p"'
 require_file_contains container-code-companion/web/index.html "Terminal"

@@ -1006,6 +1006,18 @@ install_claude_plugins() {
       && ok "superpowers $sp_version plugin installed" \
       || warn2 "superpowers $sp_version plugin install failed (network?)"
   fi
+  # Prune superseded trees. Only one is ever loaded - the registry records a single
+  # installPath - and the leftovers are what made the stale 5.1.0 pin invisible for
+  # so long. Gated on the pinned tree having a readable manifest so a failed or
+  # half-finished clone can never leave an account with no plugin at all.
+  if [[ -f "$sp_dir/.claude-plugin/plugin.json" ]]; then
+    local old_dir
+    for old_dir in "$cache/superpowers"/*; do
+      [[ -d "$old_dir" && "$old_dir" != "$sp_dir" ]] || continue
+      rm -rf "$old_dir"
+      ok "superpowers $(basename "$old_dir") pruned"
+    done
+  fi
   local need_cpo=0
   [[ ! -d "$cache/frontend-design" ]] && need_cpo=1
   [[ ! -d "$cache/skill-creator" ]] && need_cpo=1
