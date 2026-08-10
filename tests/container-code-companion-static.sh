@@ -232,6 +232,11 @@ require_file_contains install/ccc-provision-workstation.sh 'perms.setdefault("de
 require_file_contains install/ccc-provision-workstation.sh 'backup_file "$dest" "$src"'
 require_file_contains install/ccc-provision-workstation.sh 'cmp -s "$src" "$dest"'
 require_file_contains install/ccc-provision-workstation.sh 'chown_if_root "$CCC_USER:$CCC_USER" "$backup"'
+# The prune must run on every call, not only when a snapshot was taken. Gated
+# behind the copy, a file whose content stopped changing kept its whole backlog
+# forever. "|| true" because ls exits non-zero with no matches under pipefail.
+require_file_contains install/ccc-provision-workstation.sh 'ls -1t "${dest}".bak.* 2>/dev/null | tail -n +4 | xargs -r rm -f || true'
+require_file_contains install/ccc-provision-workstation.sh 'if ! { [[ -n "$src" && -f "$src" ]] && cmp -s "$src" "$dest"; }; then'
 require_file_contains install/ccc-provision-workstation.sh '"autoCompactWindow": 833000'
 require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("model", "opus")'
 require_file_contains install/ccc-provision-workstation.sh 'if _acw < 833000:'

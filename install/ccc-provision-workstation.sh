@@ -793,16 +793,19 @@ backup_file() {
   # Snapshot only when the incoming content actually differs. This runs on every
   # provision and self-update, so an unconditional copy left a fresh backup per
   # file per account per run - the daily update cron alone accumulated them.
-  if [[ -n "$src" && -f "$src" ]] && cmp -s "$src" "$dest"; then
-    return 0
+  if ! { [[ -n "$src" && -f "$src" ]] && cmp -s "$src" "$dest"; }; then
+    local backup="${dest}.bak.$(date +%Y%m%d%H%M%S)"
+    cp "$dest" "$backup"
+    # Without this the backup stays root:root while the rest of the directory
+    # belongs to the account, and the user cannot read or remove their own file.
+    chown_if_root "$CCC_USER:$CCC_USER" "$backup"
   fi
-  local backup="${dest}.bak.$(date +%Y%m%d%H%M%S)"
-  cp "$dest" "$backup"
-  # Without this the backup stays root:root while the rest of the directory
-  # belongs to the account, and the user cannot read or remove their own file.
-  chown_if_root "$CCC_USER:$CCC_USER" "$backup"
-  # Keep the three most recent snapshots; older ones are noise.
-  ls -1t "${dest}".bak.* 2>/dev/null | tail -n +4 | xargs -r rm -f
+  # Keep the three most recent snapshots; older ones are noise. Pruning runs on
+  # every call, not just when a snapshot was taken: gating it behind the copy
+  # meant a file whose content had stopped changing kept its entire pre-fix
+  # backlog forever, since the skip above returns before the prune. "|| true"
+  # because ls exits non-zero when no backups exist, and pipefail is set.
+  ls -1t "${dest}".bak.* 2>/dev/null | tail -n +4 | xargs -r rm -f || true
 }
 
 copy_managed_file() {
