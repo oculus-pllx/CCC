@@ -117,6 +117,42 @@ and never leaves an account without a working plugin.
 
 ---
 
+## 2026-08-10 — Agent instruction *content* lives in `oculus-configs`, not this repo
+
+**Context.** This repo owns the provisioner; the global `CLAUDE.md`, `rules/*.md`,
+and `mcp.json` it distributes live in `oculus-pllx/oculus-configs`, cloned to
+`/opt/oculus-configs`. The provisioner runs `git reset --hard origin/$REF` on every
+pull, so an edit made in place there is destroyed on the next update.
+
+**Decision.** Instruction content changes are committed to `oculus-configs` and
+deployed with `sudo ccc-sync-agent-configs --all-users`. Provisioner *mechanism*
+changes are committed here and deployed with `sudo ccc-self-update`.
+
+**Trap.** `ccc-sync-agent-configs` defaults to a **single** account. Without
+`--all-users` three of the four accounts silently keep the old content. That flag
+is how `ccc-self-update` invokes it.
+
+---
+
+## 2026-08-10 — Material Design 3 is the default UI baseline, globally
+
+**Context.** Request was for a shared UI baseline usable from project or global
+instructions. It named "Google Layout", which is not a system Google ships; the
+real referent is Material Design 3.
+
+**Decision.** `claude/rules/ui-material3.md` in `oculus-configs`, `@`-included from
+the global `CLAUDE.md`. Full M3 — color roles and tonal mappings, type scale,
+shape, elevation, motion, window size classes, accessibility non-negotiables.
+
+**Scoping.** The file opens with an applicability gate ("applies when building or
+modifying a user interface … on backend, CLI, infrastructure, or data work, ignore
+this file entirely") because it is resident in every session on every account,
+including the many with no UI in sight. A project overrides the baseline by naming
+its own design system in its own `CLAUDE.md`, and an explicit user request always
+wins over the spec.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.
