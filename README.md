@@ -231,9 +231,9 @@ ccc
 - **Codex** — `~/.codex/AGENTS.md` and `~/.codex/skills/` from `oculus-configs/codex/`
 - **Gemini** — `~/.gemini/GEMINI.md` and `~/.gemini/skills/` from `oculus-configs/gemini/`
 - **Templates** — copied from `oculus-configs/templates/` into `~/Templates/`
-- Sync the current CCC user with `sudo ccc-sync-agent-configs`
-- Sync another work identity with `sudo ccc-sync-agent-configs --user <username>`
-- Sync all normal login users with `sudo ccc-sync-agent-configs --all-users`
+- Sync every CCC-managed account with `sudo ccc-sync-agent-configs` — this is the default, so a bare run never leaves some accounts on stale config
+- Sync one work identity with `sudo ccc-sync-agent-configs --user <username>`
+- `--all-users` is accepted as a no-op alias for the default, for older runbooks and scripts
 - The Accounts page has `Sync All Account Configs` for pushing the latest shared config baseline to every normal login user.
 
 ### code-server Extensions

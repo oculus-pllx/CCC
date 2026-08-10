@@ -905,12 +905,19 @@ func TestAgentConfigSyncPluginsFixesWrongHomePaths(t *testing.T) {
 
 func TestAgentConfigSyncPluginsReclonesEmptySuperpowers(t *testing.T) {
 	script := provisionerSyncScript(t)
-	// Guard must also re-clone when the 5.1.0 dir exists but is empty
-	if !strings.Contains(script, `ls -A "$cache/superpowers/5.1.0"`) {
-		t.Fatal("install_claude_plugins must re-clone superpowers when the 5.1.0 directory is empty")
+	// The guard tests the pinned version directory, not its parent. Guarding on
+	// the parent meant a bumped pin never re-cloned once an account had any
+	// version installed, which is how four accounts sat on 5.1.0.
+	if !strings.Contains(script, `local sp_dir="$cache/superpowers/$sp_version"`) {
+		t.Fatal("install_claude_plugins must resolve superpowers to a pinned version directory")
 	}
-	if !strings.Contains(script, `rm -rf "$cache/superpowers"`) {
-		t.Fatal("install_claude_plugins must remove stale superpowers dir before re-cloning")
+	if !strings.Contains(script, `if [[ -z "$(ls -A "$sp_dir" 2>/dev/null)" ]]; then`) {
+		t.Fatal("install_claude_plugins must re-clone superpowers when the pinned version directory is empty")
+	}
+	// Removing the parent would discard every sibling version, including the one
+	// the registry currently points at.
+	if strings.Contains(script, `rm -rf "$cache/superpowers"`+"\n") {
+		t.Fatal("install_claude_plugins must not rm -rf the superpowers parent directory")
 	}
 }
 

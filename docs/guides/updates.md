@@ -78,9 +78,9 @@ Run this when you want security patches or system package updates. It's intentio
 ## Agent Config Sync
 
 ```bash
-sudo ccc-sync-agent-configs              # primary CCC user
-sudo ccc-sync-agent-configs --user bob   # specific work identity
-sudo ccc-sync-agent-configs --all-users  # every normal login user
+sudo ccc-sync-agent-configs              # every CCC-managed account (default)
+sudo ccc-sync-agent-configs --user bob   # one specific work identity
+sudo ccc-sync-agent-configs --all-users  # no-op alias for the default
 ```
 
 Pulls the latest Claude/Codex/Gemini rules, skills, and templates from `oculus-configs` and writes them to the target user's home. Does not touch auth tokens, sessions, or history.

@@ -540,7 +540,7 @@ CCC commands:
   ccc-os-update              OS package updates (apt)
   ccc-setup                  First-login wizard (git identity, GitHub key info)
   ccc-doctor                 Health check
-  ccc-sync-agent-configs     Re-sync agent configs from oculus-configs
+  ccc-sync-agent-configs     Re-sync agent configs from oculus-configs (all accounts)
   ccc-install-playwright     Install Playwright + Chromium
   ccc-install-codex          Install/update Codex CLI (shared prefix)
   ccc-update-status          Check if a CCC update is available
@@ -694,24 +694,85 @@ OCULUS_CONFIGS_REPO="${OCULUS_CONFIGS_REPO:-https://github.com/oculus-pllx/oculu
 OCULUS_CONFIGS_REF="${OCULUS_CONFIGS_REF:-main}"
 OCULUS_CONFIGS_DIR="${OCULUS_CONFIGS_DIR:-/opt/oculus-configs}"
 PULL=1
+TARGET_USERS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-pull) PULL=0; shift ;;
-    --user)
-      CCC_USER="${2:?--user requires a username}"
-      CCC_HOME="$(getent passwd "$CCC_USER" | cut -d: -f6)"
-      [[ -n "$CCC_HOME" ]] || { echo "Unknown user: $CCC_USER" >&2; exit 1; }
-      shift 2
-      ;;
-    --all-users)
-      getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1}' | while read -r user; do
-        sudo NO_COLOR="${NO_COLOR:-}" ccc-sync-agent-configs --user "$user"
-      done
+    --user) TARGET_USERS+=("${2:?--user requires a username}"); shift 2 ;;
+    # Every managed account is now the default, so this flag is redundant. Kept
+    # because ccc-self-update and existing runbooks pass it.
+    --all-users) shift ;;
+    -h|--help)
+      echo "Usage: ccc-sync-agent-configs [--user NAME]... [--no-pull]"
+      echo "  Default target is every CCC-managed account."
       exit 0
       ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
+
+managed_users() {
+  # Members of the shared CCC group are exactly the provisioned accounts - a
+  # tighter set than "every UID >= 1000", which would sweep in unrelated human
+  # logins now that this is the default rather than an opt-in flag. Both the
+  # member list and primary-group holders count. Fall back to the UID sweep only
+  # when the group is missing, as on a single-account install.
+  local group="${CCC_SHARED_GROUP:-ccc}" gid members primary users
+  # Each capture needs its own "|| =" - getent exits non-zero on a missing key,
+  # and under pipefail that aborts the whole function before the fallback below
+  # can run. Assigning separately keeps a missing group a recoverable condition.
+  gid="$(getent group "$group" 2>/dev/null | cut -d: -f3)" || gid=""
+  members="$(getent group "$group" 2>/dev/null | cut -d: -f4 | tr ',' '\n')" || members=""
+  primary=""
+  if [[ -n "$gid" ]]; then
+    primary="$(getent passwd | awk -F: -v g="$gid" '$4 == g {print $1}')" || primary=""
+  fi
+  users="$(printf '%s\n%s\n' "$members" "$primary" | sed '/^$/d' | sort -u)"
+  if [[ -n "$users" ]]; then
+    printf '%s\n' "$users"
+  else
+    getent passwd | awk -F: '$3 >= 1000 && $7 !~ /(nologin|false)$/ {print $1}'
+  fi
+}
+
+if [[ ${#TARGET_USERS[@]} -eq 0 ]]; then
+  if [[ "$(id -u)" -ne 0 ]]; then
+    # An unprivileged run can only write one home, so target the caller instead
+    # of failing partway through accounts it was never able to touch.
+    TARGET_USERS=("$(id -un)")
+  else
+    mapfile -t TARGET_USERS < <(managed_users)
+    [[ ${#TARGET_USERS[@]} -gt 0 ]] || { echo "No managed accounts found" >&2; exit 1; }
+  fi
+fi
+
+# Fan out so the body below stays single-account. The parent only dispatches and
+# reports; a failure on one account no longer disappears into a pipeline's exit
+# status, which is how a partial sync used to look like a clean one.
+if [[ ${#TARGET_USERS[@]} -gt 1 ]]; then
+  [[ "$(id -u)" -eq 0 ]] || { echo "Syncing multiple accounts requires root; re-run with sudo." >&2; exit 1; }
+  echo -e "  ${B}Syncing ${#TARGET_USERS[@]} accounts:${N} ${TARGET_USERS[*]}"
+  sync_failed=()
+  sync_pull=$PULL
+  for sync_user in "${TARGET_USERS[@]}"; do
+    sync_args=(--user "$sync_user")
+    # Pull once, in the first child; the rest reuse the checkout it produced.
+    [[ $sync_pull -eq 1 ]] || sync_args+=(--no-pull)
+    sync_pull=0
+    NO_COLOR="${NO_COLOR:-}" "$0" "${sync_args[@]}" || sync_failed+=("$sync_user")
+  done
+  if [[ ${#sync_failed[@]} -gt 0 ]]; then
+    echo -e "  ${R}✗${N} agent config sync failed for: ${sync_failed[*]}" >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+CCC_USER="${TARGET_USERS[0]}"
+# "|| CCC_HOME=" for the same reason as above: an unknown account makes getent
+# exit non-zero, and pipefail would kill the script before this reports why.
+CCC_HOME="$(getent passwd "$CCC_USER" | cut -d: -f6)" || CCC_HOME=""
+[[ -n "$CCC_HOME" ]] || { echo "Unknown user: $CCC_USER" >&2; exit 1; }
 
 say()  { echo -e "  $*"; }
 ok()   { say "${G}✓${N} $*"; }
@@ -1988,7 +2049,7 @@ echo -e "  ${C}ccc-onboarding${N}            First-login wizard (git, SSH key, G
 echo -e "  ${C}ccc-setup${N}                 Same wizard, safe to re-run"
 echo -e "  ${C}ccc-update-status${N}         Show installed vs GitHub version"
 echo -e "  ${C}ccc-self-update${N}           Update Container Code Companion tooling from GitHub"
-echo -e "  ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs"
+echo -e "  ${C}ccc-sync-agent-configs${N}    Update Claude/Codex/Gemini configs (all accounts)"
 echo -e "  ${C}ccc-update${N}                Update Container Code Companion tooling + app CLIs"
 echo -e "  ${C}ccc-os-update${N}             OS package update (apt)"
 echo -e "  ${C}ccc-install-playwright${N}    Install Playwright + Chromium"

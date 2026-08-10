@@ -79,9 +79,24 @@ require_file_contains install/ccc-provision-workstation.sh 'find "$CCC_SHARED_PR
 require_file_contains install/ccc-provision-workstation.sh 'if [[ -L "$entry" && -d "$entry" ]]; then'
 require_file_contains install/ccc-provision-workstation.sh 'chgrp -R "$CCC_SHARED_GROUP" "$entry"/'
 require_file_contains install/ccc-provision-workstation.sh '[[ -f "$CCC_HOME/.ssh/id_ed25519.pub" ]]'
-require_file_contains install/ccc-provision-workstation.sh 'ccc-sync-agent-configs --user "$user"'
 require_file_contains install/ccc-provision-workstation.sh '--all-users)'
 require_file_contains install/ccc-provision-workstation.sh '--user requires a username'
+# ccc-sync-agent-configs targets every managed account by default. A bare run
+# used to sync only $CCC_USER, so three of four accounts silently kept stale
+# instructions until someone remembered --all-users.
+require_file_contains install/ccc-provision-workstation.sh 'TARGET_USERS=()'
+require_file_contains install/ccc-provision-workstation.sh 'mapfile -t TARGET_USERS < <(managed_users)'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_USER="${TARGET_USERS[0]}"'
+require_file_contains install/ccc-provision-workstation.sh 'NO_COLOR="${NO_COLOR:-}" "$0" "${sync_args[@]}" || sync_failed+=("$sync_user")'
+require_file_contains install/ccc-provision-workstation.sh 'agent config sync failed for:'
+# Enumeration is scoped to the shared CCC group, not every UID >= 1000, because
+# the all-accounts sweep is now the default rather than an explicit opt-in.
+require_file_contains install/ccc-provision-workstation.sh 'local group="${CCC_SHARED_GROUP:-ccc}" gid members primary users'
+# Each getent capture needs its own "|| =": under pipefail a missing group or
+# unknown user aborts the script instead of reaching the fallback or the error.
+require_file_contains install/ccc-provision-workstation.sh 'members="$(getent group "$group" 2>/dev/null | cut -d: -f4 | tr '"'"','"'"' '"'"'\n'"'"')" || members=""'
+require_file_contains install/ccc-provision-workstation.sh 'CCC_HOME="$(getent passwd "$CCC_USER" | cut -d: -f6)" || CCC_HOME=""'
+require_file_not_contains install/ccc-provision-workstation.sh 'sudo NO_COLOR="${NO_COLOR:-}" ccc-sync-agent-configs --user "$user"'
 require_file_contains install/ccc-provision-workstation.sh '# Land in the shared projects workspace on new interactive logins.'
 # Multi-user permission model (delivered inside the updateable region)
 require_file_contains install/ccc-provision-workstation.sh 'UMask=0002'
