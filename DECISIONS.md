@@ -128,9 +128,11 @@ pull, so an edit made in place there is destroyed on the next update.
 deployed with `sudo ccc-sync-agent-configs --all-users`. Provisioner *mechanism*
 changes are committed here and deployed with `sudo ccc-self-update`.
 
-**Trap.** `ccc-sync-agent-configs` defaults to a **single** account. Without
-`--all-users` three of the four accounts silently keep the old content. That flag
-is how `ccc-self-update` invokes it.
+**Trap (fixed 2026-08-10, `7ec40b2`).** `ccc-sync-agent-configs` used to default
+to a **single** account, so a bare run silently left three of four on stale
+content — while every doc and MOTD line told users to run the bare form. The
+default is now every managed account; `--user` narrows and `--all-users` is an
+accepted no-op alias.
 
 ---
 
@@ -150,6 +152,49 @@ this file entirely") because it is resident in every session on every account,
 including the many with no UI in sight. A project overrides the baseline by naming
 its own design system in its own `CLAUDE.md`, and an explicit user request always
 wins over the spec.
+
+---
+
+## 2026-08-10 — The safe default is the widest one, for a fleet-wide sync tool
+
+**Context.** Three defects in `ccc-sync-agent-configs` shared a root: the tool's
+default was narrower than its documented purpose. A bare run synced one account;
+the docs, MOTD, and every runbook said to run it bare.
+
+**Decision.** A tool whose job is "keep the fleet consistent" defaults to the
+whole fleet. Narrowing is the flag, not the default. Where that widens blast
+radius, tighten *enumeration* instead of falling back to a narrow default — this
+one now enumerates members of `$CCC_SHARED_GROUP` rather than every UID ≥ 1000.
+
+**Corollary — `set -euo pipefail` turns `getent` into a silent killer.** `getent`
+exits non-zero on a missing key. Inside `x="$(getent … | cut …)"` that fails the
+pipeline, and `set -e` aborts *before* the next line can report why. Two paths
+were dead because of it: the missing-group fallback, and the `Unknown user`
+message (`--user nosuchuser` exited 2 with no output). Every such capture takes
+its own `|| x=""`. Same hazard with `ls` in a prune pipeline when nothing matches
+— hence `|| true`.
+
+**Corollary — never fan out inside a pipeline.** The old loop was
+`getent … | while read user; do …; done`, so a failed account vanished into the
+pipeline's exit status and a partial sync looked clean. Collect failures in an
+array, name them, exit non-zero.
+
+---
+
+## 2026-08-10 — Cleanup must not be gated behind the change it cleans up after
+
+**Context.** `backup_file` skips when content is identical (added 2026-07-29 to
+stop backup accumulation), then prunes to the 3 newest. The prune sat *after* the
+skip's early return, so it ran only when a snapshot was taken. Files that had
+stopped changing kept their entire pre-fix backlog permanently — 368 backups
+across four accounts, none reachable by any later run.
+
+**Decision.** Make the *action* conditional and the *cleanup* unconditional. A
+retention policy that only runs on write is not a retention policy.
+
+**Consequence.** 368 → 40 (3 each for `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, plus
+`settings.json`). This is the same shape as the 2026-07-29 entry above: a guard
+placed so that the broken state is exactly the state that prevents repair.
 
 ---
 
