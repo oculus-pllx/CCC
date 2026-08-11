@@ -136,22 +136,37 @@ accepted no-op alias.
 
 ---
 
-## 2026-08-10 — Material Design 3 is the default UI baseline, globally
+## 2026-08-10 — A shared UI baseline is accessibility, not a design system
+
+*Superseded the same-week decision to make Material Design 3 the global default
+(`64b5ecf`); corrected in `ba1fc40`.*
 
 **Context.** Request was for a shared UI baseline usable from project or global
-instructions. It named "Google Layout", which is not a system Google ships; the
-real referent is Material Design 3.
+instructions. It named "Google Layout", which is not a system Google ships. I
+mapped that to Material Design 3 and shipped all of M3 as the global default.
 
-**Decision.** `claude/rules/ui-material3.md` in `oculus-configs`, `@`-included from
-the global `CLAUDE.md`. Full M3 — color roles and tonal mappings, type scale,
-shape, elevation, motion, window size classes, accessibility non-negotiables.
+**Why that was wrong.** M3 is Google's *house style* — tonal palettes, surface-tint
+elevation, FAB/nav-rail component vocabulary — not a neutral summary of best
+practices. `@`-included on every account, it nudged every project toward looking
+like a Google product without anyone having chosen that, including projects with
+their own design language. The applicability gate limited *when* it applied, but
+not *what* it imposed once it did.
 
-**Scoping.** The file opens with an applicability gate ("applies when building or
-modifying a user interface … on backend, CLI, infrastructure, or data work, ignore
-this file entirely") because it is resident in every session on every account,
-including the many with no UI in sight. A project overrides the baseline by naming
-its own design system in its own `CLAUDE.md`, and an explicit user request always
-wins over the spec.
+**Decision.** Split by what is universal versus what is a house style:
+
+| | File | Loaded |
+|---|---|---|
+| Universal | `rules/ui-baseline.md` — WCAG AA contrast, focus indicators, target size, reduced motion, labels, keyboard reachability, tokens-not-hardcoded, break on container width | `@`-included, always |
+| House style | `rules/ui-material3.md` — the full M3 spec | synced, read on request only |
+
+The baseline explicitly declares **no default design system** and says to ask
+before adopting one, because that is a product decision visible to every user.
+
+**Test for anything added to global instructions.** Would a competent engineer on
+a project that never heard of this call it *wrong*, or merely *different*? Only
+the first belongs in a default. Accessibility fails that test as wrong; a type
+scale is merely different. Resident cost fell 5,063 B → 2,432 B as a side effect,
+which is the usual sign the line was drawn in the right place.
 
 ---
 
