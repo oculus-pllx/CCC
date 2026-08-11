@@ -213,6 +213,40 @@ placed so that the broken state is exactly the state that prevents repair.
 
 ---
 
+## 2026-08-11 — Never mock the contract you are trying to verify
+
+**Context.** The statusline read `.context.used` / `.context.max` from Claude
+Code's payload. Those keys have never existed; the real ones are
+`.context_window.used_percentage`, `.total_input_tokens`, and
+`.context_window_size`. Every account displayed `ctx:0%` for as long as the
+feature has existed.
+
+**Why no test caught it.** There *was* a behavioural test — and it stubbed `jq`
+with a fake that answered `.context.used` and `.context.max`. The mock was
+written from the same wrong assumption as the code, so the two agreed and the
+suite stayed green. A mock of an external contract can only ever confirm what
+its author already believed.
+
+**Decision.** For an external payload, test against a **recorded real sample**,
+not a hand-written mock. The statusline test now runs actual `jq` over a payload
+captured from a live 2.1.227 session (temporarily teeing the statusline's stdin),
+and covers the derive path, an unparseable payload, and a host without `jq`.
+Mocks stay legitimate for things we own; for a schema someone else defines, the
+sample is the only honest source.
+
+**Corollary — `set -euo pipefail` again.** `jq` exits non-zero on unparseable
+input, which killed the script before its `echo`, so the statusline vanished
+instead of degrading. Same shape as the `getent` entry above. Any capture from an
+external parser takes its own `|| x=` fallback, and numeric fields are
+range-checked before arithmetic — `[[ $x -le 0 ]]` on a non-numeric string is
+itself fatal under `set -e`.
+
+**Consequence.** Fixed across `1ad7ace` (schema) and `c2f99f0` (robustness +
+honest test). `1ad7ace` was pushed with the suite red, which is how the two stale
+assertions surfaced.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.
