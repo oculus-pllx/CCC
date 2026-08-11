@@ -247,6 +247,33 @@ assertions surfaced.
 
 ---
 
+## 2026-08-11 — A managed directory is a mirror, not a merge
+
+**Context.** `ui-material3.md` was deleted from `oculus-configs`. It stayed on all
+four accounts anyway. `copy_optional_dir` is `cp -a "$src"/. "$dest"/` — purely
+additive, so a file retired upstream is never removed. It remained readable and
+`@`-includable while being invisible to anyone reviewing the source repo. Every
+rule ever shipped was still resident.
+
+**Decision.** A directory the provisioner *owns* is mirrored: `mirror_managed_dir`
+deletes top-level destination files with no counterpart in the source. Applied to
+`claude/rules` only. `copy_optional_dir` stays for everything else, because
+`~/.claude/plugins` holds the cloned plugin cache alongside the synced files and a
+mirror would delete it as retired. Which helper a call site uses is the statement
+of whether the provisioner owns that directory outright.
+
+**Guards, both against the same failure — emptying every account at once.** A
+missing source dir skips, as before. An *empty* source dir also skips: git does not
+track empty directories, so that state means a partial checkout or a bad ref, never
+a mass retirement. Deletion is `-maxdepth 1 -type f`, so subdirectories are never
+touched.
+
+**Consequence.** `f8ffcad`. Verified against a real-shaped tree before shipping,
+per the destructive-logic convention below: retired file gone, current file kept,
+subdirectory untouched, missing and empty sources both no-ops.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.
