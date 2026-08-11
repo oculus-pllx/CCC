@@ -274,6 +274,42 @@ subdirectory untouched, missing and empty sources both no-ops.
 
 ---
 
+## 2026-08-11 — `gh` credentials are provisioned, not logged in by hand
+
+**Context.** Git worked on all four accounts — shared deploy key at
+`/etc/ccc/ssh/github_ed25519`, `root:ccc 0640`, write access verified by dry-run
+push. But `gh` was authenticated on only `oculus` and `prime`: whoever set those
+up had run `gh auth login` interactively. `terminus` and `ollama` got *"To get
+started with GitHub CLI, please run: gh auth login"* from every subcommand. The
+two authenticated accounts had also drifted apart — `oculus` on `git_protocol:
+ssh`, `prime` on `https`, so `gh repo clone` under `prime` wrote an HTTPS remote
+and authenticated git with the OAuth token instead of the shared key.
+
+**Decision.** The token is machine-local at `/etc/ccc/gh/token` (`root:ccc 0640`,
+deliberately the same posture as the SSH key — one credential, shared by the
+group), and `write_gh_auth` renders `~/.config/gh/hosts.yml` at 0600 for every
+account on every run. Managed content, not preference: a rotation lands
+everywhere at the next update. `git_protocol` is pinned to `ssh` so git always
+routes through the deploy key and the OAuth token is used only for API calls.
+
+**Secret handling.** The token never enters this repo. A test greps the entire
+tree for `gh[pousr]_[A-Za-z0-9]{16,}`, so a careless paste fails the suite rather
+than reaching a public remote — this repo is **public**. The test's own fixture is
+split across two string literals so it does not trip its own scan.
+
+**Degradation.** A missing *or empty* token file warns and returns 0. Failing the
+run would be wrong (git does not use this token), and writing a blank credential
+over a working one would be worse. Same shape as the empty-source guard on
+`mirror_managed_dir` above: a degenerate input is never read as an instruction to
+destroy state.
+
+**Known gap.** Scopes are `gist, read:org, repo, workflow` — enough to create and
+manage repositories, **not** to delete them (`delete_repo` is absent). Closing it
+needs an interactive `gh auth refresh -h github.com -s delete_repo`, which cannot
+be automated; the refreshed token then has to be re-copied to `/etc/ccc/gh/token`.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.
