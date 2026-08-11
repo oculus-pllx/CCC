@@ -303,10 +303,17 @@ over a working one would be worse. Same shape as the empty-source guard on
 `mirror_managed_dir` above: a degenerate input is never read as an instruction to
 destroy state.
 
-**Known gap.** Scopes are `gist, read:org, repo, workflow` — enough to create and
-manage repositories, **not** to delete them (`delete_repo` is absent). Closing it
-needs an interactive `gh auth refresh -h github.com -s delete_repo`, which cannot
-be automated; the refreshed token then has to be re-copied to `/etc/ccc/gh/token`.
+**`delete_repo` is withheld on purpose — do not "fix" this.** Scopes are `gist,
+read:org, repo, workflow`: enough to create and manage repositories, not to delete
+them. `gh repo delete` returns HTTP 403 and suggests `gh auth refresh -s
+delete_repo`; **decline it.** One token is readable by every member of group `ccc`
+and is rendered onto four accounts, so any scope it carries is held by all of
+them at once, including agent sessions. Repository deletion is irreversible,
+unreviewable, and needed roughly never — the wrong thing to hold fleet-wide to
+save an occasional trip to the web UI. Creation and management are recoverable;
+deletion is not, which is exactly where the line belongs.
+
+Delete repositories through the GitHub web UI instead.
 
 ---
 
