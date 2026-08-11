@@ -240,6 +240,58 @@ require_file_contains install/ccc-provision-workstation.sh 'if ! { [[ -n "$src" 
 require_file_contains install/ccc-provision-workstation.sh '"autoCompactWindow": 833000'
 require_file_contains install/ccc-provision-workstation.sh 'data.setdefault("model", "opus")'
 require_file_contains install/ccc-provision-workstation.sh 'if _acw < 833000:'
+# Rules are a mirror, not a merge: a rule retired upstream has to actually leave
+# every account. cp -a only adds and overwrites, so a deleted file used to sit in
+# ~/.claude/rules forever - still readable, still @-includable, invisible to review.
+require_file_contains install/ccc-provision-workstation.sh 'mirror_managed_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"'
+# Mirroring must NOT be applied to the plugin directory, where the cloned plugin
+# cache lives beside the synced files and would be deleted as "retired".
+require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/plugins" "$CCC_HOME/.claude/plugins" "Claude default plugins"'
+require_file_not_contains install/ccc-provision-workstation.sh 'mirror_managed_dir "$OCULUS_CONFIGS_DIR/claude/plugins"'
+require_file_contains install/ccc-provision-workstation.sh 'find "$dest" -maxdepth 1 -type f -print0'
+
+# Behavioural: retired files go, current files stay, subdirectories are untouched.
+mirror_test=$(mktemp -d)
+mkdir -p "$mirror_test/src" "$mirror_test/dest/subdir"
+printf 'current\n' > "$mirror_test/src/keep.md"
+printf 'stale\n'   > "$mirror_test/dest/keep.md"
+printf 'retired\n' > "$mirror_test/dest/gone.md"
+printf 'cached\n'  > "$mirror_test/dest/subdir/plugin.json"
+awk '/^mirror_managed_dir\(\) \{/{flag=1} flag{print} /^\}$/{if(flag) exit}' \
+  install/ccc-provision-workstation.sh > "$mirror_test/fn.sh"
+(
+  set -euo pipefail
+  CCC_USER=$(id -un); warn2() { :; }; ok() { :; }; chown_if_root() { :; }
+  # shellcheck disable=SC1090
+  source "$mirror_test/fn.sh"
+  mirror_managed_dir "$mirror_test/src" "$mirror_test/dest" "test rules"
+) || fail "mirror_managed_dir exited non-zero"
+[[ -f "$mirror_test/dest/keep.md" ]]    || fail "mirror_managed_dir deleted a file still in source"
+[[ "$(cat "$mirror_test/dest/keep.md")" == current ]] || fail "mirror_managed_dir did not overwrite a stale file"
+[[ ! -e "$mirror_test/dest/gone.md" ]]  || fail "mirror_managed_dir left a retired file behind"
+[[ -f "$mirror_test/dest/subdir/plugin.json" ]] || fail "mirror_managed_dir must not recurse into subdirectories"
+# A missing source must not be read as "everything was retired" and empty the dir.
+(
+  set -euo pipefail
+  CCC_USER=$(id -un); warn2() { :; }; ok() { :; }; chown_if_root() { :; }
+  # shellcheck disable=SC1090
+  source "$mirror_test/fn.sh"
+  mirror_managed_dir "$mirror_test/nonexistent" "$mirror_test/dest" "test rules"
+) || fail "mirror_managed_dir exited non-zero on a missing source"
+[[ -f "$mirror_test/dest/keep.md" ]] || fail "a missing source must leave the destination alone, not empty it"
+# Nor may an empty source. git does not track empty directories, so a source dir with
+# no files means a partial checkout or a bad ref - not "every rule was retired".
+mkdir -p "$mirror_test/empty"
+(
+  set -euo pipefail
+  CCC_USER=$(id -un); warn2() { :; }; ok() { :; }; chown_if_root() { :; }
+  # shellcheck disable=SC1090
+  source "$mirror_test/fn.sh"
+  mirror_managed_dir "$mirror_test/empty" "$mirror_test/dest" "test rules"
+) || fail "mirror_managed_dir exited non-zero on an empty source"
+[[ -f "$mirror_test/dest/keep.md" ]] || fail "an empty source must leave the destination alone, not empty it"
+rm -rf "$mirror_test"
+
 # Plugin enablement must be assignment, not setdefault, or an explicit "false"
 # never self-heals across provision runs.
 require_file_contains install/ccc-provision-workstation.sh 'ep[k] = True'

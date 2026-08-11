@@ -834,6 +834,42 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
+# Like copy_optional_dir, but a mirror rather than a merge: a file retired upstream
+# is removed from the account. Use this only for directories the provisioner owns
+# outright. NOT for ~/.claude/plugins - the cloned plugin cache lives beside the
+# synced files there and would be deleted as "retired".
+mirror_managed_dir() {
+  local src=$1 dest=$2 label=$3
+  mkdir -p "$dest"
+  # A missing source means "nothing to sync", never "everything was retired" - an
+  # unreadable or half-cloned oculus-configs must not empty every account's rules.
+  if [[ ! -d "$src" ]]; then
+    warn2 "oculus-configs: $label not found, skipping"
+    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    return 0
+  fi
+  # An empty source cannot come from git - it does not track empty directories - so
+  # it means a partial checkout or a bad ref. Treat it like a missing source rather
+  # than deleting every rule on every account.
+  local src_count
+  src_count=$(find "$src" -maxdepth 1 -type f | wc -l) || src_count=0
+  if [[ "$src_count" -eq 0 ]]; then
+    warn2 "oculus-configs: $label source is empty, skipping (nothing removed)"
+    chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+    return 0
+  fi
+  cp -a "$src"/. "$dest"/
+  # Top level only: -maxdepth 1 -type f. Subdirectories are left alone so this stays
+  # safe if a managed dir ever gains one.
+  local retired base
+  while IFS= read -r -d '' retired; do
+    base=$(basename "$retired")
+    [[ -e "$src/$base" ]] || { rm -f "$retired"; warn2 "$label: removed retired $base"; }
+  done < <(find "$dest" -maxdepth 1 -type f -print0)
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$dest"
+  ok "$label synced"
+}
+
 write_claude_baseline() {
   mkdir -p "$CCC_HOME/.claude/bin" "$CCC_HOME/.claude/output-styles"
   if [[ ! -f "$CCC_HOME/.claude/settings.json" ]]; then
@@ -1196,7 +1232,7 @@ fi
 write_claude_baseline
 write_tmux_config
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
-copy_optional_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
+mirror_managed_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
 
 if [[ -f "$OCULUS_CONFIGS_DIR/claude/mcp.json" ]]; then
   cp "$OCULUS_CONFIGS_DIR/claude/mcp.json" "$CCC_HOME/.claude/mcp.template.json"
