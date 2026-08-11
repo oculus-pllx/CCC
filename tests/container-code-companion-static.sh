@@ -256,8 +256,6 @@ require_file_contains install/ccc-provision-workstation.sh 'chown_if_root "$CCC_
 require_file_not_contains install/ccc-provision-workstation.sh 'cat > /home/claude-code/.claude/bin/statusline-command.sh'
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.model.id // ""'\'''
 require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.thinking.enabled // false'\'''
-require_file_contains install/ccc-provision-workstation.sh 'jq -r '\''.context.used // 0'\'''
-require_file_contains install/ccc-provision-workstation.sh 'jq -r ".context.max // $CTX_MAX_DEFAULT"'
 require_file_contains install/ccc-provision-workstation.sh 'CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))'
 # Terse output style. keep-coding-instructions is load-bearing: without it Claude
 # Code drops the software-engineering system prompt instead of layering the style
@@ -683,25 +681,45 @@ node tests/update-status-ui.test.mjs
 
 awk '/cat > .*statusline-command.sh.*CLAUDESTATUSLINE/{flag=1; next} /^CLAUDESTATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-statusline.syntax
 bash -n /tmp/ccc-statusline.syntax
-statusline_test_bin=$(mktemp -d)
-cat > "$statusline_test_bin/jq" <<'FAKEJQ'
-#!/usr/bin/env bash
-case "$*" in
-  *".model.id"*) echo "claude-sonnet-4-20250514" ;;
-  *".thinking.enabled"*) echo "true" ;;
-  *".context.used"*) echo "120000" ;;
-  *".context.max"*) echo "200000" ;;
-  *) echo "" ;;
-esac
-FAKEJQ
-chmod +x "$statusline_test_bin/jq"
-statusline_output=$(
-  printf '%s\n' '{"model":{"id":"claude-sonnet-4-20250514"},"thinking":{"enabled":true},"context":{"used":120000,"max":200000}}' \
-    | PATH="$statusline_test_bin:$PATH" USER=test HOME="$PWD" bash /tmp/ccc-statusline.syntax
-)
-rm -rf "$statusline_test_bin"
+# Drive the statusline with REAL jq and the payload Claude Code actually sends,
+# recorded off a live 2.1.227 session. The previous version of this test mocked
+# jq with a stub answering `.context.used` / `.context.max` - the very keys the
+# script wrongly asked for - so the mock agreed with the bug: the statusline
+# reported ctx:0% on every account while the test stayed green. A mock that
+# encodes the code's own guess about an external contract cannot test that guess.
+statusline_run() { printf '%s\n' "$1" | USER=test HOME="$PWD" bash /tmp/ccc-statusline.syntax; }
+
+statusline_output=$(statusline_run '{"model":{"id":"claude-opus-5"},"version":"2.1.227","thinking":{"enabled":true},"context_window":{"total_input_tokens":700000,"total_output_tokens":3,"context_window_size":1000000,"used_percentage":70,"remaining_percentage":30},"exceeds_200k_tokens":false}')
 [[ "$statusline_output" == test@* ]] || fail "statusline output missing user/host prefix"
-[[ "$statusline_output" == *"[sonnet-4 | think] [ctx:60%!]"* ]] || fail "statusline output missing model/thinking/context warning: $statusline_output"
+[[ "$statusline_output" == *"[opus-5 | think] [ctx:70%!]"* ]] || fail "statusline output missing model/thinking/context warning: $statusline_output"
+
+# Derive from token counts when the server-computed percentage is absent.
+statusline_derived=$(statusline_run '{"model":{"id":"claude-opus-5"},"context_window":{"total_input_tokens":850000,"context_window_size":1000000}}')
+[[ "$statusline_derived" == *"[ctx:85%!!]"* ]] || fail "statusline must derive a percentage from token counts: $statusline_derived"
+
+# A payload the script cannot parse must degrade, not vanish. jq exits non-zero
+# on malformed input, and under `set -euo pipefail` that killed the script before
+# it printed anything - the whole statusline rendered as a blank line.
+statusline_malformed=$(statusline_run 'not json at all' || true)
+[[ "$statusline_malformed" == test@* ]] || fail "statusline must still render on an unparseable payload, got: '$statusline_malformed'"
+[[ "$statusline_malformed" == *"[ctx:0%]"* ]] || fail "statusline must report 0% on an unparseable payload: $statusline_malformed"
+
+# Same requirement when jq is not installed at all.
+statusline_nojq_bin=$(mktemp -d)
+for statusline_dep in cat sed date tr git hostname; do
+  statusline_dep_path=$(command -v "$statusline_dep") && ln -sf "$statusline_dep_path" "$statusline_nojq_bin/"
+done
+# Absolute path to bash: it is deliberately not on the curated PATH, since the
+# point of that PATH is to hide jq from the script under test.
+statusline_nojq=$(printf '%s\n' '{"context_window":{"used_percentage":42}}' \
+  | env PATH="$statusline_nojq_bin" USER=test HOME="$PWD" "$BASH" /tmp/ccc-statusline.syntax || true)
+rm -rf "$statusline_nojq_bin"
+[[ "$statusline_nojq" == test@* ]] || fail "statusline must still render without jq, got: '$statusline_nojq'"
+
+# Lock the contract itself, so a future edit cannot drift back to `.context`.
+require_file_contains install/ccc-provision-workstation.sh '.context_window.used_percentage // empty'
+require_file_contains install/ccc-provision-workstation.sh '.context_window.context_window_size'
+require_file_not_contains install/ccc-provision-workstation.sh '.context.used // 0'
 
 # Task 1: CSS Prism palette
 require_file_contains container-code-companion/web/styles.css '--topbar'

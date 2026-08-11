@@ -929,16 +929,25 @@ INPUT=$(cat 2>/dev/null || echo '{}')
 CTX_MAX_DEFAULT=1000000
 
 if command -v jq &>/dev/null; then
-  MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
-  THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
+  # Every capture takes its own "|| x=" fallback. jq exits non-zero on a payload it
+  # cannot parse, and under `set -euo pipefail` that aborts the script before the
+  # echo at the bottom - the statusline then renders as a blank line instead of a
+  # degraded one. Same trap as the getent captures in ccc-sync-agent-configs.
+  MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//') || MODEL=""
+  THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null) || THINKING="false"
   # Claude Code sends `.context_window`, not `.context`, and already computes the
-  # percentage. Prefer its number; fall back to deriving one from the token counts
-  # so the display still works if that field ever goes away.
-  CTX_PCT=$(echo "$INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null)
+  # percentage. Verified against a recorded 2.1.227 payload - the old `.context.*`
+  # keys are not in it and there is no evidence they ever shipped, so nothing falls
+  # back to them. Deriving from the token counts covers the field going away.
+  CTX_PCT=$(echo "$INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null) || CTX_PCT=""
   if [[ -z "$CTX_PCT" || "$CTX_PCT" == "null" ]]; then
-    CTX_USED=$(echo "$INPUT" | jq -r '.context_window.total_input_tokens // .context.used // 0' 2>/dev/null)
-    CTX_MAX=$(echo "$INPUT" | jq -r ".context_window.context_window_size // .context.max // $CTX_MAX_DEFAULT" 2>/dev/null)
-    [[ -z "$CTX_MAX" || "$CTX_MAX" == "null" || "$CTX_MAX" -le 0 ]] && CTX_MAX=$CTX_MAX_DEFAULT
+    CTX_USED=$(echo "$INPUT" | jq -r '.context_window.total_input_tokens // 0' 2>/dev/null) || CTX_USED=0
+    CTX_MAX=$(echo "$INPUT" | jq -r ".context_window.context_window_size // $CTX_MAX_DEFAULT" 2>/dev/null) || CTX_MAX=$CTX_MAX_DEFAULT
+    # Validate before arithmetic: `[[ $x -le 0 ]]` on a non-numeric string is itself
+    # an error under set -e, so the regex guards have to come first.
+    [[ "$CTX_USED" =~ ^[0-9]+$ ]] || CTX_USED=0
+    [[ "$CTX_MAX" =~ ^[0-9]+$ ]] || CTX_MAX=$CTX_MAX_DEFAULT
+    [[ "$CTX_MAX" -gt 0 ]] || CTX_MAX=$CTX_MAX_DEFAULT
     CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
   fi
 else
