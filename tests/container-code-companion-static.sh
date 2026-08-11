@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Absolute, so an assertion still resolves after a `cd` earlier in the suite.
+REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+
 fail() {
   echo "FAIL: $*" >&2
   exit 1
@@ -291,6 +294,69 @@ mkdir -p "$mirror_test/empty"
 ) || fail "mirror_managed_dir exited non-zero on an empty source"
 [[ -f "$mirror_test/dest/keep.md" ]] || fail "an empty source must leave the destination alone, not empty it"
 rm -rf "$mirror_test"
+
+# gh CLI credentials are provisioned per account, not left to a manual `gh auth
+# login`. Without this, git worked everywhere but `gh` was authenticated on only
+# two of four accounts - an asymmetry nothing surfaced until someone hit it.
+require_file_contains install/ccc-provision-workstation.sh 'CCC_GH_TOKEN_FILE="${CCC_GH_TOKEN_FILE:-/etc/ccc/gh/token}"'
+require_file_contains install/ccc-provision-workstation.sh 'write_gh_auth'
+# Pinned to ssh so `gh repo clone` writes an SSH remote and git keeps routing
+# through the shared deploy key rather than through the OAuth token.
+require_file_contains install/ccc-provision-workstation.sh '    git_protocol: ssh'
+
+# The token is machine-local and must never reach the repo. Guard the whole tree,
+# not just the provisioner - this is the assertion that catches a careless paste.
+gh_token_hits=$(git -C "$REPO_ROOT" grep -I -l -E 'gh[pousr]_[A-Za-z0-9]{16,}' -- . 2>/dev/null || true)
+[[ -z "$gh_token_hits" ]] || fail "a GitHub token literal is committed in: $gh_token_hits"
+
+# Behavioural: writes hosts.yml 0600, and degrades quietly when the token is absent.
+gh_test=$(mktemp -d)
+awk '/^write_gh_auth\(\) \{/{flag=1} flag{print} /^\}$/{if(flag) exit}' \
+  "$REPO_ROOT/install/ccc-provision-workstation.sh" > "$gh_test/fn.sh"
+# Split so the token-literal scan above does not match this fixture.
+gh_fake_token='gho_''FAKETOKENFORTESTS0000000000000000'
+printf '%s\n' "$gh_fake_token" > "$gh_test/token"
+(
+  set -euo pipefail
+  CCC_USER=$(id -un); CCC_HOME="$gh_test/home"; CCC_GH_USER=testuser
+  CCC_GH_TOKEN_FILE="$gh_test/token"
+  warn2() { :; }; ok() { :; }; chown_if_root() { :; }
+  # shellcheck disable=SC1090
+  source "$gh_test/fn.sh"
+  write_gh_auth
+) || fail "write_gh_auth exited non-zero"
+gh_hosts="$gh_test/home/.config/gh/hosts.yml"
+[[ -f "$gh_hosts" ]] || fail "write_gh_auth did not create hosts.yml"
+grep -qF -- "$gh_fake_token" "$gh_hosts" || fail "hosts.yml missing the token"
+grep -qF -- '    git_protocol: ssh' "$gh_hosts" || fail "hosts.yml must pin git_protocol to ssh"
+grep -qF -- '            oauth_token:' "$gh_hosts" || fail "hosts.yml missing the per-user token entry"
+[[ "$(stat -c '%a' "$gh_hosts")" == 600 ]] || fail "hosts.yml must be 0600, got $(stat -c '%a' "$gh_hosts")"
+# A missing token must not fail provisioning or write a broken hosts.yml - git over
+# SSH is unaffected by it, so the run continues with a warning.
+(
+  set -euo pipefail
+  CCC_USER=$(id -un); CCC_HOME="$gh_test/nohome"; CCC_GH_USER=testuser
+  CCC_GH_TOKEN_FILE="$gh_test/absent"
+  warn2() { :; }; ok() { :; }; chown_if_root() { :; }
+  # shellcheck disable=SC1090
+  source "$gh_test/fn.sh"
+  write_gh_auth
+) || fail "write_gh_auth must not fail the run when the token file is absent"
+[[ ! -e "$gh_test/nohome/.config/gh/hosts.yml" ]] || fail "write_gh_auth wrote hosts.yml with no token available"
+# An empty token file is the same case - a truncated or half-written secret must
+# not overwrite a working credential with a blank one.
+: > "$gh_test/empty"
+(
+  set -euo pipefail
+  CCC_USER=$(id -un); CCC_HOME="$gh_test/home"; CCC_GH_USER=testuser
+  CCC_GH_TOKEN_FILE="$gh_test/empty"
+  warn2() { :; }; ok() { :; }; chown_if_root() { :; }
+  # shellcheck disable=SC1090
+  source "$gh_test/fn.sh"
+  write_gh_auth
+) || fail "write_gh_auth must not fail the run on an empty token file"
+grep -qF -- "$gh_fake_token" "$gh_hosts" || fail "an empty token file clobbered a working hosts.yml"
+rm -rf "$gh_test"
 
 # Plugin enablement must be assignment, not setdefault, or an explicit "false"
 # never self-heals across provision runs.

@@ -834,6 +834,51 @@ copy_optional_dir() {
   ok "$label synced"
 }
 
+# gh CLI credentials. The token is machine-local at /etc/ccc/gh/token (root:ccc 0640,
+# the same posture as the shared SSH key) and never lives in this repo. Provisioning
+# it removes the asymmetry where git worked on every account but `gh` was logged in
+# on only the two that someone had run `gh auth login` on by hand.
+CCC_GH_TOKEN_FILE="${CCC_GH_TOKEN_FILE:-/etc/ccc/gh/token}"
+CCC_GH_USER="${CCC_GH_USER:-oculus-pllx}"
+
+write_gh_auth() {
+  local hosts="$CCC_HOME/.config/gh/hosts.yml" token
+  # No token is not an error: git over SSH does not use it, so only `gh` subcommands
+  # are affected and the run continues. Returning early also means we never write a
+  # blank credential over a working one.
+  if [[ ! -r "$CCC_GH_TOKEN_FILE" ]]; then
+    warn2 "gh: no shared token at $CCC_GH_TOKEN_FILE, skipping (git over SSH is unaffected)"
+    return 0
+  fi
+  token=$(<"$CCC_GH_TOKEN_FILE") || token=""
+  token="${token//[$'\n\r\t ']/}"
+  if [[ -z "$token" ]]; then
+    warn2 "gh: shared token file is empty, skipping (leaving any existing credential alone)"
+    return 0
+  fi
+  mkdir -p "$CCC_HOME/.config/gh"
+  # Managed content, not preference (see DECISIONS.md): rewritten every run, so a
+  # token rotation lands on every account at the next update instead of drifting.
+  # git_protocol is pinned to ssh so `gh repo clone` writes an SSH remote and git
+  # keeps authenticating with the shared deploy key rather than with this token.
+  # umask in a subshell so the file is never briefly world-readable and the caller's
+  # umask is left untouched.
+  ( umask 077
+    cat > "$hosts" << GHHOSTS
+github.com:
+    users:
+        $CCC_GH_USER:
+            oauth_token: $token
+    git_protocol: ssh
+    oauth_token: $token
+    user: $CCC_GH_USER
+GHHOSTS
+  )
+  chmod 0600 "$hosts"
+  chown_if_root -R "$CCC_USER:$CCC_USER" "$CCC_HOME/.config/gh"
+  ok "gh credentials synced"
+}
+
 # Like copy_optional_dir, but a mirror rather than a merge: a file retired upstream
 # is removed from the account. Use this only for directories the provisioner owns
 # outright. NOT for ~/.claude/plugins - the cloned plugin cache lives beside the
@@ -1231,6 +1276,7 @@ fi
 
 write_claude_baseline
 write_tmux_config
+write_gh_auth
 copy_managed_file "$OCULUS_CONFIGS_DIR/claude/CLAUDE.md" "$CCC_HOME/.claude/CLAUDE.md" "Claude CLAUDE.md"
 mirror_managed_dir "$OCULUS_CONFIGS_DIR/claude/rules" "$CCC_HOME/.claude/rules" "Claude rules"
 
