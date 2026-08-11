@@ -924,21 +924,31 @@ MERGESETTINGS
 # Managed by CCC provisioner (install/ccc-provision-workstation.sh) - edits are overwritten.
 set -euo pipefail
 INPUT=$(cat 2>/dev/null || echo '{}')
-# Fallback matches the current model family's 1M context. It only applies when
-# Claude Code omits .context.max; a too-small value here inflates the reported %.
+# Fallback only applies when Claude Code omits the window size; a too-small value
+# here would inflate the reported %.
 CTX_MAX_DEFAULT=1000000
+
 if command -v jq &>/dev/null; then
   MODEL=$(echo "$INPUT" | jq -r '.model.id // ""' 2>/dev/null | sed 's/claude-//;s/-[0-9]\{8\}.*//')
   THINKING=$(echo "$INPUT" | jq -r '.thinking.enabled // false' 2>/dev/null)
-  CTX_USED=$(echo "$INPUT" | jq -r '.context.used // 0' 2>/dev/null)
-  CTX_MAX=$(echo "$INPUT" | jq -r ".context.max // $CTX_MAX_DEFAULT" 2>/dev/null)
+  # Claude Code sends `.context_window`, not `.context`, and already computes the
+  # percentage. Prefer its number; fall back to deriving one from the token counts
+  # so the display still works if that field ever goes away.
+  CTX_PCT=$(echo "$INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null)
+  if [[ -z "$CTX_PCT" || "$CTX_PCT" == "null" ]]; then
+    CTX_USED=$(echo "$INPUT" | jq -r '.context_window.total_input_tokens // .context.used // 0' 2>/dev/null)
+    CTX_MAX=$(echo "$INPUT" | jq -r ".context_window.context_window_size // .context.max // $CTX_MAX_DEFAULT" 2>/dev/null)
+    [[ -z "$CTX_MAX" || "$CTX_MAX" == "null" || "$CTX_MAX" -le 0 ]] && CTX_MAX=$CTX_MAX_DEFAULT
+    CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
+  fi
 else
-  MODEL="claude"; THINKING="false"; CTX_USED=0; CTX_MAX=$CTX_MAX_DEFAULT
+  MODEL="claude"; THINKING="false"; CTX_PCT=0
 fi
-[[ -z "$CTX_MAX" || "$CTX_MAX" == "null" ]] && CTX_MAX=$CTX_MAX_DEFAULT
+
+CTX_PCT=${CTX_PCT%%.*}                      # jq may hand back a float
+[[ "$CTX_PCT" =~ ^[0-9]+$ ]] || CTX_PCT=0   # never print a non-number
 [[ -z "$MODEL" ]] && MODEL="claude"
-CTX_PCT=0
-[[ "$CTX_MAX" -gt 0 ]] && CTX_PCT=$(( CTX_USED * 100 / CTX_MAX ))
+
 CTX_WARN=""
 [[ $CTX_PCT -ge 85 ]] && CTX_WARN="!!"
 [[ $CTX_PCT -ge 60 && $CTX_PCT -lt 85 ]] && CTX_WARN="!"
