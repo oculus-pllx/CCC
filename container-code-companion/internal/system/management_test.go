@@ -713,7 +713,17 @@ func TestRunFileOperationCopiesAndChangesMode(t *testing.T) {
 }
 
 func TestRunToolOperationBuildsAllowlistedInstallCommands(t *testing.T) {
-	for _, tool := range []string{"nodejs", "go", "python", "uv", "playwright", "codex", "claude", "gemini", "gh", "bubblewrap", "ripgrep", "jq", "fzf", "build-essential", "aider"} {
+	for _, tool := range []string{
+		"nodejs", "go", "python", "rust", "uv", "build-essential",
+		"claude", "codex", "gemini", "aider",
+		"pnpm", "typescript", "tsx", "ts-node",
+		"playwright", "xvfb",
+		"ripgrep", "fzf", "jq", "yq", "bat", "fd", "entr", "direnv", "tmux", "rsync", "httpie", "sshpass", "shellcheck",
+		"sqlite3", "redis", "postgresql-client",
+		"tesseract",
+		"code-server",
+		"gh", "bubblewrap",
+	} {
 		command, err := toolInstallCommand(tool)
 		if err != nil {
 			t.Fatalf("expected %s install operation to be allowed: %v", tool, err)
@@ -1327,5 +1337,102 @@ func TestWriteClaudeSettingsPythonScriptHandlesMissingFile(t *testing.T) {
 	result, _ := ReadClaudeSettings(dir)
 	if result["autoCompactEnabled"] != true {
 		t.Errorf("autoCompactEnabled = %v, want true", result["autoCompactEnabled"])
+	}
+}
+
+func TestToolSpecsCarryCategories(t *testing.T) {
+	// The catalog grew past the point where a flat list reads well, so the UI
+	// groups rows by category. A spec without one would render under an empty
+	// heading instead of alongside its peers.
+	for _, spec := range toolSpecs() {
+		if strings.TrimSpace(spec.Category) == "" {
+			t.Fatalf("tool %s has no category", spec.Name)
+		}
+	}
+}
+
+func TestToolSpecsGroupCategoriesContiguously(t *testing.T) {
+	// The UI groups in slice order rather than sorting, so a category split
+	// across non-adjacent entries would render as two separate headings with
+	// the same name.
+	seen := map[string]bool{}
+	previous := ""
+	for _, spec := range toolSpecs() {
+		if spec.Category == previous {
+			continue
+		}
+		if seen[spec.Category] {
+			t.Fatalf("category %q appears in more than one run; tool %s breaks the grouping", spec.Category, spec.Name)
+		}
+		seen[spec.Category] = true
+		previous = spec.Category
+	}
+}
+
+func TestToolSpecNamesAreUnique(t *testing.T) {
+	seen := map[string]bool{}
+	for _, spec := range toolSpecs() {
+		if seen[spec.Name] {
+			t.Fatalf("duplicate tool name %q", spec.Name)
+		}
+		seen[spec.Name] = true
+	}
+}
+
+func TestTesseractInstallsLanguageData(t *testing.T) {
+	// tesseract-ocr alone ships no traineddata, so the binary installs and then
+	// fails on the first real page. eng covers English text and osd covers
+	// orientation/script detection.
+	command, err := toolInstallCommand("tesseract")
+	if err != nil {
+		t.Fatalf("expected tesseract install command: %v", err)
+	}
+	for _, pkg := range []string{"tesseract-ocr", "tesseract-ocr-eng", "tesseract-ocr-osd"} {
+		if !strings.Contains(command, pkg) {
+			t.Fatalf("expected tesseract install to include %s, got %q", pkg, command)
+		}
+	}
+}
+
+func TestDebianRenamedBinariesUseRealCommandNames(t *testing.T) {
+	// Debian ships bat as batcat and fd as fdfind to avoid name collisions.
+	// Probing for "bat" or "fd" reports the tool missing on a box that has it.
+	expected := map[string]string{"bat": "batcat", "fd": "fdfind"}
+	for _, spec := range toolSpecs() {
+		want, ok := expected[spec.Name]
+		if !ok {
+			continue
+		}
+		if spec.Command != want {
+			t.Fatalf("tool %s must probe for %q, got %q", spec.Name, want, spec.Command)
+		}
+	}
+}
+
+func TestDockerIsNotInTheCatalog(t *testing.T) {
+	// Container builds run on the remote build boxes, not on a CCC
+	// workstation. Keeping Docker out is what makes the README's "Zero Docker"
+	// claim true rather than aspirational.
+	for _, spec := range toolSpecs() {
+		if strings.Contains(spec.Name, "docker") {
+			t.Fatalf("docker must not be in the catalog, found spec %q", spec.Name)
+		}
+	}
+}
+
+func TestFirstLineKeepsVersionsToOneRow(t *testing.T) {
+	// "tsx --version" prints its own version and then the Node version, which
+	// would spill into the neighbouring catalog row.
+	cases := map[string]string{
+		"tsx v4.23.12\nnode v22.23.1": "tsx v4.23.12",
+		"  jq-1.7  ":                  "jq-1.7",
+		"go version go1.26.3":         "go version go1.26.3",
+		"a\r\nb":                      "a",
+		"":                            "",
+	}
+	for input, want := range cases {
+		if got := firstLine(input); got != want {
+			t.Fatalf("firstLine(%q) = %q, want %q", input, got, want)
+		}
 	}
 }

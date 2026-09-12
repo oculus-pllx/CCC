@@ -26,6 +26,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 - **Ubuntu 24.04 LTS (default), Ubuntu 26.04 LTS, or Debian 13** Proxmox LXC path, plus an existing Debian/Ubuntu Linux-host installer
 - **Non-root working user** — `claude-code` in the LXC path, current user or an optional dedicated CCC user on existing Linux
 - **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
+- **Tesseract OCR** — text extraction from images and PDFs, with `eng` and `osd` language data; other languages via `sudo apt-get install -y tesseract-ocr-<lang>`
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
 - **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
 - **First-login onboarding** — `ccc-onboarding` / `ccc-setup` for git identity, SSH keygen, GitHub
@@ -249,7 +250,16 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 
 - **Overview** — host, IP, uptime, services, projects, SSH session count, resource gauges, update status, and recent logs. SSH counts use login records when available and fall back to `sshd` or `sshd-session` process titles on hosts where `who` is empty.
 - **Updates** — separate App and OS tabs; App updates launch as background jobs, stream live log output, and auto-reconnect after the brief service restart. Opt-in auto-update with configurable frequency and time.
-- **App Catalog** — install/update common workstation tools: Node.js, Go, Python, uv, Playwright, Codex, Claude Code, Gemini CLI, GitHub CLI, bubblewrap, ripgrep, jq, fzf, build-essential, and Aider
+- **App Catalog** — install/update workstation tools, grouped by category:
+  - *Languages & runtimes* — Node.js, Go, Python, Rust, uv, build-essential
+  - *AI agents* — Claude Code, Codex, Gemini CLI, Aider
+  - *Node toolchain* — pnpm, TypeScript, tsx, ts-node
+  - *Testing & automation* — Playwright, Xvfb
+  - *Search & shell* — ripgrep, fzf, jq, yq, bat, fd, entr, direnv, tmux, rsync, HTTPie, sshpass, ShellCheck
+  - *Databases* — SQLite, Redis tools, PostgreSQL client
+  - *OCR & media* — Tesseract OCR
+  - *Editors & remote access* — code-server
+  - *Git & sandboxing* — GitHub CLI, bubblewrap
 - **Files** — browse directories, open/edit text files, create/rename/delete files and folders, single-file upload and download, multi-file upload, folder upload (preserves directory structure), directory download as zip, and multi-item checkbox selection download as zip
 - **Map Drives** — CIFS mount helper with LXC/Proxmox guidance for permission-denied mount failures
 - **Projects** — create projects under `/srv/ccc/projects` from templates, initialize git, open in Files, open in code-server, rename, delete, inspect migration status, and repair permissions, including legacy top-level symlinked project directories. Each project can have its own SSH key pair for test machine access — generate, deploy, and connect without touching user `~/.ssh` directories.

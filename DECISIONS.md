@@ -317,6 +317,47 @@ Delete repositories through the GitHub web UI instead.
 
 ---
 
+## App catalog scope: what belongs on a CCC workstation
+
+The catalog mirrors what a CCC box actually has, not a curated subset. It had 15
+entries while the provisioner installed roughly twice that; tools like `yq`,
+`bat`, `fd`, `tmux`, and `code-server` were installed on every workstation and
+invisible in the UI that exists to manage them.
+
+**The rule: a tool belongs in the catalog if it runs where you edit code.**
+Tools that run where you *deploy* do not.
+
+That rule is what keeps **Docker out**, and the exclusion is deliberate — do not
+"complete" the catalog by adding it. Docker was installed here ad hoc on
+2026-04-29 and 15 of 42 projects carry a `Dockerfile` or compose file, which
+makes it look load-bearing. It is not: those compose files are deploy-shaped
+(`restart: unless-stopped`, named volumes, healthchecks, `expose` over `ports`),
+no `docker` command appears in any user's shell history, the daemon has idled
+with `NRestarts=0` since 2026-08-04, and container builds run on the remote build
+boxes. Shipping it to every workstation would also make the README's headline
+"Zero Docker — pure native toolchain" false. `TestDockerIsNotInTheCatalog` and a
+`require_file_not_contains` assertion both guard this.
+
+The same rule *admits* `sshpass`, `shellcheck`, `pnpm`, `psql`, and Tesseract:
+each runs on the machine where the editing happens.
+
+Postgres was assessed under the same rule and the **server** was excluded while
+the client stays. If a local Postgres is ever needed for tests, follow the
+`redis-server` precedent in provision step 7 — install it with autostart
+disabled — rather than enabling a service on every workstation.
+
+**Tesseract ships with `eng` and `osd` language data.** `tesseract-ocr` alone
+carries no traineddata, so the binary installs and then fails on the first real
+page. Other languages are a deliberate opt-in: `tesseract-ocr-all` is 500MB+,
+against a lean-image goal.
+
+**Catalog entries stay grouped by category and contiguous in `toolSpecs()`.** The
+UI groups in slice order rather than sorting, so splitting a category across
+non-adjacent entries renders two headings with the same name.
+`TestToolSpecsGroupCategoriesContiguously` guards it.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.

@@ -1905,6 +1905,19 @@ td {
   gap: 12px;
 }
 
+.tool-group-heading {
+  margin: 14px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tool-group-heading:first-child {
+  margin-top: 0;
+}
+
 .tool-row {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;

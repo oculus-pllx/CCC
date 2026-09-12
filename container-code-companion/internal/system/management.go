@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -247,6 +247,7 @@ type ToolStatus struct {
 	UpdateAvailable bool   `json:"updateAvailable"`
 	UpdateStatus    string `json:"updateStatus"`
 	Description     string `json:"description"`
+	Category        string `json:"category"`
 }
 
 type ToolOperation struct {
@@ -1070,7 +1071,7 @@ func CollectToolStatuses() []ToolStatus {
 	specs := toolSpecs()
 	statuses := make([]ToolStatus, 0, len(specs))
 	for _, spec := range specs {
-		version := strings.TrimSpace(runText("bash", "-lc", "command -v "+shellQuote(spec.Command)+" >/dev/null 2>&1 && "+spec.Version+" || true"))
+		version := firstLine(runText("bash", "-lc", "command -v "+shellQuote(spec.Command)+" >/dev/null 2>&1 && "+spec.Version+" || true"))
 		updateStatus := "not installed"
 		updateAvailable := false
 		if version != "" {
@@ -1089,9 +1090,22 @@ func CollectToolStatuses() []ToolStatus {
 			UpdateAvailable: updateAvailable,
 			UpdateStatus:    updateStatus,
 			Description:     spec.Description,
+			Category:        spec.Category,
 		})
 	}
 	return statuses
+}
+
+// firstLine keeps a version string to the single line the catalog row has room
+// for. Some tools report more than their own version — "tsx --version" also
+// prints the Node version on a second line — and the extra line would render
+// inside the neighbouring row.
+func firstLine(value string) string {
+	value = strings.TrimSpace(value)
+	if index := strings.IndexAny(value, "\r\n"); index >= 0 {
+		return strings.TrimSpace(value[:index])
+	}
+	return value
 }
 
 func RunToolOperation(operation ToolOperation) (CommandResult, error) {
@@ -1500,6 +1514,7 @@ func copyPath(src string, dst string) error {
 type toolSpec struct {
 	Name        string
 	Label       string
+	Category    string
 	Command     string
 	Version     string
 	Install     string
@@ -1508,28 +1523,102 @@ type toolSpec struct {
 }
 
 func toolSpecs() []toolSpec {
+	// Ordered by category: the UI groups rows in slice order rather than
+	// sorting, so entries sharing a category must stay contiguous.
 	return []toolSpec{
-		{Name: "nodejs", Label: "Node.js", Command: "node", Version: "node --version", Install: "sudo apt-get update && sudo apt-get install -y nodejs", UpdateCheck: aptUpdateCheck("nodejs"), Description: "JavaScript runtime and npm (NodeSource nodejs bundles npm)"},
-		{Name: "go", Label: "Go", Command: "go", Version: "go version", Install: "sudo ccc-update-go || sudo apt-get install -y golang-go", UpdateCheck: "ccc-update-go --check 2>/dev/null || echo 'No update detected.'", Description: "Go toolchain for native builds"},
-		{Name: "python", Label: "Python", Command: "python3", Version: "python3 --version", Install: "sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv pipx", UpdateCheck: aptUpdateCheck("python3"), Description: "Python runtime, venv, pip, and pipx"},
-		{Name: "uv", Label: "uv", Command: "uv", Version: "uv --version", Install: "curl -LsSf https://astral.sh/uv/install.sh | sh", UpdateCheck: "uv self update --dry-run 2>/dev/null || echo 'No update detected.'", Description: "Fast Python package and project manager"},
-		{Name: "playwright", Label: "Playwright", Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", UpdateCheck: "npm outdated -g playwright --depth=0 2>/dev/null | grep . || echo 'No update detected.'", Description: "Browser automation/test dependencies"},
-		{Name: "codex", Label: "OpenAI Codex", Command: "codex", Version: "/usr/local/ccc-npm/bin/codex --version", Install: "ccc-install-codex", UpdateCheck: npmSharedUpdateCheck("@openai/codex"), Description: "OpenAI Codex CLI"},
-		{Name: "claude", Label: "Claude Code", Command: "claude", Version: "claude --version", Install: "curl -fsSL https://claude.ai/install.sh | bash", UpdateCheck: "claude update --check 2>/dev/null || echo 'No update detected.'", Description: "Anthropic Claude Code CLI"},
-		{Name: "gemini", Label: "Gemini CLI", Command: "gemini", Version: "/usr/local/ccc-npm/bin/gemini --version", Install: "npm install -g --prefix /usr/local/ccc-npm @google/gemini-cli", UpdateCheck: npmSharedUpdateCheck("@google/gemini-cli"), Description: "Google Gemini command-line agent"},
-		{Name: "gh", Label: "GitHub CLI", Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", UpdateCheck: aptUpdateCheck("gh"), Description: "GitHub auth and repo operations"},
-		{Name: "bubblewrap", Label: "Bubblewrap", Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", UpdateCheck: aptUpdateCheck("bubblewrap"), Description: "Codex sandbox prerequisite"},
-		{Name: "ripgrep", Label: "ripgrep", Command: "rg", Version: "rg --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y ripgrep", UpdateCheck: aptUpdateCheck("ripgrep"), Description: "Fast code search"},
-		{Name: "jq", Label: "jq", Command: "jq", Version: "jq --version", Install: "sudo apt-get update && sudo apt-get install -y jq", UpdateCheck: aptUpdateCheck("jq"), Description: "JSON processing for scripts and API work"},
-		{Name: "fzf", Label: "fzf", Command: "fzf", Version: "fzf --version", Install: "sudo apt-get update && sudo apt-get install -y fzf", UpdateCheck: aptUpdateCheck("fzf"), Description: "Interactive fuzzy finder for terminal workflows"},
-		{Name: "build-essential", Label: "Build Essential", Command: "gcc", Version: "gcc --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y build-essential pkg-config", UpdateCheck: aptUpdateCheck("build-essential"), Description: "Compiler and native build prerequisites"},
+		// ── Languages & runtimes ──────────────────────────────────────────
+		{Name: "nodejs", Label: "Node.js", Category: langCategory, Command: "node", Version: "node --version", Install: "sudo apt-get update && sudo apt-get install -y nodejs", UpdateCheck: aptUpdateCheck("nodejs"), Description: "JavaScript runtime and npm (NodeSource nodejs bundles npm)"},
+		{Name: "go", Label: "Go", Category: langCategory, Command: "go", Version: "go version", Install: "sudo ccc-update-go || sudo apt-get install -y golang-go", UpdateCheck: "ccc-update-go --check 2>/dev/null || echo 'No update detected.'", Description: "Go toolchain for native builds"},
+		{Name: "python", Label: "Python", Category: langCategory, Command: "python3", Version: "python3 --version", Install: "sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv pipx", UpdateCheck: aptUpdateCheck("python3"), Description: "Python runtime, venv, pip, and pipx"},
+		// rustup runs with --no-modify-path at provision time, so cargo lives in
+		// ~/.cargo/bin and reaches login shells only through the machine-wide
+		// profile. Probing bare "cargo" is correct once that PATH entry exists.
+		{Name: "rust", Label: "Rust", Category: langCategory, Command: "cargo", Version: "cargo --version", Install: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path", UpdateCheck: "export PATH=\"$HOME/.cargo/bin:$PATH\"; rustup check 2>/dev/null | grep -i 'update available' || echo 'No update detected.'", Description: "Rust toolchain via rustup (cargo, rustc)"},
+		{Name: "uv", Label: "uv", Category: langCategory, Command: "uv", Version: "uv --version", Install: "curl -LsSf https://astral.sh/uv/install.sh | sh", UpdateCheck: "uv self update --dry-run 2>/dev/null || echo 'No update detected.'", Description: "Fast Python package and project manager"},
+		{Name: "build-essential", Label: "Build Essential", Category: langCategory, Command: "gcc", Version: "gcc --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y build-essential pkg-config", UpdateCheck: aptUpdateCheck("build-essential"), Description: "Compiler and native build prerequisites"},
+
+		// ── AI agents ─────────────────────────────────────────────────────
+		{Name: "claude", Label: "Claude Code", Category: agentCategory, Command: "claude", Version: "claude --version", Install: "curl -fsSL https://claude.ai/install.sh | bash", UpdateCheck: "claude update --check 2>/dev/null || echo 'No update detected.'", Description: "Anthropic Claude Code CLI"},
+		{Name: "codex", Label: "OpenAI Codex", Category: agentCategory, Command: "codex", Version: "/usr/local/ccc-npm/bin/codex --version", Install: "ccc-install-codex", UpdateCheck: npmSharedUpdateCheck("@openai/codex"), Description: "OpenAI Codex CLI"},
+		{Name: "gemini", Label: "Gemini CLI", Category: agentCategory, Command: "gemini", Version: "/usr/local/ccc-npm/bin/gemini --version", Install: "npm install -g --prefix /usr/local/ccc-npm @google/gemini-cli", UpdateCheck: npmSharedUpdateCheck("@google/gemini-cli"), Description: "Google Gemini command-line agent"},
 		// Installed through uv, not "pip install --user": Ubuntu 24.04 ships a
 		// PEP 668 EXTERNALLY-MANAGED marker, so pip refuses to touch the system
 		// interpreter and the old command failed for every user. uv puts aider in
 		// its own venv and drops the launcher in ~/.local/bin. "--with pip" is
 		// required because aider shells out to pip at runtime.
-		{Name: "aider", Label: "Aider", Command: "aider", Version: "aider --version", Install: "export PATH=\"$HOME/.local/bin:$PATH\"; command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh; uv tool install --force --with pip aider-chat@latest", UpdateCheck: "export PATH=\"$HOME/.local/bin:$PATH\"; uv tool list --outdated 2>/dev/null | grep -E '^aider-chat' || echo 'No update detected.'", Description: "Provider-agnostic AI coding assistant"},
+		{Name: "aider", Label: "Aider", Category: agentCategory, Command: "aider", Version: "aider --version", Install: "export PATH=\"$HOME/.local/bin:$PATH\"; command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh; uv tool install --force --with pip aider-chat@latest", UpdateCheck: "export PATH=\"$HOME/.local/bin:$PATH\"; uv tool list --outdated 2>/dev/null | grep -E '^aider-chat' || echo 'No update detected.'", Description: "Provider-agnostic AI coding assistant"},
+
+		// ── Node toolchain ────────────────────────────────────────────────
+		{Name: "pnpm", Label: "pnpm", Category: nodeCategory, Command: "pnpm", Version: "pnpm --version", Install: npmSharedInstall("pnpm"), UpdateCheck: npmSharedUpdateCheck("pnpm"), Description: "Fast, disk-efficient Node package manager"},
+		{Name: "typescript", Label: "TypeScript", Category: nodeCategory, Command: "tsc", Version: "tsc --version", Install: npmSharedInstall("typescript"), UpdateCheck: npmSharedUpdateCheck("typescript"), Description: "TypeScript compiler (tsc)"},
+		{Name: "tsx", Label: "tsx", Category: nodeCategory, Command: "tsx", Version: "tsx --version", Install: npmSharedInstall("tsx"), UpdateCheck: npmSharedUpdateCheck("tsx"), Description: "Run TypeScript files directly, no build step"},
+		{Name: "ts-node", Label: "ts-node", Category: nodeCategory, Command: "ts-node", Version: "ts-node --version", Install: npmSharedInstall("ts-node"), UpdateCheck: npmSharedUpdateCheck("ts-node"), Description: "TypeScript REPL and script runner (legacy; tsx is faster)"},
+
+		// ── Testing & automation ──────────────────────────────────────────
+		{Name: "playwright", Label: "Playwright", Category: testCategory, Command: "npx", Version: "npx --yes playwright --version", Install: "ccc-install-playwright", UpdateCheck: "npm outdated -g playwright --depth=0 2>/dev/null | grep . || echo 'No update detected.'", Description: "Browser automation/test dependencies"},
+		// xvfb ships no --version flag, so the package database is the only
+		// honest source for what is installed.
+		{Name: "xvfb", Label: "Xvfb", Category: testCategory, Command: "xvfb-run", Version: "dpkg-query -W -f='${Version}' xvfb 2>/dev/null", Install: "sudo apt-get update && sudo apt-get install -y xvfb", UpdateCheck: aptUpdateCheck("xvfb"), Description: "Virtual framebuffer for headless GUI and browser tests"},
+
+		// ── Search & shell ────────────────────────────────────────────────
+		{Name: "ripgrep", Label: "ripgrep", Category: shellCategory, Command: "rg", Version: "rg --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y ripgrep", UpdateCheck: aptUpdateCheck("ripgrep"), Description: "Fast code search"},
+		{Name: "fzf", Label: "fzf", Category: shellCategory, Command: "fzf", Version: "fzf --version", Install: "sudo apt-get update && sudo apt-get install -y fzf", UpdateCheck: aptUpdateCheck("fzf"), Description: "Interactive fuzzy finder for terminal workflows"},
+		{Name: "jq", Label: "jq", Category: shellCategory, Command: "jq", Version: "jq --version", Install: "sudo apt-get update && sudo apt-get install -y jq", UpdateCheck: aptUpdateCheck("jq"), Description: "JSON processing for scripts and API work"},
+		// yq is the mikefarah Go binary installed to /usr/local/bin, not the apt
+		// Python wrapper of the same name; the installer mirrors provision step 8.
+		{Name: "yq", Label: "yq", Category: shellCategory, Command: "yq", Version: "yq --version", Install: "sudo sh -c 'curl -fsSL \"https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64\" -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq'", UpdateCheck: "echo 'Manual check: compare with latest release.'", Description: "YAML processing (mikefarah Go binary)"},
+		// Debian renames the binary to batcat to avoid a collision with bacula.
+		{Name: "bat", Label: "bat", Category: shellCategory, Command: "batcat", Version: "batcat --version", Install: "sudo apt-get update && sudo apt-get install -y bat", UpdateCheck: aptUpdateCheck("bat"), Description: "Syntax-highlighting file viewer (batcat on Debian)"},
+		// Debian renames the binary to fdfind to avoid a collision with fdclone.
+		{Name: "fd", Label: "fd", Category: shellCategory, Command: "fdfind", Version: "fdfind --version", Install: "sudo apt-get update && sudo apt-get install -y fd-find", UpdateCheck: aptUpdateCheck("fd-find"), Description: "Fast file finder (fdfind on Debian)"},
+		{Name: "entr", Label: "entr", Category: shellCategory, Command: "entr", Version: "entr 2>&1 | head -1", Install: "sudo apt-get update && sudo apt-get install -y entr", UpdateCheck: aptUpdateCheck("entr"), Description: "Run commands when files change"},
+		{Name: "direnv", Label: "direnv", Category: shellCategory, Command: "direnv", Version: "direnv version", Install: "sudo apt-get update && sudo apt-get install -y direnv", UpdateCheck: aptUpdateCheck("direnv"), Description: "Per-directory environment variables"},
+		{Name: "tmux", Label: "tmux", Category: shellCategory, Command: "tmux", Version: "tmux -V", Install: "sudo apt-get update && sudo apt-get install -y tmux", UpdateCheck: aptUpdateCheck("tmux"), Description: "Terminal multiplexer backing the browser terminal tabs"},
+		{Name: "rsync", Label: "rsync", Category: shellCategory, Command: "rsync", Version: "rsync --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y rsync", UpdateCheck: aptUpdateCheck("rsync"), Description: "Incremental file transfer and sync"},
+		{Name: "httpie", Label: "HTTPie", Category: shellCategory, Command: "http", Version: "http --version", Install: "sudo apt-get update && sudo apt-get install -y httpie", UpdateCheck: aptUpdateCheck("httpie"), Description: "Human-friendly HTTP client for API work"},
+		{Name: "sshpass", Label: "sshpass", Category: shellCategory, Command: "sshpass", Version: "sshpass -V | head -1", Install: "sudo apt-get update && sudo apt-get install -y sshpass", UpdateCheck: aptUpdateCheck("sshpass"), Description: "Non-interactive SSH password auth for deploy scripts"},
+		// shellcheck --version prints a banner first; the version lives on line 2.
+		{Name: "shellcheck", Label: "ShellCheck", Category: shellCategory, Command: "shellcheck", Version: "shellcheck --version | sed -n 2p", Install: "sudo apt-get update && sudo apt-get install -y shellcheck", UpdateCheck: aptUpdateCheck("shellcheck"), Description: "Static analysis for shell scripts"},
+
+		// ── Databases ─────────────────────────────────────────────────────
+		{Name: "sqlite3", Label: "SQLite", Category: dbCategory, Command: "sqlite3", Version: "sqlite3 --version | awk '{print $1}'", Install: "sudo apt-get update && sudo apt-get install -y sqlite3", UpdateCheck: aptUpdateCheck("sqlite3"), Description: "Embedded SQL database and CLI"},
+		{Name: "redis", Label: "Redis tools", Category: dbCategory, Command: "redis-cli", Version: "redis-cli --version", Install: "sudo apt-get update && sudo apt-get install -y redis-tools", UpdateCheck: aptUpdateCheck("redis-tools"), Description: "Redis client tools (redis-cli)"},
+		{Name: "postgresql-client", Label: "PostgreSQL client", Category: dbCategory, Command: "psql", Version: "psql --version", Install: "sudo apt-get update && sudo apt-get install -y postgresql-client", UpdateCheck: aptUpdateCheck("postgresql-client"), Description: "psql and PostgreSQL client tools"},
+
+		// ── OCR & media ───────────────────────────────────────────────────
+		// tesseract-ocr alone ships no traineddata; without eng and osd the
+		// binary installs and then fails on the first real page.
+		{Name: "tesseract", Label: "Tesseract OCR", Category: ocrCategory, Command: "tesseract", Version: "tesseract --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-osd", UpdateCheck: aptUpdateCheck("tesseract-ocr"), Description: "OCR engine for extracting text from images and PDFs"},
+
+		// ── Editors & remote access ───────────────────────────────────────
+		// The first run writes a default config file and logs that to stdout, so
+		// the banner has to be dropped before the version line.
+		{Name: "code-server", Label: "code-server", Category: editorCategory, Command: "code-server", Version: "code-server --version 2>/dev/null | head -1", Install: "curl -fsSL https://code-server.dev/install.sh | sh", UpdateCheck: "echo 'Manual check: compare with latest release.'", Description: "VS Code in the browser on port 8080"},
+
+		// ── Git & sandboxing ──────────────────────────────────────────────
+		{Name: "gh", Label: "GitHub CLI", Category: gitCategory, Command: "gh", Version: "gh --version | head -1", Install: "sudo apt-get update && sudo apt-get install -y gh", UpdateCheck: aptUpdateCheck("gh"), Description: "GitHub auth and repo operations"},
+		{Name: "bubblewrap", Label: "Bubblewrap", Category: gitCategory, Command: "bwrap", Version: "bwrap --version", Install: "sudo apt-get update && sudo apt-get install -y bubblewrap", UpdateCheck: aptUpdateCheck("bubblewrap"), Description: "Codex sandbox prerequisite"},
 	}
+}
+
+// Catalog categories. The UI renders one heading per category in the order
+// toolSpecs returns them.
+const (
+	langCategory   = "Languages & runtimes"
+	agentCategory  = "AI agents"
+	nodeCategory   = "Node toolchain"
+	testCategory   = "Testing & automation"
+	shellCategory  = "Search & shell"
+	dbCategory     = "Databases"
+	ocrCategory    = "OCR & media"
+	editorCategory = "Editors & remote access"
+	gitCategory    = "Git & sandboxing"
+)
+
+// npmSharedInstall installs a package into the machine-wide npm prefix so a
+// single copy serves every account, matching where Codex and Gemini live.
+func npmSharedInstall(pkg string) string {
+	return "npm install -g --prefix /usr/local/ccc-npm " + shellQuote(pkg)
 }
 
 func aptUpdateCheck(pkg string) string {
@@ -1830,7 +1919,6 @@ func safePluginName(s string) bool {
 	}
 	return len(s) > 0 && len(s) <= 128
 }
-
 
 func collectUpdates() UpdateStatus {
 	updateStatusMu.RLock()

@@ -166,11 +166,21 @@ apt-get install -y -qq \
   libreadline-dev libbz2-dev libncurses-dev liblzma-dev libxml2-dev libxslt-dev
 
 # ── Search & productivity tools ───────────────────────────────────────────────
-step 6 "Search & productivity tools"
+step 6 "Search, productivity & OCR tools"
+# tesseract-ocr alone ships no traineddata, so the binary installs and then
+# fails on the first real page. eng covers English text, osd covers orientation
+# and script detection. Other languages install on demand:
+#   sudo apt-get install -y tesseract-ocr-<lang>
 apt-get install -y -qq \
   ripgrep fd-find fzf bat \
   rsync \
-  sqlite3
+  sqlite3 \
+  shellcheck \
+  sshpass \
+  tesseract-ocr \
+  tesseract-ocr-eng \
+  tesseract-ocr-osd
+echo "    $(tesseract --version 2>/dev/null | head -1)"
 
 # ── Database clients + local test servers ─────────────────────────────────────
 step 7 "Database clients"
@@ -456,7 +466,7 @@ esac
 NPMPATHEOF
 chmod 0644 /etc/profile.d/ccc-npm-path.sh
 if command -v npm >/dev/null 2>&1; then
-  npm install -g --prefix "$CCC_NPM_PREFIX" typescript ts-node tsx @openai/codex @google/gemini-cli || true
+  npm install -g --prefix "$CCC_NPM_PREFIX" pnpm typescript ts-node tsx @openai/codex @google/gemini-cli || true
   # Keep the installed tree group-writable so any ccc user can update it later.
   chgrp -R "${CCC_SHARED_GROUP:-ccc}" "$CCC_NPM_PREFIX" 2>/dev/null || true
   chmod -R g+rwX "$CCC_NPM_PREFIX" 2>/dev/null || true
@@ -512,6 +522,12 @@ export LC_ALL=en_US.UTF-8
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+# rustup runs with --no-modify-path so it never touches per-user dotfiles;
+# without this entry cargo is installed but unreachable in every login shell.
+case ":$PATH:" in
+  *":$HOME/.cargo/bin:"*) ;;
+  *) export PATH="$HOME/.cargo/bin:$PATH" ;;
 esac
 CCCENV
 chmod 0644 /etc/profile.d/ccc-env.sh

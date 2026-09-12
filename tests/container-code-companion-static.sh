@@ -209,6 +209,18 @@ require_file_not_contains install/ccc-provision-workstation.sh "apt-get install 
 require_file_not_contains container-code-companion/internal/system/management.go "apt-get install -y nodejs npm"
 require_file_contains install/ccc-provision-workstation.sh 'command -v tmux'
 require_file_contains install/ccc-provision-workstation.sh 'command -v code-server'
+# Tesseract must reach the fresh build with its language data, or the binary
+# installs and then fails on the first real page.
+require_file_contains install/ccc-provision-workstation.sh "tesseract-ocr-eng"
+require_file_contains install/ccc-provision-workstation.sh "tesseract-ocr-osd"
+require_file_contains container-code-companion/internal/system/management.go "tesseract-ocr-eng"
+# rustup installs with --no-modify-path, so the machine-wide profile is the only
+# thing putting cargo on a login-shell PATH.
+require_file_contains install/ccc-provision-workstation.sh '$HOME/.cargo/bin:$PATH'
+# Container builds run on the remote build boxes; the README's "Zero Docker"
+# claim depends on neither the build nor the catalog pulling Docker in.
+require_file_not_contains install/ccc-provision-workstation.sh "docker.io"
+require_file_not_contains container-code-companion/internal/system/management.go "docker"
 require_file_contains README.md "bubblewrap"
 require_file_contains README.md "GitHub CLI"
 require_file_contains install/ccc-provision-workstation.sh "Ubuntu 26.04 Chromium support may lag Playwright releases"
@@ -791,21 +803,27 @@ require_ordered_patterns container-code-companion/web/app.js \
 require_ordered_patterns container-code-companion/web/app.js \
   'id="github-copy-btn"' 'id="github-test-btn"' 'id="github-generate-btn"'
 
-awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-self-update.syntax
-bash -n /tmp/ccc-self-update.syntax
-awk '/UPDATESTATUSSCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-update-status.syntax
-bash -n /tmp/ccc-update-status.syntax
+# Per-run scratch dir: the suite used fixed /tmp paths, which are shared by
+# every ccc account on a workstation. The first user to run it owned those
+# files and every other user then failed on permission denied.
+CCC_TEST_TMP="$(mktemp -d)"
+trap 'rm -rf "$CCC_TEST_TMP"' EXIT
+
+awk '/SELFUPDATESCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > "$CCC_TEST_TMP/ccc-self-update.syntax"
+bash -n "$CCC_TEST_TMP/ccc-self-update.syntax"
+awk '/UPDATESTATUSSCRIPT/{flag=!flag; next} flag{print}' install/ccc-provision-workstation.sh > "$CCC_TEST_TMP/ccc-update-status.syntax"
+bash -n "$CCC_TEST_TMP/ccc-update-status.syntax"
 node tests/update-status-ui.test.mjs
 
-awk '/cat > .*statusline-command.sh.*CLAUDESTATUSLINE/{flag=1; next} /^CLAUDESTATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > /tmp/ccc-statusline.syntax
-bash -n /tmp/ccc-statusline.syntax
+awk '/cat > .*statusline-command.sh.*CLAUDESTATUSLINE/{flag=1; next} /^CLAUDESTATUSLINE$/{flag=0} flag{print}' install/ccc-provision-workstation.sh > "$CCC_TEST_TMP/ccc-statusline.syntax"
+bash -n "$CCC_TEST_TMP/ccc-statusline.syntax"
 # Drive the statusline with REAL jq and the payload Claude Code actually sends,
 # recorded off a live 2.1.227 session. The previous version of this test mocked
 # jq with a stub answering `.context.used` / `.context.max` - the very keys the
 # script wrongly asked for - so the mock agreed with the bug: the statusline
 # reported ctx:0% on every account while the test stayed green. A mock that
 # encodes the code's own guess about an external contract cannot test that guess.
-statusline_run() { printf '%s\n' "$1" | USER=test HOME="$PWD" bash /tmp/ccc-statusline.syntax; }
+statusline_run() { printf '%s\n' "$1" | USER=test HOME="$PWD" bash "$CCC_TEST_TMP/ccc-statusline.syntax"; }
 
 statusline_output=$(statusline_run '{"model":{"id":"claude-opus-5"},"version":"2.1.227","thinking":{"enabled":true},"context_window":{"total_input_tokens":700000,"total_output_tokens":3,"context_window_size":1000000,"used_percentage":70,"remaining_percentage":30},"exceeds_200k_tokens":false}')
 [[ "$statusline_output" == test@* ]] || fail "statusline output missing user/host prefix"
@@ -830,7 +848,7 @@ done
 # Absolute path to bash: it is deliberately not on the curated PATH, since the
 # point of that PATH is to hide jq from the script under test.
 statusline_nojq=$(printf '%s\n' '{"context_window":{"used_percentage":42}}' \
-  | env PATH="$statusline_nojq_bin" USER=test HOME="$PWD" "$BASH" /tmp/ccc-statusline.syntax || true)
+  | env PATH="$statusline_nojq_bin" USER=test HOME="$PWD" "$BASH" "$CCC_TEST_TMP/ccc-statusline.syntax" || true)
 rm -rf "$statusline_nojq_bin"
 [[ "$statusline_nojq" == test@* ]] || fail "statusline must still render without jq, got: '$statusline_nojq'"
 

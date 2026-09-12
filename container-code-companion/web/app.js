@@ -1350,6 +1350,23 @@ function bindToolCatalog() {
   loadToolCatalog();
 }
 
+// Groups catalog rows under their category heading, preserving the order the
+// API returns. A tool with no category falls back to "Other" rather than
+// vanishing under an empty heading.
+function groupToolsByCategory(tools) {
+  const groups = [];
+  const index = new Map();
+  for (const tool of tools) {
+    const category = (tool.category || '').trim() || 'Other';
+    if (!index.has(category)) {
+      index.set(category, groups.length);
+      groups.push({ category, tools: [] });
+    }
+    groups[index.get(category)].tools.push(tool);
+  }
+  return groups;
+}
+
 async function loadToolCatalog() {
   const panel = document.getElementById('tool-catalog');
   const status = document.getElementById('tool-status');
@@ -1359,7 +1376,9 @@ async function loadToolCatalog() {
     const response = await fetch('/api/tools', { credentials: 'include' });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
-    panel.innerHTML = (data.tools || []).map(tool => `
+    panel.innerHTML = groupToolsByCategory(data.tools || []).map(group => `
+      <h3 class="tool-group-heading">${escapeHTML(group.category)}</h3>
+      ${group.tools.map(tool => `
       <section class="tool-row">
         <div>
           <strong>${escapeHTML(tool.label || tool.name)}</strong>
@@ -1371,6 +1390,7 @@ async function loadToolCatalog() {
         </div>
         <button class="small-button" data-tool-install="${escapeAttribute(tool.name)}">${tool.installed ? 'Update' : 'Install'}</button>
       </section>
+      `).join('')}
     `).join('');
     if (status) status.textContent = 'Tool status current.';
   } catch (error) {
