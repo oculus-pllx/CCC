@@ -390,6 +390,34 @@ grant and points at `sudo -n -l`.
 
 ---
 
+## Rust is opt-in, not part of the base build
+
+Provision installed the Rust toolchain twice — once as root, once for the
+workstation user — and no project in the workspace has ever used it: zero
+`Cargo.toml` files, zero `.rs` files across 42 projects. The README had already
+flagged the double install as a cleanup candidate.
+
+Both steps are removed. Rust stays in the App Catalog, so anyone who needs it is
+one click away, which is the right shape for a toolchain that is genuinely
+useful but genuinely unused here.
+
+**Keep `$HOME/.cargo/bin` on the machine-wide login PATH** even though nothing
+installs Rust any more. rustup runs with `--no-modify-path` and never touches
+per-user dotfiles, so that profile entry is the only thing that makes a
+catalog-installed cargo reachable in a login shell. Its absence was a live bug
+before this: provision installed Rust and every login shell then reported it
+missing, including `ccc-doctor`.
+
+`ccc-doctor` no longer fails on a missing cargo — an opt-in toolchain is not a
+health problem. The rust-analyzer code-server extension stays: it is inert
+without a toolchain and immediately useful with one.
+
+This is the same rule that keeps Docker out, applied to something already in the
+build rather than something proposed for it. "The provisioner installs it"
+is not evidence that anything needs it.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.

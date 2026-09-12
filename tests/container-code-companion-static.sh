@@ -180,7 +180,7 @@ require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$
 require_file_contains install/ccc-provision-workstation.sh 'copy_optional_dir "$OCULUS_CONFIGS_DIR/codex/plugins" "$CCC_HOME/.codex/plugins" "Codex default plugins"'
 require_file_contains install/ccc-provision-workstation.sh 'git config --system safe.directory "*"'
 require_file_contains install/ccc-provision-workstation.sh 'git -c "safe.directory=$OCULUS_CONFIGS_DIR" -C "$OCULUS_CONFIGS_DIR" fetch'
-require_file_contains install/ccc-provision-workstation.sh 'step 28 "Agent configs (initial sync)"'
+require_file_contains install/ccc-provision-workstation.sh 'step 26 "Agent configs (initial sync)"'
 require_file_contains install/ccc-provision-workstation.sh 'NO_COLOR=1 /usr/local/bin/ccc-sync-agent-configs --user "$CCC_USER"'
 require_file_contains install/ccc-provision-workstation.sh "/etc/ccc/ssh/github_ed25519"
 require_file_contains install/ccc-provision-workstation.sh "Setup CCC Profile"
@@ -214,8 +214,15 @@ require_file_contains install/ccc-provision-workstation.sh 'command -v code-serv
 require_file_contains install/ccc-provision-workstation.sh "tesseract-ocr-eng"
 require_file_contains install/ccc-provision-workstation.sh "tesseract-ocr-osd"
 require_file_contains container-code-companion/internal/system/management.go "tesseract-ocr-eng"
-# rustup installs with --no-modify-path, so the machine-wide profile is the only
-# thing putting cargo on a login-shell PATH.
+# Rust is opt-in from the App Catalog, not part of the base build: no project in
+# the workspace carries a Cargo.toml, and provision was installing the toolchain
+# twice (root and the workstation user) for nobody.
+require_file_not_contains install/ccc-provision-workstation.sh "sh.rustup.rs"
+# ccc-doctor must not report an opt-in toolchain as a failure.
+require_file_not_contains install/ccc-provision-workstation.sh 'fail "Rust missing"'
+# The PATH entry stays: rustup installs with --no-modify-path, so the
+# machine-wide profile is the only thing that makes a catalog-installed cargo
+# reachable in a login shell.
 require_file_contains install/ccc-provision-workstation.sh '$HOME/.cargo/bin:$PATH'
 # Container builds run on the remote build boxes; the README's "Zero Docker"
 # claim depends on neither the build nor the catalog pulling Docker in.

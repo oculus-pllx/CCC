@@ -47,7 +47,7 @@ OCULUS_CONFIGS_DIR="/opt/oculus-configs"
 EOF
   chmod 0644 /etc/ccc/config
 }
-_STEPS=29
+_STEPS=27
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 setup_shared_projects_root() {
@@ -228,12 +228,8 @@ rm /tmp/go.tar.gz
 echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
 echo "    $(/usr/local/go/bin/go version | awk '{print $3}')"
 
-# ── Rust (system — build tooling) ─────────────────────────────────────────────
-step 11 "Rust (system)"
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-
 # ── Workstation user ─────────────────────────────────────────────────────────
-step 12 "Creating workstation user"
+step 11 "Creating workstation user"
 useradd -m -s /bin/bash -d "$CCC_HOME" "$CCC_USER" 2>/dev/null || true
 usermod -aG sudo "$CCC_USER"
 echo "$CCC_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$CCC_USER"
@@ -242,18 +238,12 @@ setup_shared_projects_root
 
 write_ccc_config
 
-# ── Rust for workstation user ────────────────────────────────────────────────
-step 13 "Rust (workstation user)"
-sudo -u "$CCC_USER" env HOME="$CCC_HOME" bash -c '
-  curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-'
-
 # ── Python testing & linting ecosystem ───────────────────────────────────────
-step 14 "Python ecosystem"
+step 12 "Python ecosystem"
 echo "    pip3 available — install packages per-project with: pip install --break-system-packages <pkg>"
 
 # ── Claude Code ──────────────────────────────────────────────────────────────
-step 15 "Claude Code"
+step 13 "Claude Code"
 sudo -u "$CCC_USER" env HOME="$CCC_HOME" bash -c '
   curl -fsSL https://claude.ai/install.sh | bash
 '
@@ -271,11 +261,11 @@ fi
 # ── Playwright (headless browser testing) ────────────────────────────────────
 # Skipped at provision time — hangs in LXC due to Chromium download size/networking.
 # Install manually after provision: npx --yes playwright install --with-deps chromium
-step 16 "Playwright (skipped — install manually after provision)"
+step 14 "Playwright (skipped — install manually after provision)"
 echo "    Run after provision: npx --yes playwright install --with-deps chromium"
 
 # ── code-server (web VS Code) ─────────────────────────────────────────────────
-step 17 "code-server (web VS Code)"
+step 15 "code-server (web VS Code)"
 curl -fsSL https://code-server.dev/install.sh | sh
 echo "    $(code-server --version 2>/dev/null | head -1 || echo 'installed')"
 
@@ -408,7 +398,7 @@ systemctl enable "$CCC_CODE_SERVER_SERVICE"
 echo "    code-server service enabled (config injected next step)"
 
 # ── SSH hardening ─────────────────────────────────────────────────────────────
-step 18 "SSH hardening"
+step 16 "SSH hardening"
 if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
   sed -i "s/^#*PermitRootLogin.*/PermitRootLogin no/"               /etc/ssh/sshd_config
   sed -i "s/^#*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
@@ -431,7 +421,7 @@ command -v step >/dev/null 2>&1 || step() { echo ">>> $2"; }
 # One shared, setgid, group-writable prefix so any ccc user can install/update
 # global npm packages. Replaces the old root-owned system prefix that caused
 # intermittent EACCES for non-root users.
-step 19 "Shared npm global prefix"
+step 17 "Shared npm global prefix"
 CCC_NPM_PREFIX="/usr/local/ccc-npm"
 mkdir -p "$CCC_NPM_PREFIX"
 chown root:"${CCC_SHARED_GROUP:-ccc}" "$CCC_NPM_PREFIX"
@@ -512,7 +502,7 @@ chmod 0755 /usr/local/bin/claude
 # ── Machine-wide shell environment ───────────────────────────────────────────
 # One shared person, many accounts: env, aliases, and the ccc() helper are
 # machine-wide instead of appended per-user to ~/.bashrc.
-step 20 "Shell environment (machine-wide)"
+step 18 "Shell environment (machine-wide)"
 cat > /etc/profile.d/ccc-env.sh <<'CCCENV'
 # CCC shared environment (login shells).
 export EDITOR=vim
@@ -523,8 +513,9 @@ case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) export PATH="$HOME/.local/bin:$PATH" ;;
 esac
-# rustup runs with --no-modify-path so it never touches per-user dotfiles;
-# without this entry cargo is installed but unreachable in every login shell.
+# Rust is not installed at provision — it is an opt-in App Catalog entry. rustup
+# installs with --no-modify-path and never touches per-user dotfiles, so without
+# this entry a catalog-installed cargo is unreachable in every login shell.
 case ":$PATH:" in
   *":$HOME/.cargo/bin:"*) ;;
   *) export PATH="$HOME/.cargo/bin:$PATH" ;;
@@ -589,7 +580,7 @@ fi
 # Cheap, idempotent: keep the projects root setgid + ccc-owned so new project
 # subdirs inherit group ownership. A one-time recursive repair (gated by a
 # sentinel) fixes projects that predate this model on already-running machines.
-step 21 "Shared permission model"
+step 19 "Shared permission model"
 mkdir -p "$CCC_SHARED_PROJECTS"
 chown root:"${CCC_SHARED_GROUP:-ccc}" "$CCC_SHARED_PROJECTS"
 chmod 2775 "$CCC_SHARED_PROJECTS"
@@ -1696,7 +1687,6 @@ command -v node &>/dev/null   && ok "Node.js $(node --version)" || fail "Node.js
 command -v npm &>/dev/null    && ok "npm $(npm --version)" || fail "npm missing"
 command -v python3 &>/dev/null && ok "Python $(python3 --version)" || fail "Python3 missing"
 command -v go &>/dev/null     && ok "Go $(go version | awk '{print $3}')" || fail "Go missing"
-command -v cargo &>/dev/null  && ok "Rust $(cargo --version)" || fail "Rust missing"
 echo ""
 
 echo -e "${C}── Developer Tools ───────────────────────────${N}"
@@ -1771,7 +1761,7 @@ DOCTORSCRIPT
 chmod +x /usr/local/bin/ccc-doctor
 
 # ── ccc-install-playwright (standalone script) ───────────────────────────────
-step 22 "ccc-install-playwright script"
+step 20 "ccc-install-playwright script"
 cat > /usr/local/bin/ccc-install-playwright << 'PWSCRIPT'
 #!/bin/bash
 B='\033[1m'; G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
@@ -2147,7 +2137,7 @@ SELFUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-self-update
 
 # ── MOTD ─────────────────────────────────────────────────────────────────────
-step 23 "MOTD"
+step 21 "MOTD"
 if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
   chmod -x /etc/update-motd.d/* 2>/dev/null || true
 else
@@ -2187,7 +2177,7 @@ MOTD
 chmod +x /etc/update-motd.d/00-ccc
 
 # ── Shared project umask ─────────────────────────────────────────────────────
-step 24 "Shared project umask"
+step 22 "Shared project umask"
 cat > /etc/profile.d/ccc-umask.sh << 'UMASKEOF'
 # Files created by ccc group members should be group-writable (664/775)
 # so all work identities can modify shared project files.
@@ -2198,7 +2188,7 @@ UMASKEOF
 chmod 0644 /etc/profile.d/ccc-umask.sh
 
 # ── Git defaults ──────────────────────────────────────────────────────────────
-step 25 "Git defaults"
+step 23 "Git defaults"
 git config --system safe.directory "*" 2>/dev/null || true
 sudo -u "$CCC_USER" git config --global init.defaultBranch main
 sudo -u "$CCC_USER" git config --global core.editor nano
@@ -2242,7 +2232,7 @@ AUTOUPDATESCRIPT
 chmod +x /usr/local/bin/ccc-auto-update
 
 # ── Auto-update cron ──────────────────────────────────────────────────────────
-step 26 "Application auto-update cron"
+step 24 "Application auto-update cron"
 rm -f /etc/cron.d/system-update /etc/logrotate.d/system-update
 cat > /etc/cron.d/ccc-app-update << 'CRON'
 SHELL=/bin/bash
@@ -2264,7 +2254,7 @@ cat > /etc/logrotate.d/ccc-app-update << 'LOGROTATE'
 LOGROTATE
 
 # ── Container Code Companion native web UI ───────────────────────────────────────────
-step 27 "Container Code Companion native web UI"
+step 25 "Container Code Companion native web UI"
 
 systemctl disable --now ccc-dashboard 2>/dev/null || true
 systemctl disable --now cockpit.socket 2>/dev/null || true
@@ -2410,11 +2400,11 @@ fi
 # ── Agent configs (initial sync) ─────────────────────────────────────────────
 # The sync command was installed by the updateable section above. Run it once
 # at provision time for the primary user; self-update re-runs it on upgrades.
-step 28 "Agent configs (initial sync)"
+step 26 "Agent configs (initial sync)"
 NO_COLOR=1 /usr/local/bin/ccc-sync-agent-configs --user "$CCC_USER" || true
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
-step 29 "Cleanup"
+step 27 "Cleanup"
 apt-get autoremove -y -qq
 apt-get clean -qq
 rm -rf /var/lib/apt/lists/*

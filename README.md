@@ -25,7 +25,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/oculus-pllx/CCC/main/ccc-ins
 
 - **Ubuntu 24.04 LTS (default), Ubuntu 26.04 LTS, or Debian 13** Proxmox LXC path, plus an existing Debian/Ubuntu Linux-host installer
 - **Non-root working user** — `claude-code` in the LXC path, current user or an optional dedicated CCC user on existing Linux
-- **Full dev stack** — Node.js 22 LTS, Python 3, Go, Rust, build essentials
+- **Full dev stack** — Node.js 22 LTS, Python 3, Go, build essentials (Rust available from the App Catalog)
 - **Tesseract OCR** — text extraction from images and PDFs, with `eng` and `osd` language data; other languages via `sudo apt-get install -y tesseract-ocr-<lang>`
 - **Claude Code** native install, all tools pre-approved, zero permission prompts, statusline active
 - **OpenAI Codex and Gemini-ready config** from the shared `oculus-configs` repo
@@ -203,13 +203,14 @@ ccc
 ## Container Specs
 
 ### Languages & Runtimes
-- **Node.js 22 LTS** — NodeSource `nodejs` with bundled npm verified, plus typescript, ts-node, tsx
+- **Node.js 22 LTS** — NodeSource `nodejs` with bundled npm verified, plus pnpm, typescript, ts-node, tsx
 - **Python 3** — pip (`--break-system-packages`), venv
 - **Go** (latest) — via official tarball, on PATH
-- **Rust** (latest) — via rustup, installed for claude-code user
+- **Rust** — *not* preinstalled; install on demand from the App Catalog (rustup). `$HOME/.cargo/bin` is already on the machine-wide login PATH, so cargo works as soon as it lands.
 
 ### Tools
 - **Search** — ripgrep (`rg`), fd (`fdfind`), fzf, bat (`batcat`)
+- **OCR** — Tesseract (`tesseract`) with `eng` and `osd` language data
 - **Data** — jq, yq (mikefarah Go binary), sqlite3
 - **GitHub CLI** — official `gh` package from `cli.github.com`
 - **Codex sandboxing** — bubblewrap (`bwrap`) installed for Codex sandbox prerequisites
@@ -503,7 +504,6 @@ If the error mentions `unknown filesystem type` or `bad option`, confirm `cifs-u
 - The selected LXC template is auto-resolved via `pveam` — run `pveam update` on your Proxmox host if it can't be found.
 - `yq` is the [mikefarah Go binary](https://github.com/mikefarah/yq), not the apt Python wrapper.
 - Redis server is installed but disabled at boot. Start it when tests need it.
-- Rust is installed twice (root + claude-code user). Root install is a known cleanup candidate.
 
 ---
 
