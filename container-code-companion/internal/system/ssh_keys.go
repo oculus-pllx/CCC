@@ -3,6 +3,7 @@ package system
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"os/user"
@@ -348,7 +349,29 @@ func buildSSHKeyEntry(path, owner string) *SSHKeyEntry {
 // CLAUDE.md, AGENTS.md, GEMINI.md, etc.
 func WriteProjectDeploymentConfigs(projectName, testHost string, configPaths []string) error {
 	keyPath := filepath.Join(projectKeysRoot(), projectName, "id_ed25519")
-	block := fmt.Sprintf(`%s
+	var block string
+	if isThisMachine(testHost) {
+		block = selfHostedDeploymentBlock(testHost, keyPath)
+	} else {
+		block = remoteDeploymentBlock(testHost, keyPath)
+	}
+
+	var errs []string
+	for _, p := range configPaths {
+		if err := replaceDeploymentBlock(p, block); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", p, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("deployment config errors: %s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// remoteDeploymentBlock is the normal case: the test target is a different
+// machine reached over SSH with the shared project key.
+func remoteDeploymentBlock(testHost, keyPath string) string {
+	return fmt.Sprintf(`%s
 ## CCC Deployment Target (machine-local, not in repo)
 
 - **Test machine:** root@%s
@@ -361,17 +384,84 @@ func WriteProjectDeploymentConfigs(projectName, testHost string, configPaths []s
   group-readable (0640, group `+"`ccc`"+`) so every team member shares one key;
   "tightening" it to 0600 breaks access for others and will be reverted.
 %s`, deploymentStartMarker, testHost, keyPath, keyPath, testHost, deploymentEndMarker)
+}
 
-	var errs []string
-	for _, p := range configPaths {
-		if err := replaceDeploymentBlock(p, block); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", p, err))
+// selfHostedDeploymentBlock covers a CCC workstation that is its own test
+// target. The remote block is actively harmful here: it tells an agent to SSH
+// to root@<host>, which dials this very box, where CCC provisioning disabled
+// root SSH login. The attempt cannot succeed and reads like a credentials
+// problem, so it burns a debugging session before anyone notices the address is
+// local. Deploying locally is both correct and simpler.
+func selfHostedDeploymentBlock(testHost, keyPath string) string {
+	return fmt.Sprintf(`%s
+## CCC Deployment Target (machine-local, not in repo)
+
+- **This machine IS the test machine** (%s). It is itself a CCC-provisioned
+  workstation. Do **not** SSH to root@%s — that is this very box, and root SSH
+  login is disabled by CCC provisioning, so it will always fail.
+- **To deploy a pushed commit:** run `+"`"+`sudo ccc-self-update`+"`"+` locally.
+  `+"`"+`/usr/local/bin/ccc-self-update`+"`"+` is the only command granted NOPASSWD, so an
+  agent can run it unattended. Every other privileged command still prompts for
+  a password — `+"`"+`sudo -n true`+"`"+` failing does not mean sudo is unavailable; check
+  `+"`"+`sudo -n -l`+"`"+`. The auto-update cron also covers deploys.
+- Installed version marker: /etc/ccc/version (compare with `+"`"+`git log`+"`"+`).
+- Development and GitHub pushes happen on **this machine only**.
+- Do **not** create new SSH keys.
+- The key at %s is not used to reach this host; leave it alone. Do **not**
+  `+"`chmod`"+` or `+"`chown`"+` project keys. They are intentionally root-owned and
+  group-readable (0640, group `+"`ccc`"+`) so every team member shares one key;
+  "tightening" to 0600 breaks access for others and will be reverted.
+%s`, deploymentStartMarker, testHost, testHost, keyPath, deploymentEndMarker)
+}
+
+// isThisMachine reports whether testHost names the machine the app is running
+// on, in which case deployment is a local command rather than an SSH hop.
+func isThisMachine(testHost string) bool {
+	host := strings.ToLower(strings.TrimSpace(testHost))
+	if host == "" {
+		return false
+	}
+	// Strip any "user@" prefix and a trailing ":port".
+	if at := strings.LastIndex(host, "@"); at >= 0 {
+		host = host[at+1:]
+	}
+	if colon := strings.LastIndex(host, ":"); colon >= 0 && !strings.Contains(host[colon+1:], ".") {
+		host = host[:colon]
+	}
+	switch host {
+	case "localhost", "127.0.0.1", "::1", "0.0.0.0":
+		return true
+	}
+	if name, err := os.Hostname(); err == nil {
+		name = strings.ToLower(name)
+		if host == name || host == strings.SplitN(name, ".", 2)[0] {
+			return true
 		}
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("deployment config errors: %s", strings.Join(errs, "; "))
+	return hostMatchesLocalAddress(host)
+}
+
+// hostMatchesLocalAddress compares the host against every IP bound to this
+// machine's interfaces, which is what catches the "test host is our own LAN
+// address" case that plain hostname matching misses.
+func hostMatchesLocalAddress(host string) bool {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
 	}
-	return nil
+	for _, addr := range addrs {
+		var ip net.IP
+		switch value := addr.(type) {
+		case *net.IPNet:
+			ip = value.IP
+		case *net.IPAddr:
+			ip = value.IP
+		}
+		if ip != nil && ip.String() == host {
+			return true
+		}
+	}
+	return false
 }
 
 func replaceDeploymentBlock(filePath, newBlock string) error {

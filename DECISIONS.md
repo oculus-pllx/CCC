@@ -358,6 +358,38 @@ non-adjacent entries renders two headings with the same name.
 
 ---
 
+## A CCC workstation can be its own test target
+
+`WriteProjectDeploymentConfigs` renders the deployment block into each project's
+CLAUDE.md / AGENTS.md / GEMINI.md. It used to emit one shape only — `Test
+machine: root@<host>` with an `ssh -i <key> root@<host>` deploy line — which is
+wrong whenever the configured test host *is* the workstation doing the
+rendering, as it is for CCC itself.
+
+That failure is expensive out of proportion to its size. The instruction dials
+the local box, where CCC provisioning disabled root SSH login, so it fails
+looking like a credentials problem; the obvious next moves are trying other
+keys and usernames, none of which can work. It burned a debugging session on
+2026-06-10 and the hand-written correction that followed was living in a
+gitignored file that the generator would have overwritten on the next
+save-test-host or generate-key.
+
+`isThisMachine` now picks the block: it matches localhost, 127.0.0.1, ::1, the
+hostname (bare or FQDN), and every IP bound to a local interface, after
+stripping any `user@` prefix and `:port` suffix. Self-hosted projects get a
+local `sudo ccc-self-update` block that names the SSH trap explicitly; genuinely
+remote targets keep the SSH block unchanged.
+
+**The sudo language in that block is exact on purpose.** Claude sessions here
+hold precisely one NOPASSWD entry, `/usr/local/bin/ccc-self-update`. The earlier
+text claimed blanket passwordless sudo, which is worse than claiming none —
+`sudo -n true` fails, so an agent that believes the claim reads the failure as a
+broken environment instead of a scoped grant, and an agent that disbelieves it
+asks the user for things it could have run itself. The block states the single
+grant and points at `sudo -n -l`.
+
+---
+
 ## Testing conventions
 
 - `tests/container-code-companion-static.sh` asserts on provisioner source text.

@@ -292,3 +292,89 @@ func TestWriteProjectDeploymentConfigs_ReplacesExistingBlock(t *testing.T) {
 		t.Fatal("expected exactly one deployment block")
 	}
 }
+
+func TestSelfHostedDeploymentBlockDoesNotTellAgentsToSSHToThisBox(t *testing.T) {
+	// A CCC workstation can be its own test target. The remote block tells an
+	// agent to "ssh root@<host>", which for a self-hosted project dials this
+	// very box — where CCC provisioning disabled root SSH login, so it always
+	// fails. That cost a real debugging detour before this was caught.
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+	claudeMD := filepath.Join(root, "CLAUDE.md")
+	if err := os.WriteFile(claudeMD, []byte("# Project\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, host := range []string{"localhost", "127.0.0.1", localHostname(t)} {
+		if err := WriteProjectDeploymentConfigs("myproject", host, []string{claudeMD}); err != nil {
+			t.Fatalf("WriteProjectDeploymentConfigs(%q): %v", host, err)
+		}
+		data, _ := os.ReadFile(claudeMD)
+		content := string(data)
+		// The block may still *name* root@host inside a prohibition; what it
+		// must never carry is an instruction to connect that way.
+		if strings.Contains(content, "ssh -i") || strings.Contains(content, "**Test machine:** root@") {
+			t.Fatalf("host %q produced a remote SSH block:\n%s", host, content)
+		}
+		if !strings.Contains(content, "Do **not** SSH to root@") {
+			t.Fatalf("host %q should warn against SSHing to itself, got:\n%s", host, content)
+		}
+		if !strings.Contains(content, "ccc-self-update") {
+			t.Fatalf("host %q should deploy with ccc-self-update, got:\n%s", host, content)
+		}
+	}
+}
+
+func TestRemoteDeploymentBlockStillUsesSSH(t *testing.T) {
+	// Self-host detection must not swallow genuinely remote targets.
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+	claudeMD := filepath.Join(root, "CLAUDE.md")
+	if err := os.WriteFile(claudeMD, []byte("# Project\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteProjectDeploymentConfigs("myproject", "192.168.99.99", []string{claudeMD}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(claudeMD)
+	if !strings.Contains(string(data), "root@192.168.99.99") {
+		t.Fatalf("remote host lost its SSH instructions:\n%s", string(data))
+	}
+}
+
+func TestDeploymentBlockDoesNotOverstateSudo(t *testing.T) {
+	// Claude sessions here hold exactly one NOPASSWD entry
+	// (/usr/local/bin/ccc-self-update). Claiming blanket passwordless sudo sends
+	// agents down dead ends on every other privileged command.
+	root := t.TempDir()
+	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
+	claudeMD := filepath.Join(root, "CLAUDE.md")
+	if err := os.WriteFile(claudeMD, []byte("# Project\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteProjectDeploymentConfigs("myproject", "localhost", []string{claudeMD}); err != nil {
+		t.Fatal(err)
+	}
+	content := string(mustRead(t, claudeMD))
+	if strings.Contains(content, "passwordless sudo") && !strings.Contains(content, "ccc-self-update` is the only") {
+		t.Fatalf("block overstates sudo access:\n%s", content)
+	}
+}
+
+func localHostname(t *testing.T) string {
+	t.Helper()
+	name, err := os.Hostname()
+	if err != nil {
+		t.Skip("hostname unavailable")
+	}
+	return name
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
