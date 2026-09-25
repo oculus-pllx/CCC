@@ -443,3 +443,5 @@ drop-in, every group member's home in group `ccc`), a generic loader that holds 
 registry pointer to all three tools through the existing `ccc-self-update` sync, and a `ccc-doctor` drift check.
 Account-level secrets are machine-wide; project-specific secrets stay in the project's gitignored `.env` or the
 vault; nothing secret is committed. Spec and plan are in `docs/superpowers/` (git-ignored by convention).
+The loader is `/etc/profile.d/ccc-secrets-env.sh`, a separate file from the one the provisioner's step 18
+already writes for EDITOR, LANG and PATH. Group-readable homes expose every world-readable file to the group, not just directory listings; this was corrected after the final review, and applying it to the primary account is pending an owner decision.

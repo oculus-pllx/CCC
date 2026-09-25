@@ -56,7 +56,7 @@ test_share_home_groups() {
 
 # ── env loader ────────────────────────────────────────────────────────────────
 test_env_loader() {
-  local loader="$TMP/ccc-env.sh" secrets="$TMP/secrets"
+  local loader="$TMP/ccc-secrets-env.sh" secrets="$TMP/secrets"
   extract_heredoc CCCENVLOADER "$loader"
   mkdir -p "$secrets"
 
@@ -78,6 +78,7 @@ test_env_loader() {
   printf 'TOKEN=fake-abs\n' > "$secrets/abs.env"        # reached by /abs.env ("$dir//abs.env")
   printf 'TOKEN=fake-hidden\n' > "$secrets/.hidden.env"
   printf 'BAD-KEY=fake-badkey\n' > "$secrets/badkey.env"
+  mkdir -p "$secrets/adir.env"                    # a directory named in the map
   {
     cat <<'MAP'
 # comment
@@ -92,6 +93,7 @@ five.env .* CF_METAKEY
 five.env TOKEN 1CF_BADNAME
 five.env TOKEN CF_INJECT=evil
 missing.env TOKEN CF_MISSING
+adir.env TOKEN CF_DIR
 
 MAP
     # CRLF variant of a valid line must be rejected, not half-applied
@@ -105,7 +107,7 @@ MAP
     assert_eq "$(getvar "$sh" CF_PLLX)" "fake-pllx" "$sh: export prefix and quotes stripped"
     assert_eq "$(getvar "$sh" CF_ODD)" 'a$b`c d"e'"'"'f' "$sh: metacharacters kept literally"
     assert_eq "$(getvar "$sh" CF_LAST)" "fake-five" "$sh: loader continues past hostile lines"
-    for bad in CF_TRAVERSAL CF_ABS CF_HIDDEN CF_BADKEY CF_METAKEY 1CF_BADNAME CF_INJECT CF_MISSING; do
+    for bad in CF_TRAVERSAL CF_ABS CF_HIDDEN CF_BADKEY CF_METAKEY 1CF_BADNAME CF_INJECT CF_MISSING CF_DIR; do
       assert_eq "$(getvar "$sh" "$bad")" "" "$sh: hostile/malformed line $bad ignored"
     done
     # nothing named CF_CRLF2 (with or without a stray \r) may reach the environment
@@ -132,6 +134,13 @@ MAP
     env -i PATH="$PATH" CCC_SECRETS_DIR="$secrets" "$sh" -eu -c '. "$1"' _ "$loader" \
       || fail "loader aborted a $sh -eu shell"
   done
+
+  # a directory named in the map is skipped, and must not abort a strict bash
+  # shell (sed fails on a directory; set -eo pipefail would exit the shell)
+  strict="$(env -i PATH="$PATH" CCC_SECRETS_DIR="$secrets" bash -c \
+    'set -euo pipefail; . "$1"; printf "%s|%s" "${CF_DIR-unset}" "${CF_DEFAULT-unset}"' _ "$loader")" \
+    || fail "a directory in env.map aborted a strict bash shell"
+  assert_eq "$strict" "unset|fake-five" "directory target not exported, other exports still happen under bash strict mode"
 
   # unreadable file: silent, other exports still happen
   if [[ "$(id -u)" -ne 0 ]]; then
@@ -203,8 +212,29 @@ test_doctor_shared_facts() {
   )
   grep -Fq "FAIL alice: home group is" "$out" || fail "wrong home group not a failure"
   grep -Fq "FAIL secrets dir not readable" "$out" || fail "unreadable secrets dir not a failure"
-  grep -Fq "WARN shared known_hosts empty or missing" "$out" || fail "missing known_hosts not a warning"
+  grep -Fq "WARN shared known_hosts empty, missing or unreadable by $(id -un): $TMP/none" "$out" \
+    || fail "missing known_hosts not a warning"
   grep -Fq "FAIL ssh config missing" "$out" || fail "missing ssh config not a failure"
+
+  # a known_hosts with content the invoking user cannot read is a warning, not ok
+  if [[ "$(id -u)" -ne 0 ]]; then
+    local locked="$TMP/known_hosts.locked"
+    echo "host ssh-ed25519 AAAA" > "$locked"
+    chmod 000 "$locked"
+    : > "$out"
+    (
+      ok() { echo "OK $*" >> "$out"; }; fail() { echo "FAIL $*" >> "$out"; }; warn() { echo "WARN $*" >> "$out"; }
+      getent() { echo "ccc:x:1001:alice"; }
+      CCC_SHARED_GROUP="$grp" CCC_HOMES_ROOT="$homes" CCC_SECRETS_DIR="$TMP/dsecrets" \
+        CCC_KNOWN_HOSTS="$locked" CCC_SSH_CONF_FILE="$TMP/ccc.conf"
+      source "$TMP/ccc_check_shared_facts.sh"
+      ccc_check_shared_facts
+    )
+    chmod 600 "$locked"
+    grep -Fq "WARN shared known_hosts empty, missing or unreadable by $(id -un): $locked" "$out" \
+      || fail "unreadable known_hosts not a warning"
+    ! grep -Fq "OK shared known_hosts present" "$out" || fail "unreadable known_hosts reported ok"
+  fi
 }
 
 # ── calls (add new test definitions above this line) ──────────────────────────

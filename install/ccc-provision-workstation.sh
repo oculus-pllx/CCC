@@ -587,6 +587,11 @@ SSHCCCCONF
 chmod 0644 /etc/ssh/ssh_config.d/ccc.conf
 [[ -e /etc/ccc/known_hosts ]] \
   || install -m 0640 -o root -g "${CCC_SHARED_GROUP:-ccc}" /dev/null /etc/ccc/known_hosts
+# Re-apply group and mode on an existing file (contents untouched); never abort the update.
+if [[ -e /etc/ccc/known_hosts ]]; then
+  chgrp "${CCC_SHARED_GROUP:-ccc}" /etc/ccc/known_hosts || true
+  chmod 0640 /etc/ccc/known_hosts || true
+fi
 
 # ── Shared permission model enforcement ──────────────────────────────────────
 # Cheap, idempotent: keep the projects root setgid + ccc-owned so new project
@@ -1710,8 +1715,8 @@ ccc_check_shared_facts() {
   done
   if [[ -d "$secrets" && -r "$secrets" && -x "$secrets" ]]; then ok "secrets dir readable: $secrets"
   else fail "secrets dir not readable by $(id -un): $secrets"; fi
-  if [[ -s "$known_hosts" ]]; then ok "shared known_hosts present"
-  else warn "shared known_hosts empty or missing: $known_hosts"; fi
+  if [[ -s "$known_hosts" && -r "$known_hosts" ]]; then ok "shared known_hosts present"
+  else warn "shared known_hosts empty, missing or unreadable by $(id -un): $known_hosts"; fi
   if [[ -f "$ssh_conf" ]]; then ok "ssh shared-hosts config installed"
   else fail "ssh config missing: $ssh_conf — sudo ccc-self-update"; fi
 }
@@ -2477,7 +2482,7 @@ if [[ ! -e /etc/ccc/secrets/env.map ]]; then
   printf '%s\n' '# <file> <VAR_IN_FILE> <EXPORT_AS>   e.g.  cloudflare-pllx.env CLOUDFLARE_API_TOKEN CLOUDFLARE_API_TOKEN_PLLX' \
     > /etc/ccc/secrets/env.map
 fi
-cat > /etc/profile.d/ccc-env.sh << 'CCCENVLOADER'
+cat > /etc/profile.d/ccc-secrets-env.sh << 'CCCENVLOADER'
 # Managed by Container Code Companion (installed by ccc-self-update); do not edit.
 # Exports account-level credentials from $CCC_SECRETS_DIR (default /etc/ccc/secrets)
 # according to env.map, one line per export:  <file> <VAR_IN_FILE> <EXPORT_AS>
@@ -2489,7 +2494,7 @@ if [ -r "$_ccc_dir/env.map" ]; then
     case "$_ccc_file" in */*|.*) continue ;; esac
     case "$_ccc_key" in ''|*[!A-Za-z0-9_]*|[0-9]*) continue ;; esac
     case "$_ccc_name" in ''|*[!A-Za-z0-9_]*|[0-9]*) continue ;; esac
-    [ -r "$_ccc_dir/$_ccc_file" ] || continue
+    [ -f "$_ccc_dir/$_ccc_file" ] && [ -r "$_ccc_dir/$_ccc_file" ] || continue
     _ccc_value="$(sed -n "s/^\(export \)\{0,1\}${_ccc_key}=//p" "$_ccc_dir/$_ccc_file" 2>/dev/null | head -n 1)"
     _ccc_value="${_ccc_value#\"}"
     _ccc_value="${_ccc_value%\"}"
@@ -2500,11 +2505,11 @@ if [ -r "$_ccc_dir/env.map" ]; then
 fi
 unset _ccc_dir _ccc_file _ccc_key _ccc_name _ccc_rest _ccc_value
 CCCENVLOADER
-chmod 0644 /etc/profile.d/ccc-env.sh
+chmod 0644 /etc/profile.d/ccc-secrets-env.sh
 # Interactive non-login shells (tmux panes, agent terminals) skip /etc/profile.d.
 _ccc_bashrc_marker="# CCC shared environment (managed)"
 if ! grep -Fq "$_ccc_bashrc_marker" /etc/bash.bashrc 2>/dev/null; then
-  printf '\n%s\n[ -r /etc/profile.d/ccc-env.sh ] && . /etc/profile.d/ccc-env.sh\n' \
+  printf '\n%s\n[ -r /etc/profile.d/ccc-secrets-env.sh ] && . /etc/profile.d/ccc-secrets-env.sh\n' \
     "$_ccc_bashrc_marker" >> /etc/bash.bashrc
 fi
 

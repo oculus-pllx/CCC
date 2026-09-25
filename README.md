@@ -537,12 +537,12 @@ Every account in the shared group, using any AI tool, should see the same creden
 instructions. CCC keeps these in machine-wide locations owned `root:ccc` and points per-user files at them:
 
 - **Credentials:** files in `/etc/ccc/secrets/` (`root:ccc 0750`, files `0640`). `/etc/ccc/secrets/env.map`
-  lists which variable each file exports (`<file> <VAR_IN_FILE> <EXPORT_AS>`); `/etc/profile.d/ccc-env.sh`
+  lists which variable each file exports (`<file> <VAR_IN_FILE> <EXPORT_AS>`); `/etc/profile.d/ccc-secrets-env.sh`
   applies it for every login and interactive shell. Account-level secrets live here and in the vault, never
   in a repo; project-specific secrets stay in the project's gitignored `.env`.
 - **SSH host trust:** `/etc/ccc/known_hosts` is added to every account's global known hosts through
   `/etc/ssh/ssh_config.d/ccc.conf`. Add a key only after its fingerprint matches the documented one.
-- **Homes:** every group member's home directory is group `ccc`.
+- **Homes:** every group member's home directory is group `ccc`. Because the group can search these homes, any group member can read any world-readable file inside another member's home (not just list it); keep secrets mode 0600 or under a 0700 directory.
 - **Instructions:** the registry pointer is in `oculus-configs` for Claude, Codex and Gemini and reaches all
   accounts through `ccc-self-update` (`ccc-sync-agent-configs --all-users`).
 - **Check:** `ccc-doctor` has a *Shared facts* section that checks each account's home group and registry pointer, and that the secrets directory, shared known_hosts and ssh drop-in are in place.

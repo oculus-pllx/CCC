@@ -987,12 +987,16 @@ require_file_contains container-code-companion/web/app.js 'health.online'
 require_file_contains install/ccc-provision-workstation.sh '_STEPS=28'
 require_file_contains install/ccc-provision-workstation.sh 'step 28 "Shared workstation facts"'
 require_file_contains install/ccc-provision-workstation.sh 'ccc_share_home_groups'
-require_file_contains install/ccc-provision-workstation.sh '/etc/profile.d/ccc-env.sh'
+require_file_contains install/ccc-provision-workstation.sh '/etc/profile.d/ccc-secrets-env.sh'
+# no /etc/profile.d file may be written by more than one heredoc (one writer would silently replace the other)
+dup_profile_writers=$(grep -oE 'cat > /etc/profile\.d/[A-Za-z0-9._-]+' install/ccc-provision-workstation.sh | sort | uniq -d)
+[[ -z "$dup_profile_writers" ]] || fail "profile.d file written by more than one heredoc: $dup_profile_writers"
+require_file_contains install/ccc-provision-workstation.sh 'chmod 0640 /etc/ccc/known_hosts'
 require_file_contains install/ccc-provision-workstation.sh '/etc/ssh/ssh_config.d/ccc.conf'
 require_file_contains install/ccc-provision-workstation.sh 'ccc_check_shared_facts'
 require_file_not_contains install/ccc-provision-workstation.sh 'CLOUDFLARE_API_TOKEN='
-awk '/CCCENVLOADER/{f=!f; next} f' install/ccc-provision-workstation.sh > "$CCC_TEST_TMP/ccc-env.syntax"
-bash -n "$CCC_TEST_TMP/ccc-env.syntax"
+awk '/CCCENVLOADER/{f=!f; next} f' install/ccc-provision-workstation.sh > "$CCC_TEST_TMP/ccc-secrets-env.syntax"
+bash -n "$CCC_TEST_TMP/ccc-secrets-env.syntax"
 bash tests/shared-facts.test.sh
 
 echo "container-code-companion static checks passed"
