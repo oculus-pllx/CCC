@@ -154,8 +154,62 @@ test_ssh_conf() {
     || fail "ssh dropped the default system known_hosts: $effective"
 }
 
+# ── ccc-doctor shared facts ───────────────────────────────────────────────────
+test_doctor_shared_facts() {
+  extract_function ccc_check_shared_facts
+  local homes="$TMP/dhomes" out="$TMP/doctor.out" grp
+  grp="$(id -gn)"
+  mkdir -p "$homes/alice/.claude" "$homes/alice/.codex" "$homes/alice/.gemini" \
+           "$homes/bob/.claude" "$homes/bob/.codex" "$homes/bob/.gemini" \
+           "$homes/dave" "$TMP/dsecrets"
+  for rel in .claude/CLAUDE.md .codex/AGENTS.md .gemini/GEMINI.md; do
+    echo "see Meridian-VPS/docs/access-map.md" > "$homes/alice/$rel"
+    echo "see Meridian-VPS/docs/access-map.md" > "$homes/bob/$rel"
+  done
+  echo "no pointer here" > "$homes/bob/.codex/AGENTS.md"      # drifted file
+  # dave: home exists but is empty and unreadable files -> warn, not crash
+  # erin: in the group but has no home at all
+  : > "$TMP/known_hosts"; echo "host ssh-ed25519 AAAA" > "$TMP/known_hosts"
+  : > "$TMP/ccc.conf"
+  : > "$out"
+  (
+    ok() { echo "OK $*" >> "$out"; }
+    fail() { echo "FAIL $*" >> "$out"; }
+    warn() { echo "WARN $*" >> "$out"; }
+    getent() { echo "ccc:x:1001:alice,bob,dave,erin"; }
+    CCC_SHARED_GROUP="$grp" CCC_HOMES_ROOT="$homes" CCC_SECRETS_DIR="$TMP/dsecrets" \
+      CCC_KNOWN_HOSTS="$TMP/known_hosts" CCC_SSH_CONF_FILE="$TMP/ccc.conf"
+    source "$TMP/ccc_check_shared_facts.sh"
+    ccc_check_shared_facts
+  )
+  grep -Fq "OK alice: .codex/AGENTS.md points at the registry" "$out" || fail "alice pointer not reported ok"
+  grep -Fq "FAIL bob: .codex/AGENTS.md lacks the registry pointer" "$out" || fail "bob drift not reported"
+  grep -Fq "WARN dave: cannot read .claude/CLAUDE.md" "$out" || fail "dave unreadable file not a warning"
+  grep -Fq "WARN erin: home" "$out" || fail "missing home not a warning"
+  grep -Fq "OK alice: home group $grp" "$out" || fail "home group ok not reported"
+  grep -Fq "OK secrets dir readable" "$out" || fail "secrets dir not reported ok"
+  grep -Fq "OK shared known_hosts present" "$out" || fail "known_hosts not reported ok"
+  grep -Fq "OK ssh shared-hosts config installed" "$out" || fail "ssh conf not reported ok"
+
+  # wrong group is a failure that names the fix
+  : > "$out"
+  (
+    ok() { echo "OK $*" >> "$out"; }; fail() { echo "FAIL $*" >> "$out"; }; warn() { echo "WARN $*" >> "$out"; }
+    getent() { echo "ccc:x:1001:alice"; }
+    CCC_SHARED_GROUP=definitely-not-a-group CCC_HOMES_ROOT="$homes" CCC_SECRETS_DIR="$TMP/nope" \
+      CCC_KNOWN_HOSTS="$TMP/none" CCC_SSH_CONF_FILE="$TMP/none"
+    source "$TMP/ccc_check_shared_facts.sh"
+    ccc_check_shared_facts
+  )
+  grep -Fq "FAIL alice: home group is" "$out" || fail "wrong home group not a failure"
+  grep -Fq "FAIL secrets dir not readable" "$out" || fail "unreadable secrets dir not a failure"
+  grep -Fq "WARN shared known_hosts empty or missing" "$out" || fail "missing known_hosts not a warning"
+  grep -Fq "FAIL ssh config missing" "$out" || fail "missing ssh config not a failure"
+}
+
 # ── calls (add new test definitions above this line) ──────────────────────────
 test_share_home_groups
 test_env_loader
 test_ssh_conf
+test_doctor_shared_facts
 echo "shared-facts tests passed"

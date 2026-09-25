@@ -1684,6 +1684,37 @@ CCC_CODE_SERVER_SERVICE="${CCC_CODE_SERVER_SERVICE:-code-server@$CCC_USER}"
 ok()   { echo -e "  ${G}✓${N} $*"; }
 fail() { echo -e "  ${R}✗${N} $*"; }
 warn() { echo -e "  ${Y}!${N} $*"; }
+
+# Shared facts: every group member must see the same instructions and credentials.
+ccc_check_shared_facts() {
+  local group="${CCC_SHARED_GROUP:-ccc}"
+  local secrets="${CCC_SECRETS_DIR:-/etc/ccc/secrets}"
+  local known_hosts="${CCC_KNOWN_HOSTS:-/etc/ccc/known_hosts}"
+  local ssh_conf="${CCC_SSH_CONF_FILE:-/etc/ssh/ssh_config.d/ccc.conf}"
+  local homes_root="${CCC_HOMES_ROOT:-/home}"
+  local members user home current rel file
+  members="$(getent group "$group" 2>/dev/null | cut -d: -f4 | tr ',' ' ')" || members=""
+  [[ -n "$members" ]] || warn "no members found for group '$group'"
+  for user in $members; do
+    home="$homes_root/$user"
+    if [[ ! -d "$home" ]]; then warn "$user: home $home missing"; continue; fi
+    current="$(stat -c %G "$home" 2>/dev/null)" || current="?"
+    if [[ "$current" == "$group" ]]; then ok "$user: home group $group"
+    else fail "$user: home group is '$current' (want $group) — sudo ccc-self-update"; fi
+    for rel in .claude/CLAUDE.md .codex/AGENTS.md .gemini/GEMINI.md; do
+      file="$home/$rel"
+      if [[ ! -r "$file" ]]; then warn "$user: cannot read $rel"
+      elif grep -Fq 'access-map.md' "$file"; then ok "$user: $rel points at the registry"
+      else fail "$user: $rel lacks the registry pointer — sudo ccc-sync-agent-configs"; fi
+    done
+  done
+  if [[ -d "$secrets" && -r "$secrets" && -x "$secrets" ]]; then ok "secrets dir readable: $secrets"
+  else fail "secrets dir not readable by $(id -un): $secrets"; fi
+  if [[ -s "$known_hosts" ]]; then ok "shared known_hosts present"
+  else warn "shared known_hosts empty or missing: $known_hosts"; fi
+  if [[ -f "$ssh_conf" ]]; then ok "ssh shared-hosts config installed"
+  else fail "ssh config missing: $ssh_conf — sudo ccc-self-update"; fi
+}
 echo ""
 echo -e "${B}Container Code Companion Doctor — System Check${N}"
 echo ""
@@ -1756,6 +1787,10 @@ if [[ -d "$KEYSROOT" ]]; then
     fail "project key $badkey is '$kp' (want root:ccc 640) — sudo ccc-fix-key-perms"
   fi
 fi
+echo ""
+
+echo -e "${C}── Shared facts ──────────────────────────────${N}"
+ccc_check_shared_facts
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
