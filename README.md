@@ -545,7 +545,7 @@ instructions. CCC keeps these in machine-wide locations owned `root:ccc` and poi
 - **Homes:** every group member's home directory is group `ccc`.
 - **Instructions:** the registry pointer is in `oculus-configs` for Claude, Codex and Gemini and reaches all
   accounts through `ccc-self-update` (`ccc-sync-agent-configs --all-users`).
-- **Check:** `ccc-doctor` has a *Shared facts* section that reports, per account, any drift.
+- **Check:** `ccc-doctor` has a *Shared facts* section that checks each account's home group and registry pointer, and that the secrets directory, shared known_hosts and ssh drop-in are in place.
 
 ---
 

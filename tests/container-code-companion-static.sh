@@ -996,4 +996,3 @@ bash -n "$CCC_TEST_TMP/ccc-env.syntax"
 bash tests/shared-facts.test.sh
 
 echo "container-code-companion static checks passed"
-echo "shared-facts tests passed"
