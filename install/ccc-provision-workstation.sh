@@ -2422,6 +2422,45 @@ ccc_share_home_groups() {
 }
 ccc_share_home_groups
 
+# Machine-wide credential environment. The loader holds no secret values; it
+# maps files in /etc/ccc/secrets to variables using the owner's env.map.
+install -d -m 0750 -o root -g "${CCC_SHARED_GROUP:-ccc}" /etc/ccc/secrets
+if [[ ! -e /etc/ccc/secrets/env.map ]]; then
+  install -m 0640 -o root -g "${CCC_SHARED_GROUP:-ccc}" /dev/null /etc/ccc/secrets/env.map
+  printf '%s\n' '# <file> <VAR_IN_FILE> <EXPORT_AS>   e.g.  cloudflare-pllx.env CLOUDFLARE_API_TOKEN CLOUDFLARE_API_TOKEN_PLLX' \
+    > /etc/ccc/secrets/env.map
+fi
+cat > /etc/profile.d/ccc-env.sh << 'CCCENVLOADER'
+# Managed by Container Code Companion (installed by ccc-self-update); do not edit.
+# Exports account-level credentials from $CCC_SECRETS_DIR (default /etc/ccc/secrets)
+# according to env.map, one line per export:  <file> <VAR_IN_FILE> <EXPORT_AS>
+# Holds no secret values. Silent when the map or a secrets file is unreadable.
+_ccc_dir="${CCC_SECRETS_DIR:-/etc/ccc/secrets}"
+if [ -r "$_ccc_dir/env.map" ]; then
+  while read -r _ccc_file _ccc_key _ccc_name _ccc_rest; do
+    case "$_ccc_file" in ''|'#'*) continue ;; esac
+    case "$_ccc_file" in */*|.*) continue ;; esac
+    case "$_ccc_key" in ''|*[!A-Za-z0-9_]*|[0-9]*) continue ;; esac
+    case "$_ccc_name" in ''|*[!A-Za-z0-9_]*|[0-9]*) continue ;; esac
+    [ -r "$_ccc_dir/$_ccc_file" ] || continue
+    _ccc_value="$(sed -n "s/^\(export \)\{0,1\}${_ccc_key}=//p" "$_ccc_dir/$_ccc_file" 2>/dev/null | head -n 1)"
+    _ccc_value="${_ccc_value#\"}"
+    _ccc_value="${_ccc_value%\"}"
+    if [ -n "$_ccc_value" ]; then
+      export "$_ccc_name=$_ccc_value"
+    fi
+  done < "$_ccc_dir/env.map"
+fi
+unset _ccc_dir _ccc_file _ccc_key _ccc_name _ccc_rest _ccc_value
+CCCENVLOADER
+chmod 0644 /etc/profile.d/ccc-env.sh
+# Interactive non-login shells (tmux panes, agent terminals) skip /etc/profile.d.
+_ccc_bashrc_marker="# CCC shared environment (managed)"
+if ! grep -Fq "$_ccc_bashrc_marker" /etc/bash.bashrc 2>/dev/null; then
+  printf '\n%s\n[ -r /etc/profile.d/ccc-env.sh ] && . /etc/profile.d/ccc-env.sh\n' \
+    "$_ccc_bashrc_marker" >> /etc/bash.bashrc
+fi
+
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Agent configs (initial sync) ─────────────────────────────────────────────
