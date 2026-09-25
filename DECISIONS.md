@@ -431,3 +431,15 @@ is not evidence that anything needs it.
   record it as a deliberate exception.
 - Destructive logic (anything looping `rm -rf` across home directories) gets a
   dry run against a fake tree, including the failure cases, before it ships.
+
+---
+
+## 2026-09-25: Shared workstation facts live machine-wide, per-user files only point
+
+Credentials, host trust and the registry pointer had been saved per user (`~/.bashrc`, `~/.ssh/known_hosts`,
+one tool's instruction file), so what one account knew another did not. Decision: machine-wide locations owned
+`root:ccc` (`/etc/ccc/secrets` with an owner-local `env.map`, `/etc/ccc/known_hosts` via an `ssh_config.d`
+drop-in, every group member's home in group `ccc`), a generic loader that holds no secret, delivery of the
+registry pointer to all three tools through the existing `ccc-self-update` sync, and a `ccc-doctor` drift check.
+Account-level secrets are machine-wide; project-specific secrets stay in the project's gitignored `.env` or the
+vault; nothing secret is committed. Spec and plan are in `docs/superpowers/` (git-ignored by convention).

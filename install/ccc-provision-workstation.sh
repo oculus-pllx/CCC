@@ -47,7 +47,7 @@ OCULUS_CONFIGS_DIR="/opt/oculus-configs"
 EOF
   chmod 0644 /etc/ccc/config
 }
-_STEPS=27
+_STEPS=28
 step() { echo ">>> [$1/${_STEPS}] $2"; }
 
 setup_shared_projects_root() {

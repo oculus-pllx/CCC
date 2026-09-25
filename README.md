@@ -531,6 +531,24 @@ To test changes: provision a throwaway container, run through First Steps, verif
 
 ---
 
+## Shared workstation facts
+
+Every account in the shared group, using any AI tool, should see the same credentials, host trust and
+instructions. CCC keeps these in machine-wide locations owned `root:ccc` and points per-user files at them:
+
+- **Credentials:** files in `/etc/ccc/secrets/` (`root:ccc 0750`, files `0640`). `/etc/ccc/secrets/env.map`
+  lists which variable each file exports (`<file> <VAR_IN_FILE> <EXPORT_AS>`); `/etc/profile.d/ccc-env.sh`
+  applies it for every login and interactive shell. Account-level secrets live here and in the vault, never
+  in a repo; project-specific secrets stay in the project's gitignored `.env`.
+- **SSH host trust:** `/etc/ccc/known_hosts` is added to every account's global known hosts through
+  `/etc/ssh/ssh_config.d/ccc.conf`. Add a key only after its fingerprint matches the documented one.
+- **Homes:** every group member's home directory is group `ccc`.
+- **Instructions:** the registry pointer is in `oculus-configs` for Claude, Codex and Gemini and reaches all
+  accounts through `ccc-self-update` (`ccc-sync-agent-configs --all-users`).
+- **Check:** `ccc-doctor` has a *Shared facts* section that reports, per account, any drift.
+
+---
+
 ## License
 
 Copyright 2026 Parallax Group.

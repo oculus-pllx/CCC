@@ -983,4 +983,17 @@ require_file_contains container-code-companion/web/app.js '--accent-rgb'
 require_file_contains container-code-companion/web/app.js 'section-enter'
 require_file_contains container-code-companion/web/app.js 'health.online'
 
+# Shared workstation facts: machine-wide env, ssh trust, shared homes, doctor.
+require_file_contains install/ccc-provision-workstation.sh '_STEPS=28'
+require_file_contains install/ccc-provision-workstation.sh 'step 28 "Shared workstation facts"'
+require_file_contains install/ccc-provision-workstation.sh 'ccc_share_home_groups'
+require_file_contains install/ccc-provision-workstation.sh '/etc/profile.d/ccc-env.sh'
+require_file_contains install/ccc-provision-workstation.sh '/etc/ssh/ssh_config.d/ccc.conf'
+require_file_contains install/ccc-provision-workstation.sh 'ccc_check_shared_facts'
+require_file_not_contains install/ccc-provision-workstation.sh 'CLOUDFLARE_API_TOKEN='
+awk '/CCCENVLOADER/{f=!f; next} f' install/ccc-provision-workstation.sh > "$CCC_TEST_TMP/ccc-env.syntax"
+bash -n "$CCC_TEST_TMP/ccc-env.syntax"
+bash tests/shared-facts.test.sh
+
 echo "container-code-companion static checks passed"
+echo "shared-facts tests passed"
