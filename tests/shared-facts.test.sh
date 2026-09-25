@@ -142,7 +142,20 @@ MAP
   fi
 }
 
+# ── ssh shared known_hosts ────────────────────────────────────────────────────
+test_ssh_conf() {
+  command -v ssh >/dev/null || { echo "skip: ssh not installed"; return 0; }
+  extract_heredoc SSHCCCCONF "$TMP/ccc.conf"
+  local effective
+  effective="$(ssh -G -F "$TMP/ccc.conf" example.invalid | grep -i '^globalknownhostsfile ')"
+  [[ "$effective" == *"/etc/ccc/known_hosts"* ]] \
+    || fail "ssh does not consult /etc/ccc/known_hosts: $effective"
+  [[ "$effective" == *"/etc/ssh/ssh_known_hosts"* ]] \
+    || fail "ssh dropped the default system known_hosts: $effective"
+}
+
 # ── calls (add new test definitions above this line) ──────────────────────────
 test_share_home_groups
 test_env_loader
+test_ssh_conf
 echo "shared-facts tests passed"

@@ -576,6 +576,18 @@ if ! grep -q "ccc-shell.sh" /etc/bash.bashrc 2>/dev/null; then
 BASHHOOK
 fi
 
+# Shared SSH host trust: the owner curates /etc/ccc/known_hosts (fingerprints
+# checked against the documented ones); every account's ssh consults it.
+mkdir -p /etc/ssh/ssh_config.d
+cat > /etc/ssh/ssh_config.d/ccc.conf << 'SSHCCCCONF'
+# Managed by Container Code Companion (installed by ccc-self-update); do not edit.
+# Curated shared host keys live in /etc/ccc/known_hosts.
+GlobalKnownHostsFile /etc/ssh/ssh_known_hosts /etc/ssh/ssh_known_hosts2 /etc/ccc/known_hosts
+SSHCCCCONF
+chmod 0644 /etc/ssh/ssh_config.d/ccc.conf
+[[ -e /etc/ccc/known_hosts ]] \
+  || install -m 0640 -o root -g "${CCC_SHARED_GROUP:-ccc}" /dev/null /etc/ccc/known_hosts
+
 # ── Shared permission model enforcement ──────────────────────────────────────
 # Cheap, idempotent: keep the projects root setgid + ccc-owned so new project
 # subdirs inherit group ownership. A one-time recursive repair (gated by a
