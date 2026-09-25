@@ -2395,6 +2395,33 @@ if [[ "$CCC_MACHINE_POLICY" == "container" ]]; then
   systemctl reset-failed motd-news.service motd-news.timer 2>/dev/null || true
 fi
 
+# ── Shared workstation facts ─────────────────────────────────────────────────
+# Every account and AI tool should see the same credentials and host trust.
+# Spec: docs/superpowers/specs/2026-09-25-shared-workstation-facts-design.md
+step 28 "Shared workstation facts"
+
+# Give every member of the shared group a home in that group, so the group can
+# read what each account shares. Mode and contents are untouched. The install-
+# time primary account was never covered by the Setup CCC Profile flow.
+ccc_share_home_groups() {
+  local group="${CCC_SHARED_GROUP:-ccc}" homes_root="${CCC_HOMES_ROOT:-/home}"
+  local members user home current
+  members="$(getent group "$group" 2>/dev/null | cut -d: -f4 | tr ',' ' ')" || members=""
+  for user in $members; do
+    home="$homes_root/$user"
+    [[ -d "$home" ]] || continue
+    current="$(stat -c %G "$home" 2>/dev/null)" || continue
+    [[ "$current" == "$group" ]] && continue
+    if chgrp "$group" "$home"; then
+      echo "    Shared home group: $home -> $group"
+    else
+      echo "    WARNING: could not chgrp $home to $group" >&2
+    fi
+  done
+  return 0
+}
+ccc_share_home_groups
+
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
 # ── Agent configs (initial sync) ─────────────────────────────────────────────
