@@ -2437,7 +2437,7 @@ cat > /etc/profile.d/ccc-env.sh << 'CCCENVLOADER'
 # Holds no secret values. Silent when the map or a secrets file is unreadable.
 _ccc_dir="${CCC_SECRETS_DIR:-/etc/ccc/secrets}"
 if [ -r "$_ccc_dir/env.map" ]; then
-  while read -r _ccc_file _ccc_key _ccc_name _ccc_rest; do
+  while IFS=' 	' read -r _ccc_file _ccc_key _ccc_name _ccc_rest || [ -n "$_ccc_file" ]; do
     case "$_ccc_file" in ''|'#'*) continue ;; esac
     case "$_ccc_file" in */*|.*) continue ;; esac
     case "$_ccc_key" in ''|*[!A-Za-z0-9_]*|[0-9]*) continue ;; esac
