@@ -268,7 +268,7 @@ The native UI is built into the Go service, not Cockpit and not a Node dashboard
 - **Terminal** — browser PTY tabs backed by xterm.js, adjustable terminal height, and tmux quick actions
 - **Notes** — persistent notes stored in the workstation home directory
 - **Accounts** — create users, change passwords, shells, groups, setup CCC profiles, sync agent configs, view and manage tmux sessions per user, manage Claude Code settings (auto-compact, thinking, danger-prompt, compact window) per account or across all accounts, and delete users
-- **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers
+- **Logs, Network, Services** — inspect service state, live network activity, and system logs; network configuration changes should be made from the Proxmox side for LXC containers (persistent static routes are the exception; see *Planned: Routes management* under Project Status)
 - **Provider Configs** — edit Claude, Codex, Gemini, and MCP config files inline
 - **GitHub** — manage the shared machine key at `/etc/ccc/ssh/github_ed25519`, copy its public key, test GitHub SSH access, configure work identities, and explicitly promote an existing user key when needed
 - **Settings** — theme swatches, editable header message, time/location, mobile-friendly controls, and CRT display effects
@@ -289,6 +289,12 @@ Current state:
 - Mobile navigation uses a collapsible drawer.
 - GitHub SSH key workflow now uses a managed machine key under `/etc/ccc/ssh` for shared repository access across work identities.
 - Map Drives documents the Proxmox/LXC mount limitation and reports CIFS permission failures clearly.
+- Shared workstation facts (machine-wide credentials, SSH host trust, shared homes, registry pointer for every AI tool, `ccc-doctor` drift check) are deployed; see *Shared workstation facts* below.
+
+Planned: Routes management (separate project, next build feature):
+- Persistent static routes managed from CCC, modelled on Caddy Companion's *Static Subnet Routes* (one systemd oneshot unit per route, with Start, Stop, Restart and Start-on-boot controls).
+- Why: Proxmox regenerates an LXC's `/etc/systemd/network/eth0.network`, so routes added there, or by hand, vanish on reboot. Until this ships, this workstation restores its routes through a hand-made `add-ts-route.service` that runs `/usr/local/sbin/add-ts-route.sh` at boot.
+- Design and plan will come from that project's own brainstorm; see the 2026-09-26 entry in `DECISIONS.md` for the facts it starts from.
 
 ---
 
