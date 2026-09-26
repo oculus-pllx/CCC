@@ -237,8 +237,42 @@ test_doctor_shared_facts() {
   fi
 }
 
+# ── BASH_ENV for non-interactive shells (AI agent Bash tools) ─────────────────
+test_set_bash_env() {
+  extract_function ccc_set_bash_env
+  local envfile="$TMP/environment" loader="$TMP/bashenv-loader.sh"
+  printf 'PATH="/usr/bin:/bin"\n' > "$envfile"
+  (
+    CCC_ENV_FILE="$envfile"
+    source "$TMP/ccc_set_bash_env.sh"
+    ccc_set_bash_env >/dev/null
+    ccc_set_bash_env >/dev/null   # idempotent
+  )
+  assert_eq "$(grep -c '^BASH_ENV=' "$envfile")" "1" "BASH_ENV added exactly once"
+  grep -Fxq 'BASH_ENV=/etc/profile.d/ccc-secrets-env.sh' "$envfile" || fail "BASH_ENV points at the loader"
+  grep -Fxq 'PATH="/usr/bin:/bin"' "$envfile" || fail "existing /etc/environment lines kept"
+
+  # an owner-set BASH_ENV is left alone, with a warning
+  printf 'BASH_ENV=/opt/other.sh\n' > "$envfile"
+  (
+    CCC_ENV_FILE="$envfile"
+    source "$TMP/ccc_set_bash_env.sh"
+    ccc_set_bash_env >/dev/null 2>&1
+  )
+  assert_eq "$(cat "$envfile")" "BASH_ENV=/opt/other.sh" "existing BASH_ENV not overwritten"
+
+  # the loader actually reaches a non-login, non-interactive bash via BASH_ENV
+  extract_heredoc CCCENVLOADER "$loader"
+  mkdir -p "$TMP/bsecrets"
+  printf 'TOKEN=fake-pllx\n' > "$TMP/bsecrets/pllx.env"
+  printf 'pllx.env TOKEN CF_PLLX\n' > "$TMP/bsecrets/env.map"
+  assert_eq "$(env -i PATH="$PATH" BASH_ENV="$loader" CCC_SECRETS_DIR="$TMP/bsecrets" bash -c 'printenv CF_PLLX')" \
+    "fake-pllx" "non-interactive bash gets secrets through BASH_ENV"
+}
+
 # ── calls (add new test definitions above this line) ──────────────────────────
 test_share_home_groups
+test_set_bash_env
 test_env_loader
 test_ssh_conf
 test_doctor_shared_facts

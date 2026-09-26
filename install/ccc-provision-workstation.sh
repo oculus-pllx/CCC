@@ -2512,6 +2512,20 @@ if ! grep -Fq "$_ccc_bashrc_marker" /etc/bash.bashrc 2>/dev/null; then
   printf '\n%s\n[ -r /etc/profile.d/ccc-secrets-env.sh ] && . /etc/profile.d/ccc-secrets-env.sh\n' \
     "$_ccc_bashrc_marker" >> /etc/bash.bashrc
 fi
+# Non-login, non-interactive shells (AI agent Bash tools, scripts) read neither
+# profile.d nor bash.bashrc, only $BASH_ENV. pam_env applies /etc/environment to
+# every account's sessions, so their agents inherit it. An owner-set value wins.
+ccc_set_bash_env() {
+  local env_file="${CCC_ENV_FILE:-/etc/environment}"
+  local want="BASH_ENV=/etc/profile.d/ccc-secrets-env.sh"
+  if grep -q '^BASH_ENV=' "$env_file" 2>/dev/null; then
+    grep -Fxq "$want" "$env_file" \
+      || echo "    WARNING: $env_file already sets a different BASH_ENV; left unchanged" >&2
+    return 0
+  fi
+  printf '%s\n' "$want" >> "$env_file"
+}
+ccc_set_bash_env
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
