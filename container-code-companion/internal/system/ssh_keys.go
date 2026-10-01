@@ -400,10 +400,10 @@ func selfHostedDeploymentBlock(testHost, keyPath string) string {
   workstation. Do **not** SSH to root@%s — that is this very box, and root SSH
   login is disabled by CCC provisioning, so it will always fail.
 - **To deploy a pushed commit:** run `+"`"+`sudo ccc-self-update`+"`"+` locally.
-  `+"`"+`/usr/local/bin/ccc-self-update`+"`"+` is the only command granted NOPASSWD, so an
-  agent can run it unattended. Every other privileged command still prompts for
-  a password — `+"`"+`sudo -n true`+"`"+` failing does not mean sudo is unavailable; check
-  `+"`"+`sudo -n -l`+"`"+`. The auto-update cron also covers deploys.
+  Every member of the `+"`ccc`"+` group has passwordless sudo (CCC rule
+  `+"`"+`/etc/sudoers.d/zz-ccc-group`+"`"+`), so an agent runs this and any other
+  privileged command unattended. If `+"`"+`sudo -n true`+"`"+` fails, check `+"`"+`sudo -n -l`+"`"+`
+  and `+"`"+`ccc-doctor`+"`"+`. The auto-update cron also covers deploys.
 - Installed version marker: /etc/ccc/version (compare with `+"`"+`git log`+"`"+`).
 - Development and GitHub pushes happen on **this machine only**.
 - Do **not** create new SSH keys.

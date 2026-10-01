@@ -270,10 +270,72 @@ test_set_bash_env() {
     "fake-pllx" "non-interactive bash gets secrets through BASH_ENV"
 }
 
+# ── group sudo rule ───────────────────────────────────────────────────────────
+test_group_sudoers() {
+  extract_function ccc_write_group_sudoers
+  local dir="$TMP/sudoers.d" target
+  mkdir -p "$dir"
+  target="$dir/zz-ccc-group"
+
+  # writes the group rule, validated, mode 0440
+  (
+    CCC_SHARED_GROUP=crew CCC_SUDOERS_FILE="$target" CCC_VISUDO=true
+    source "$TMP/ccc_write_group_sudoers.sh"
+    ccc_write_group_sudoers >/dev/null
+  )
+  grep -Fxq '%crew ALL=(ALL:ALL) NOPASSWD: ALL' "$target" || fail "group rule not written"
+  grep -Fq 'Managed by Container Code Companion' "$target" || fail "managed header missing"
+  assert_eq "$(stat -c %a "$target")" "440" "sudoers mode"
+  assert_eq "$(find "$dir" -name '.*' | wc -l)" "0" "no temp file left behind"
+
+  # real visudo, when present, accepts the generated file
+  if command -v visudo >/dev/null 2>&1 && visudo -cqf "$target" >/dev/null 2>&1; then :
+  elif command -v visudo >/dev/null 2>&1 && visudo -cqf /dev/null >/dev/null 2>&1; then
+    fail "visudo rejects the generated rule"
+  fi
+
+  # a rule that fails validation never replaces the installed file, and does not abort set -e
+  chmod 0644 "$target"; echo "previous" > "$target"
+  (
+    CCC_SHARED_GROUP=crew CCC_SUDOERS_FILE="$target" CCC_VISUDO=false
+    source "$TMP/ccc_write_group_sudoers.sh"
+    set -e
+    ccc_write_group_sudoers >/dev/null 2>&1
+  ) || fail "a failed validation aborted the caller"
+  assert_eq "$(cat "$target")" "previous" "invalid rule left the old file in place"
+  assert_eq "$(find "$dir" -name '.*' | wc -l)" "0" "no temp file left after a failed validation"
+}
+
+test_doctor_group_sudo() {
+  extract_function ccc_check_group_sudo
+  local out="$TMP/sudo.out" grp rule="$TMP/zz-ccc-group"
+  grp="$(id -gn)"
+  check() {  # check RULE_FILE SUDO_RESULT
+    : > "$out"
+    (
+      ok() { echo "OK $*" >> "$out"; }; fail() { echo "FAIL $*" >> "$out"; }; warn() { echo "WARN $*" >> "$out"; }
+      sudo() { return "$SUDO_RESULT"; }
+      SUDO_RESULT="$2" CCC_SHARED_GROUP="$grp" CCC_SUDOERS_FILE="$1"
+      source "$TMP/ccc_check_group_sudo.sh"
+      ccc_check_group_sudo
+    )
+  }
+  : > "$rule"
+  check "$rule" 0
+  grep -Fq "OK group sudo rule installed" "$out" || fail "installed rule not reported ok"
+  grep -Fq "OK $(id -un): passwordless sudo works" "$out" || fail "working sudo not reported ok"
+
+  check "$TMP/missing-rule" 1
+  grep -Fq "FAIL group sudo rule missing: $TMP/missing-rule — sudo ccc-self-update" "$out" || fail "missing rule not a failure"
+  grep -Fq "FAIL $(id -un): sudo still asks for a password" "$out" || fail "password prompt not a failure"
+}
+
 # ── calls (add new test definitions above this line) ──────────────────────────
 test_share_home_groups
 test_set_bash_env
 test_env_loader
 test_ssh_conf
 test_doctor_shared_facts
+test_group_sudoers
+test_doctor_group_sudo
 echo "shared-facts tests passed"

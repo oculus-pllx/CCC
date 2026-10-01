@@ -342,10 +342,10 @@ func TestRemoteDeploymentBlockStillUsesSSH(t *testing.T) {
 	}
 }
 
-func TestDeploymentBlockDoesNotOverstateSudo(t *testing.T) {
-	// Claude sessions here hold exactly one NOPASSWD entry
-	// (/usr/local/bin/ccc-self-update). Claiming blanket passwordless sudo sends
-	// agents down dead ends on every other privileged command.
+func TestDeploymentBlockStatesGroupSudo(t *testing.T) {
+	// Every ccc member has passwordless sudo through /etc/sudoers.d/zz-ccc-group.
+	// The block must say so, so agents run privileged commands instead of asking
+	// a person, and must no longer claim ccc-self-update is the only grant.
 	root := t.TempDir()
 	t.Setenv("CCC_PROJECT_KEYS_ROOT", root)
 	claudeMD := filepath.Join(root, "CLAUDE.md")
@@ -356,8 +356,13 @@ func TestDeploymentBlockDoesNotOverstateSudo(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(mustRead(t, claudeMD))
-	if strings.Contains(content, "passwordless sudo") && !strings.Contains(content, "ccc-self-update` is the only") {
-		t.Fatalf("block overstates sudo access:\n%s", content)
+	for _, want := range []string{"passwordless sudo", "/etc/sudoers.d/zz-ccc-group", "sudo ccc-self-update"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("block lacks %q:\n%s", want, content)
+		}
+	}
+	if strings.Contains(content, "is the only command granted NOPASSWD") {
+		t.Fatalf("block still claims a single NOPASSWD command:\n%s", content)
 	}
 }
 

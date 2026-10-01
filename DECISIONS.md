@@ -380,7 +380,7 @@ stripping any `user@` prefix and `:port` suffix. Self-hosted projects get a
 local `sudo ccc-self-update` block that names the SSH trap explicitly; genuinely
 remote targets keep the SSH block unchanged.
 
-**The sudo language in that block is exact on purpose.** Claude sessions here
+**(Superseded 2026-10-01: every `ccc` member now has passwordless sudo; see the entry of that date.)** **The sudo language in that block is exact on purpose.** Claude sessions here
 hold precisely one NOPASSWD entry, `/usr/local/bin/ccc-self-update`. The earlier
 text claimed blanket passwordless sudo, which is worse than claiming none —
 `sudo -n true` fails, so an agent that believes the claim reads the failure as a
@@ -459,3 +459,24 @@ Owner decision: CCC gets first-class persistent static routes, built as a separa
 **Model to follow.** Caddy Companion's `src/server/services/subnetRouteService.ts` and its docs (`docs/configuration.md` *Static Subnet Routes*, `docs/troubleshooting.md`): one unit per route, `Type=oneshot`, `RemainAfterExit=yes`, `After=network-online.target`, `ExecStart=/bin/ip route replace <cidr> via <gateway>`, `ExecStop=/bin/ip route del <cidr> via <gateway>`, `WantedBy=multi-user.target`; per-route status and Start/Stop/Restart/Start-on-boot; Tailscale CIDR discovery from `tailscale status --json`; migration of a legacy single-route unit.
 
 **Carried into that project.** Validate the CIDR and that the gateway is on a local subnet; use a `ccc-`prefixed unit name so it never collides with Caddy Companion's units; migrate the hand-made `add-ts-route.service` on first run and retire `add-ts-route.sh`; deploy through the provisioner's updateable section like every other CCC piece; tests per the project conventions (Go TDD under `internal/system`, static-suite pins for provisioner text). The shape (CLI, native UI page, or both) is left to that project's own brainstorm.
+
+---
+
+## 2026-10-01 — Every ccc member gets passwordless sudo
+
+**Context.** AI agents on this machine run without a terminal, so a sudo password prompt can never be answered.
+Each privileged step (creating `/etc/ccc/registry`, for one) went back to the owner as a `! sudo …` command.
+Only `oculus` had blanket NOPASSWD (from the installer's step 11); the others had only `ccc-self-update`.
+
+**Decision (owner).** `/etc/sudoers.d/zz-ccc-group` grants `%ccc ALL=(ALL:ALL) NOPASSWD: ALL`, written by the
+updateable section, so `ccc-self-update` installs it everywhere and a new account added to `ccc` is covered at once.
+It is checked with `visudo -c` before it is moved into place (a broken sudoers file locks out sudo), and named `zz-` so
+it is read last. `ccc-doctor` reports the file and whether passwordless sudo works for the invoking account.
+
+**Why not a short command list.** Considered and rejected: `cp`, `tee`, `install`, `chown` or `systemctl` as root
+can write a new sudoers rule, so any useful list is full root with extra steps. Better to grant it plainly than to
+imply a boundary that is not there.
+
+**Trade-off accepted.** Any process running as a `ccc` member, including an agent following injected instructions,
+can act as root without a prompt. Keep the group to trusted accounts.
+

@@ -551,7 +551,13 @@ instructions. CCC keeps these in machine-wide locations owned `root:ccc` and poi
 - **Homes:** every group member's home directory is group `ccc`. Because the group can search these homes, any group member can read any world-readable file inside another member's home (not just list it); keep secrets mode 0600 or under a 0700 directory.
 - **Instructions:** the registry pointer is in `oculus-configs` for Claude, Codex and Gemini and reaches all
   accounts through `ccc-self-update` (`ccc-sync-agent-configs --all-users`).
-- **Check:** `ccc-doctor` has a *Shared facts* section that checks each account's home group and registry pointer, and that the secrets directory, shared known_hosts and ssh drop-in are in place.
+- **Registry:** the credentials and infrastructure registry is `/etc/ccc/registry/access-map.md` (directory
+  `root:ccc 2775`, file `0664`), editable by every group member. It records locations only, never values.
+- **Sudo:** every member of the shared group may use sudo without a password, through
+  `/etc/sudoers.d/zz-ccc-group` (`%ccc ALL=(ALL:ALL) NOPASSWD: ALL`, validated with `visudo` before it is
+  installed). The rule names the group, so an account added to `ccc` later, including one created through
+  CCC, is covered with no extra step. See `DECISIONS.md`, 2026-10-01.
+- **Check:** `ccc-doctor` has a *Shared facts* section that checks each account's home group and registry pointer, and that the secrets directory, shared known_hosts and ssh drop-in are in place, that the group sudo rule is installed, and that passwordless sudo works for the account running it.
 
 ---
 

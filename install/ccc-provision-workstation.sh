@@ -1691,6 +1691,16 @@ fail() { echo -e "  ${R}✗${N} $*"; }
 warn() { echo -e "  ${Y}!${N} $*"; }
 
 # Shared facts: every group member must see the same instructions and credentials.
+ccc_check_group_sudo() {
+  local group="${CCC_SHARED_GROUP:-ccc}"
+  local sudoers="${CCC_SUDOERS_FILE:-/etc/sudoers.d/zz-ccc-group}"
+  if [[ -f "$sudoers" ]]; then ok "group sudo rule installed"
+  else fail "group sudo rule missing: $sudoers — sudo ccc-self-update"; fi
+  if id -nG | tr ' ' '\n' | grep -Fxq "$group"; then
+    if sudo -n true 2>/dev/null; then ok "$(id -un): passwordless sudo works"
+    else fail "$(id -un): sudo still asks for a password — sudo ccc-self-update"; fi
+  fi
+}
 ccc_check_shared_facts() {
   local group="${CCC_SHARED_GROUP:-ccc}"
   local secrets="${CCC_SECRETS_DIR:-/etc/ccc/secrets}"
@@ -1796,6 +1806,7 @@ echo ""
 
 echo -e "${C}── Shared facts ──────────────────────────────${N}"
 ccc_check_shared_facts
+ccc_check_group_sudo
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
@@ -2526,6 +2537,34 @@ ccc_set_bash_env() {
   printf '%s\n' "$want" >> "$env_file"
 }
 ccc_set_bash_env
+
+# Every member of the shared group may use sudo without a password, so AI agents in any
+# account can do routine administration unattended. The rule names the group, not users,
+# so an account added to the group later is covered with no further step. A narrower
+# command list would not be a boundary: cp, tee or chown as root can write a new sudo rule.
+# Named zz- so it is read last and wins over earlier per-user rules. Decision: DECISIONS.md.
+ccc_write_group_sudoers() {
+  local group="${CCC_SHARED_GROUP:-ccc}"
+  local target="${CCC_SUDOERS_FILE:-/etc/sudoers.d/zz-ccc-group}"
+  local visudo="${CCC_VISUDO:-visudo}"
+  local tmp
+  # A name with a dot is ignored by sudo's includedir, so the draft is never live.
+  tmp="$(mktemp "$(dirname "$target")/.ccc-group.XXXXXX")" || return 0
+  printf '%s\n' \
+    '# Managed by Container Code Companion (installed by ccc-self-update); do not edit.' \
+    "# Every member of the '$group' group may use sudo without a password." \
+    "%$group ALL=(ALL:ALL) NOPASSWD: ALL" > "$tmp"
+  chmod 0440 "$tmp"
+  if ! "$visudo" -cqf "$tmp" >/dev/null 2>&1; then
+    echo "    WARNING: group sudo rule failed visudo; $target left unchanged" >&2
+    rm -f "$tmp"
+    return 0
+  fi
+  [[ "$(id -u)" -eq 0 ]] && chown root:root "$tmp"
+  mv -f "$tmp" "$target"
+  echo "    Group sudo: %$group may sudo without a password ($target)"
+}
+ccc_write_group_sudoers
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
