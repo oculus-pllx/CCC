@@ -696,7 +696,6 @@ func setupCCCProfileCommand(username string) string {
 	}
 	projectsRoot := sharedProjectsRoot()
 	githubKeyPath := githubMachineKeyPath()
-	githubConfig := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + githubKeyPath + "\n  IdentitiesOnly yes\n"
 	claudeInstallCommand := "sudo -u " + shellQuote(username) + " env HOME=" + shellQuote(home) + " PATH=" + shellQuote(home+"/.local/bin:/usr/local/bin:/usr/bin:/bin") + " bash -c 'curl -fsSL https://claude.ai/install.sh | bash'"
 	// Claude Code is per-user (separate provider login per account); Codex and
 	// Gemini CLIs are shared from the group-writable npm prefix.
@@ -732,7 +731,7 @@ func setupCCCProfileCommand(username string) string {
 	}
 	if fileExists(githubKeyPath) || fileExists(githubKeyPath+".pub") {
 		commands = append(commands,
-			"printf %s "+shellQuote(githubConfig)+" | sudo tee "+shellQuote(home+"/.ssh/config")+" >/dev/null",
+			githubSSHConfigWriteCommand(home+"/.ssh/config", githubKeyPath),
 			"sudo chmod 600 "+shellQuote(home+"/.ssh/config"),
 		)
 	} else {
@@ -2333,8 +2332,12 @@ func configureGitHubMachineKeyForUsers(keyPath string, usernames []string) ([]st
 		if err := os.MkdirAll(sshDir, 0o700); err != nil {
 			return configured, err
 		}
-		config := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + keyPath + "\n  IdentitiesOnly yes\n"
-		if err := os.WriteFile(filepath.Join(sshDir, "config"), []byte(config), 0o600); err != nil {
+		configPath := filepath.Join(sshDir, "config")
+		existing, err := os.ReadFile(configPath)
+		if err != nil && !os.IsNotExist(err) {
+			return configured, err
+		}
+		if err := os.WriteFile(configPath, []byte(mergeGitHubSSHConfig(string(existing), keyPath)), 0o600); err != nil {
 			return configured, err
 		}
 		configured = append(configured, username)
@@ -2352,7 +2355,6 @@ func configureGitHubMachineKeyForUsersWithSudo(keyPath string, usernames []strin
 	}
 	var commands []string
 	var configured []string
-	config := "Host github.com\n  HostName github.com\n  User git\n  IdentityFile " + keyPath + "\n  IdentitiesOnly yes\n"
 	for _, username := range usernames {
 		username = strings.TrimSpace(username)
 		if !safeProjectName(username) {
@@ -2366,7 +2368,7 @@ func configureGitHubMachineKeyForUsersWithSudo(keyPath string, usernames []strin
 		configPath := filepath.Join(sshDir, "config")
 		commands = append(commands,
 			"sudo mkdir -p "+shellQuote(sshDir),
-			"printf %s "+shellQuote(config)+" | sudo tee "+shellQuote(configPath)+" >/dev/null",
+			githubSSHConfigWriteCommand(configPath, keyPath),
 			"sudo chown -R "+shellQuote(username+":"+username)+" "+shellQuote(sshDir),
 			"sudo chmod 0700 "+shellQuote(sshDir),
 			"sudo chmod 0600 "+shellQuote(configPath),
