@@ -480,3 +480,22 @@ imply a boundary that is not there.
 **Trade-off accepted.** Any process running as a `ccc` member, including an agent following injected instructions,
 can act as root without a prompt. Keep the group to trusted accounts.
 
+
+---
+
+## 2026-10-21 — An OOM kill takes out only its victim, not the tmux pane
+
+**Context.** On ccc-dev (an 8 GB LXC shared by every account's agents) one 6 GB job was OOM-killed at 13:58. tmux
+runs each pane in its own `tmux-spawn-*.scope` under the user's systemd manager, and systemd's default
+`OOMPolicy=stop` then stopped the whole scope: the shell, the Claude session and the job together, so the tmux
+session closed. The journal: `tmux-spawn-….scope: A process of this unit has been killed by the OOM killer` →
+`Stopping timed out. Killing.` → `Failed with result 'oom-kill'`.
+
+**Decision.** The updateable section writes `/etc/systemd/user.conf.d/zz-ccc-oom.conf` with
+`DefaultOOMPolicy=continue`, one drop-in for every account's user manager, and re-executes each running manager
+(`daemon-reexec`, which keeps every unit and scope) so it holds at once. It is rewritten when its content differs,
+not only when missing. `ccc-doctor` reports the file and the invoking account's live policy.
+
+**Trade-off accepted.** A pane can lose one process to the OOM killer and keep running in a half-broken state;
+that is recoverable, a vanished agent session is not. Heavy jobs still belong on their own host or in their own
+scope with a `MemoryMax`.

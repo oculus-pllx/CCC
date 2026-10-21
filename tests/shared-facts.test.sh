@@ -330,6 +330,83 @@ test_doctor_group_sudo() {
   grep -Fq "FAIL $(id -un): sudo still asks for a password" "$out" || fail "password prompt not a failure"
 }
 
+# ── user manager OOM policy ───────────────────────────────────────────────────
+test_user_oom_policy() {
+  extract_function ccc_write_user_oom_policy
+  local dir="$TMP/user.conf.d" run="$TMP/run-user" calls="$TMP/reexec.calls" target
+  target="$dir/zz-ccc-oom.conf"
+  mkdir -p "$run/1000/systemd" "$run/1001"     # 1000 has a running manager, 1001 does not
+  : > "$run/1000/systemd/private"
+  apply() {
+    : > "$calls"
+    (
+      runuser() { echo "runuser $*" >> "$calls"; }
+      id() { echo "user$2"; }
+      CCC_USER_CONF_DIR="$dir" CCC_RUN_USER_ROOT="$run"
+      source "$TMP/ccc_write_user_oom_policy.sh"
+      set -e
+      ccc_write_user_oom_policy >/dev/null
+    ) || fail "ccc_write_user_oom_policy aborted the caller"
+  }
+
+  # writes the drop-in and re-executes only the running manager, as its own user
+  apply
+  grep -Fxq '[Manager]' "$target" || fail "[Manager] section missing"
+  grep -Fxq 'DefaultOOMPolicy=continue' "$target" || fail "DefaultOOMPolicy=continue missing"
+  grep -Fq 'Managed by Container Code Companion' "$target" || fail "managed header missing"
+  assert_eq "$(stat -c %a "$target")" "644" "drop-in mode"
+  assert_eq "$(cat "$calls")" "runuser -u user1000 -- env XDG_RUNTIME_DIR=$run/1000 systemctl --user daemon-reexec" \
+    "only the running manager is re-executed"
+
+  # a second run with the file already right changes nothing and re-executes nobody
+  apply
+  assert_eq "$(cat "$calls")" "" "an unchanged drop-in re-executes no manager"
+
+  # a drifted file is repaired (a guard on missing would never heal it)
+  printf '[Manager]\nDefaultOOMPolicy=stop\n' > "$target"
+  apply
+  grep -Fxq 'DefaultOOMPolicy=continue' "$target" || fail "drifted drop-in not repaired"
+  assert_eq "$(find "$dir" -name '.*' | wc -l)" "0" "no temp file left behind"
+
+  # a failing re-exec does not abort set -e
+  printf 'old\n' > "$target"
+  (
+    runuser() { return 1; }
+    id() { echo "user$2"; }
+    CCC_USER_CONF_DIR="$dir" CCC_RUN_USER_ROOT="$run"
+    source "$TMP/ccc_write_user_oom_policy.sh"
+    set -e
+    ccc_write_user_oom_policy >/dev/null 2>&1
+  ) || fail "a failing re-exec aborted the caller"
+}
+
+test_doctor_user_oom_policy() {
+  extract_function ccc_check_user_oom_policy
+  local out="$TMP/oom.out" dir="$TMP/oom.conf.d"
+  mkdir -p "$dir"
+  check() {  # check CONF_DIR LIVE_POLICY
+    : > "$out"
+    (
+      ok() { echo "OK $*" >> "$out"; }; fail() { echo "FAIL $*" >> "$out"; }; warn() { echo "WARN $*" >> "$out"; }
+      systemctl() { echo "$LIVE"; }
+      LIVE="$2" CCC_USER_CONF_DIR="$1"
+      source "$TMP/ccc_check_user_oom_policy.sh"
+      ccc_check_user_oom_policy
+    )
+  }
+  printf '[Manager]\nDefaultOOMPolicy=continue\n' > "$dir/zz-ccc-oom.conf"
+  check "$dir" continue
+  grep -Fq "OK user OOM policy installed" "$out" || fail "installed drop-in not reported ok"
+  grep -Fq "OK $(id -un): user manager keeps tmux panes alive on an OOM kill" "$out" || fail "live continue not reported ok"
+
+  check "$dir" stop
+  grep -Fq "WARN $(id -un): user manager still on DefaultOOMPolicy=stop" "$out" || fail "stale manager not a warning"
+
+  check "$TMP/missing-oom" stop
+  grep -Fq "FAIL user OOM policy missing: $TMP/missing-oom/zz-ccc-oom.conf — sudo ccc-self-update" "$out" \
+    || fail "missing drop-in not a failure"
+}
+
 # ── calls (add new test definitions above this line) ──────────────────────────
 test_share_home_groups
 test_set_bash_env
@@ -338,4 +415,6 @@ test_ssh_conf
 test_doctor_shared_facts
 test_group_sudoers
 test_doctor_group_sudo
+test_user_oom_policy
+test_doctor_user_oom_policy
 echo "shared-facts tests passed"

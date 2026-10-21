@@ -1701,6 +1701,15 @@ ccc_check_group_sudo() {
     else fail "$(id -un): sudo still asks for a password — sudo ccc-self-update"; fi
   fi
 }
+ccc_check_user_oom_policy() {
+  local target="${CCC_USER_CONF_DIR:-/etc/systemd/user.conf.d}/zz-ccc-oom.conf"
+  local live
+  if [[ -f "$target" ]] && grep -Fxq 'DefaultOOMPolicy=continue' "$target"; then ok "user OOM policy installed"
+  else fail "user OOM policy missing: $target — sudo ccc-self-update"; return 0; fi
+  live="$(systemctl --user show -p DefaultOOMPolicy --value 2>/dev/null || true)"
+  if [[ "$live" == "continue" ]]; then ok "$(id -un): user manager keeps tmux panes alive on an OOM kill"
+  else warn "$(id -un): user manager still on DefaultOOMPolicy=${live:-unknown} — systemctl --user daemon-reexec"; fi
+}
 ccc_check_shared_facts() {
   local group="${CCC_SHARED_GROUP:-ccc}"
   local secrets="${CCC_SECRETS_DIR:-/etc/ccc/secrets}"
@@ -1807,6 +1816,7 @@ echo ""
 echo -e "${C}── Shared facts ──────────────────────────────${N}"
 ccc_check_shared_facts
 ccc_check_group_sudo
+ccc_check_user_oom_policy
 echo ""
 
 echo -e "${C}── Storage ───────────────────────────────────${N}"
@@ -2565,6 +2575,41 @@ ccc_write_group_sudoers() {
   echo "    Group sudo: %$group may sudo without a password ($target)"
 }
 ccc_write_group_sudoers
+
+# tmux runs each pane in its own tmux-spawn-*.scope under the user's systemd manager. With
+# systemd's default OOMPolicy=stop, a kernel OOM kill of any process in a pane stops the whole
+# scope: the shell, the agent session and every job in it. 2026-10-21 one heavy job's OOM kill
+# took an agent session and its tmux session down this way. continue kills only the victim.
+# One drop-in covers every account's manager. Decision: DECISIONS.md.
+ccc_write_user_oom_policy() {
+  local dir="${CCC_USER_CONF_DIR:-/etc/systemd/user.conf.d}"
+  local run_root="${CCC_RUN_USER_ROOT:-/run/user}"
+  local target="$dir/zz-ccc-oom.conf"
+  local want tmp socket uid user
+  want="$(printf '%s\n' \
+    '# Managed by Container Code Companion (installed by ccc-self-update); do not edit.' \
+    '# An OOM kill takes out only the killed process, not the whole tmux pane scope.' \
+    '[Manager]' \
+    'DefaultOOMPolicy=continue')"
+  [[ -f "$target" && "$(cat "$target")" == "$want" ]] && return 0
+  mkdir -p "$dir" || return 0
+  tmp="$(mktemp "$dir/.ccc-oom.XXXXXX")" || return 0
+  printf '%s\n' "$want" > "$tmp"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "$target"
+  echo "    User OOM policy: DefaultOOMPolicy=continue ($target)"
+  # A running manager reads user.conf only when it starts: re-execute each one so the default
+  # holds now. daemon-reexec keeps every unit and scope running.
+  for socket in "$run_root"/*/systemd/private; do
+    [[ -S "$socket" || -f "$socket" ]] || continue
+    uid="$(basename "$(dirname "$(dirname "$socket")")")"
+    user="$(id -nu "$uid" 2>/dev/null)" || continue
+    runuser -u "$user" -- env XDG_RUNTIME_DIR="$run_root/$uid" systemctl --user daemon-reexec \
+      || echo "    WARNING: $user's systemd manager not re-executed; the policy applies at its next start" >&2
+  done
+  return 0
+}
+ccc_write_user_oom_policy
 
 # CCC_UPDATEABLE_END — sections above re-run by ccc-self-update
 
